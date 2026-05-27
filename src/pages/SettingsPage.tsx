@@ -122,6 +122,16 @@ export default function SettingsPage() {
   // ── Quick-reply input ref ────────────────────────────────────────────────────
   const qrInputRef = useRef<HTMLInputElement>(null);
 
+  // ── Escalation keywords input ref ───────────────────────────────────────────
+  const escInputRef = useRef<HTMLInputElement>(null);
+
+  // ── Product size / color input refs ─────────────────────────────────────────
+  const sizeInputRef  = useRef<HTMLInputElement>(null);
+  const colorInputRef = useRef<HTMLInputElement>(null);
+
+  // ── Log filter state ─────────────────────────────────────────────────────────
+  const [logFilter, setLogFilter] = useState<string>('all');
+
   // ── Template inline form ─────────────────────────────────────────────────────
   const blankTpl = { name: '', category: 'reply', content: '' };
   const [tplForm, setTplForm]       = useState(blankTpl);
@@ -257,6 +267,17 @@ export default function SettingsPage() {
                   {[['ar','العربية'],['fr','Français'],['en','English']].map(([v,l]) => <option key={v} value={v}>{l}</option>)}
                 </select>
               </Field>
+              <Field label="بداية ساعات العمل">
+                <input className="input" type="time" value={(s.brand as any).workStart||'09:00'} onChange={e=>updateSettings('brand',{...s.brand,workStart:e.target.value} as any)}/>
+              </Field>
+              <Field label="نهاية ساعات العمل">
+                <input className="input" type="time" value={(s.brand as any).workEnd||'21:00'} onChange={e=>updateSettings('brand',{...s.brand,workEnd:e.target.value} as any)}/>
+              </Field>
+              <Field label="المنطقة الزمنية">
+                <select className="select" value={(s.brand as any).timezone||'Africa/Casablanca'} onChange={e=>updateSettings('brand',{...s.brand,timezone:e.target.value} as any)}>
+                  {['Africa/Casablanca','Europe/Paris','Europe/London','Asia/Dubai','America/New_York','America/Los_Angeles'].map(tz=><option key={tz} value={tz}>{tz}</option>)}
+                </select>
+              </Field>
             </div>
             <Field label="رابط شعار المتجر (URL)">
               <input
@@ -345,6 +366,14 @@ export default function SettingsPage() {
                 <p style={{ fontSize: 11.5, color: 'var(--txt-3)', marginTop: 5 }}>من aistudio.google.com/app/apikey</p>
               </Field>
             )}
+            <Field label="النموذج">
+              <select className="select" value={s.ai.model} onChange={e => updateSettings('ai', { ...s.ai, model: e.target.value })}>
+                {s.ai.provider === 'openai'
+                  ? [['gpt-4o','GPT-4o (الأذكى)'],['gpt-4o-mini','GPT-4o Mini (سريع)'],['gpt-3.5-turbo','GPT-3.5 Turbo (اقتصادي)']].map(([v,l]) => <option key={v} value={v}>{l}</option>)
+                  : [['gemini-1.5-pro','Gemini 1.5 Pro'],['gemini-pro','Gemini Pro'],['gemini-1.5-flash','Gemini Flash (سريع)']].map(([v,l]) => <option key={v} value={v}>{l}</option>)
+                }
+              </select>
+            </Field>
           </Section>
 
           <Section title="الشخصية والأسلوب">
@@ -385,6 +414,24 @@ export default function SettingsPage() {
                 sub={item.sub}
               />
             ))}
+            <Field label={`ذاكرة السياق (${(s.ai as any).contextMemory || 10} رسالة)`}>
+              <input className="input" type="range" min={1} max={20} value={(s.ai as any).contextMemory||10} onChange={e=>updateSettings('ai',{...s.ai,contextMemory:parseInt(e.target.value)} as any)} />
+            </Field>
+            <Toggle
+              on={(s.ai as any).learnFromConversations}
+              onClick={() => updateSettings('ai', { ...s.ai, learnFromConversations: !(s.ai as any).learnFromConversations } as any)}
+              label="التعلم من المحادثات"
+              sub="يحسّن الردود بمرور الوقت"
+            />
+            <button onClick={async()=>{
+              notify('info','⏳ جارٍ الاختبار...');
+              try{
+                const tok=localStorage.getItem('ai_commerce_token')||'';
+                const r=await fetch('/api/ai/reply',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${tok}`},body:JSON.stringify({message:'مرحبا'})});
+                const d=await r.json();
+                d.reply?notify('success','✅ AI يعمل! الرد: '+d.reply.slice(0,50)):notify('error','❌ لا يوجد رد');
+              }catch{notify('error','❌ فشل الاتصال بـ AI');}
+            }} className="btn btn-ghost btn-sm" style={{width:'fit-content'}}>🧪 اختبار AI</button>
             <button onClick={() => notify('success', '✅ تم حفظ إعدادات AI')} className="btn btn-primary" style={{ width: 'fit-content' }}>حفظ</button>
           </Section>
         </div>
@@ -431,6 +478,34 @@ export default function SettingsPage() {
             </div>
           </div>
 
+          <div>
+            <label className="label">كلمات التصعيد (تحويل للإنسان)</label>
+            <div style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:8}}>
+              {((s.chatbot as any).escalationKeywords||[]).map((k: string,i: number)=>(
+                <span key={i} style={{display:'flex',alignItems:'center',gap:6,padding:'5px 12px',borderRadius:20,background:'rgba(239,68,68,0.08)',border:'1px solid rgba(239,68,68,0.2)',fontSize:12.5,color:'var(--txt-2)'}}>
+                  {k}
+                  <button onClick={()=>updateSettings('chatbot',{...s.chatbot,escalationKeywords:((s.chatbot as any).escalationKeywords||[]).filter((_: string,j: number)=>j!==i)} as any)} style={{background:'none',border:'none',color:'#f87171',cursor:'pointer',fontSize:14}}>✕</button>
+                </span>
+              ))}
+            </div>
+            <div style={{display:'flex',gap:8}}>
+              <input ref={escInputRef} className="input" placeholder="مثال: مسؤول، شكوى..." onKeyDown={e=>{if(e.key==='Enter'&&escInputRef.current?.value.trim()){updateSettings('chatbot',{...s.chatbot,escalationKeywords:[...((s.chatbot as any).escalationKeywords||[]),escInputRef.current.value.trim()]} as any);escInputRef.current.value='';}}}/>
+              <button onClick={()=>{if(escInputRef.current?.value.trim()){updateSettings('chatbot',{...s.chatbot,escalationKeywords:[...((s.chatbot as any).escalationKeywords||[]),escInputRef.current.value.trim()]} as any);escInputRef.current.value='';}}} className="btn btn-ghost">إضافة</button>
+            </div>
+          </div>
+
+          <Toggle
+            on={(s.chatbot as any).autoClose||false}
+            onClick={()=>updateSettings('chatbot',{...s.chatbot,autoClose:!(s.chatbot as any).autoClose} as any)}
+            label="إغلاق تلقائي للمحادثات"
+            sub="بعد فترة خمول"
+          />
+          {(s.chatbot as any).autoClose&&(
+            <Field label="مدة الخمول (دقائق)">
+              <input className="input" type="number" min={5} max={1440} value={(s.chatbot as any).autoCloseMinutes||30} dir="ltr" onChange={e=>updateSettings('chatbot',{...s.chatbot,autoCloseMinutes:parseInt(e.target.value)||30} as any)}/>
+            </Field>
+          )}
+
           <button onClick={() => notify('success', '✅ تم الحفظ')} className="btn btn-primary" style={{ width: 'fit-content' }}>حفظ</button>
         </Section>
       )}
@@ -454,6 +529,36 @@ export default function SettingsPage() {
             </div>
             <Toggle on={s.products.autoSku} onClick={() => updateSettings('products', { ...s.products, autoSku: !s.products.autoSku })} label="توليد SKU تلقائياً" />
             <Toggle on={s.products.autoPublishOnCreate} onClick={() => updateSettings('products', { ...s.products, autoPublishOnCreate: !s.products.autoPublishOnCreate })} label="نشر تلقائي عند الإضافة" />
+          </Section>
+
+          <Section title="المقاسات الافتراضية">
+            <div style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:8}}>
+              {((s.products as any).defaultSizes||[]).map((sz: string,i: number)=>(
+                <span key={i} style={{display:'flex',alignItems:'center',gap:6,padding:'5px 12px',borderRadius:20,background:'rgba(255,255,255,0.06)',border:'1px solid var(--clr-border)',fontSize:12.5}}>
+                  {sz}
+                  <button onClick={()=>updateSettings('products',{...s.products,defaultSizes:((s.products as any).defaultSizes||[]).filter((_: string,j: number)=>j!==i)} as any)} style={{background:'none',border:'none',color:'#f87171',cursor:'pointer',fontSize:14}}>✕</button>
+                </span>
+              ))}
+            </div>
+            <div style={{display:'flex',gap:8}}>
+              <input ref={sizeInputRef} className="input" placeholder="مقاس جديد (S, M, L, 40...)" onKeyDown={e=>{if(e.key==='Enter'&&sizeInputRef.current?.value.trim()){updateSettings('products',{...s.products,defaultSizes:[...((s.products as any).defaultSizes||[]),sizeInputRef.current.value.trim()]} as any);sizeInputRef.current.value='';}}}/>
+              <button onClick={()=>{if(sizeInputRef.current?.value.trim()){updateSettings('products',{...s.products,defaultSizes:[...((s.products as any).defaultSizes||[]),sizeInputRef.current.value.trim()]} as any);sizeInputRef.current.value='';}}} className="btn btn-ghost">إضافة</button>
+            </div>
+          </Section>
+
+          <Section title="الألوان الافتراضية">
+            <div style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:8}}>
+              {((s.products as any).defaultColors||[]).map((clr: string,i: number)=>(
+                <span key={i} style={{display:'flex',alignItems:'center',gap:6,padding:'5px 12px',borderRadius:20,background:'rgba(255,255,255,0.06)',border:'1px solid var(--clr-border)',fontSize:12.5}}>
+                  {clr}
+                  <button onClick={()=>updateSettings('products',{...s.products,defaultColors:((s.products as any).defaultColors||[]).filter((_: string,j: number)=>j!==i)} as any)} style={{background:'none',border:'none',color:'#f87171',cursor:'pointer',fontSize:14}}>✕</button>
+                </span>
+              ))}
+            </div>
+            <div style={{display:'flex',gap:8}}>
+              <input ref={colorInputRef} className="input" placeholder="لون جديد (أحمر، أزرق...)" onKeyDown={e=>{if(e.key==='Enter'&&colorInputRef.current?.value.trim()){updateSettings('products',{...s.products,defaultColors:[...((s.products as any).defaultColors||[]),colorInputRef.current.value.trim()]} as any);colorInputRef.current.value='';}}}/>
+              <button onClick={()=>{if(colorInputRef.current?.value.trim()){updateSettings('products',{...s.products,defaultColors:[...((s.products as any).defaultColors||[]),colorInputRef.current.value.trim()]} as any);colorInputRef.current.value='';}}} className="btn btn-ghost">إضافة</button>
+            </div>
           </Section>
 
           <Section title="التصنيفات">
@@ -497,6 +602,15 @@ export default function SettingsPage() {
               onClick={() => updateSettings('delivery', { ...s.delivery, notifyCustomerOnShip: !s.delivery.notifyCustomerOnShip })}
               label="إشعار الزبون عند الشحن"
             />
+            <Field label="شركة التوصيل الافتراضية">
+              <select className="select" value={(s.delivery as any).defaultProvider||''} onChange={e=>updateSettings('delivery',{...s.delivery,defaultProvider:e.target.value} as any)}>
+                <option value="">— اختر —</option>
+                {s.delivery.providers.filter(p=>p.enabled).map(p=><option key={p.id} value={p.name}>{p.logo} {p.name}</option>)}
+              </select>
+            </Field>
+            <Field label="رابط التتبع (استبدل {'{'}tracking{'}'})">
+              <input className="input" dir="ltr" placeholder="https://example.com/track/{tracking}" value={(s.delivery as any).trackingUrlTemplate||''} onChange={e=>updateSettings('delivery',{...s.delivery,trackingUrlTemplate:e.target.value} as any)}/>
+            </Field>
           </Section>
 
           {/* Provider list */}
@@ -878,6 +992,11 @@ export default function SettingsPage() {
             <Field label="تسجيل الخروج التلقائي (دقائق)">
               <input className="input" type="number" value={s.security.autoLogoutMinutes} dir="ltr" onChange={e => updateSettings('security', { ...s.security, autoLogoutMinutes: parseInt(e.target.value)||60 })} />
             </Field>
+            <Toggle
+              on={(s.security as any).loginNotification||false}
+              onClick={()=>updateSettings('security',{...s.security,loginNotification:!(s.security as any).loginNotification} as any)}
+              label="إشعار عند تسجيل دخول جديد"
+            />
           </Section>
 
           <Section title="النسخ الاحتياطي">
@@ -973,6 +1092,17 @@ export default function SettingsPage() {
             </div>
           </div>
 
+          <Field label="اللون الرئيسي">
+            <div style={{display:'flex',alignItems:'center',gap:12}}>
+              <input type="color" value={(s.design as any).primaryColor||'#6366f1'} onChange={e=>updateSettings('design',{...s.design,primaryColor:e.target.value} as any)} style={{width:48,height:48,borderRadius:10,border:'1px solid var(--clr-border)',cursor:'pointer',padding:3}}/>
+              <div style={{flex:1}}>
+                <input className="input" dir="ltr" value={(s.design as any).primaryColor||'#6366f1'} onChange={e=>updateSettings('design',{...s.design,primaryColor:e.target.value} as any)} style={{fontFamily:'monospace'}}/>
+                <p style={{fontSize:11,color:'var(--txt-3)',marginTop:4}}>يؤثر على أزرار التطبيق والعناصر التفاعلية</p>
+              </div>
+              <div style={{width:40,height:40,borderRadius:10,background:(s.design as any).primaryColor||'#6366f1',flexShrink:0,boxShadow:'0 4px 12px rgba(0,0,0,.3)'}}/>
+            </div>
+          </Field>
+
           <Toggle
             on={s.design.watermarkEnabled}
             onClick={() => updateSettings('design', { ...s.design, watermarkEnabled: !s.design.watermarkEnabled })}
@@ -1030,9 +1160,18 @@ export default function SettingsPage() {
           <div className="card" style={{ overflow: 'hidden' }}>
             <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--clr-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <p style={{ fontSize: 14, fontWeight: 900, color: 'var(--txt-1)' }}>سجلات التدقيق ({auditLogs.length})</p>
+              <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                {['all','order','product','ai','delivery','settings','auth'].map(t=>(
+                  <button key={t} onClick={()=>setLogFilter(t)} className={`chip ${logFilter===t?'active':''}`} style={{fontSize:11}}>
+                    {t==='all'?'الكل':t==='order'?'🛒':t==='product'?'📦':t==='ai'?'🤖':t==='delivery'?'🚚':t==='settings'?'⚙️':'🔐'}
+                    {t!=='all'&&t}
+                  </button>
+                ))}
+                <button onClick={()=>{const blob=new Blob([JSON.stringify(auditLogs,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`logs-${new Date().toISOString().split('T')[0]}.json`;a.click();}} className="btn btn-ghost btn-sm" style={{marginRight:'auto'}}>تصدير</button>
+              </div>
             </div>
             <div style={{ maxHeight: 400, overflowY: 'auto' }}>
-              {auditLogs.slice(0, 30).map(log => (
+              {(logFilter==='all'?auditLogs:auditLogs.filter(l=>l.type===logFilter)).slice(0, 50).map(log => (
                 <div key={log.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '10px 18px', borderBottom: '1px solid var(--clr-border)' }}>
                   <span style={{ fontSize: 15, flexShrink: 0 }}>
                     {log.type === 'order' ? '🛒' : log.type === 'product' ? '📦' : log.type === 'ai' ? '🤖' : log.type === 'delivery' ? '🚚' : '⚙️'}
@@ -1107,6 +1246,11 @@ export default function SettingsPage() {
                 onChange={e => updateSettings('social', { ...s.social, whatsapp: { ...s.social.whatsapp, accessToken: e.target.value } })}
               />
             </Field>
+            <Toggle
+              on={(s.social as any)?.whatsapp?.autoPublish||false}
+              onClick={()=>updateSettings('social',{...s.social,whatsapp:{...(s.social as any)?.whatsapp,autoPublish:!((s.social as any)?.whatsapp?.autoPublish)}} as any)}
+              label="نشر تلقائي على واتساب"
+            />
             <button onClick={() => notify('success', '✅ تم الحفظ')} className="btn btn-primary" style={{ width: 'fit-content' }}>حفظ</button>
           </Section>
 
@@ -1135,7 +1279,27 @@ export default function SettingsPage() {
                 onChange={e => updateSettings('social', { ...s.social, instagram: { ...s.social.instagram, pageId: e.target.value } })}
               />
             </Field>
+            <Toggle
+              on={(s.social as any)?.facebook?.autoPublish||false}
+              onClick={()=>updateSettings('social',{...s.social,facebook:{...(s.social as any)?.facebook,autoPublish:!((s.social as any)?.facebook?.autoPublish)}} as any)}
+              label="نشر تلقائي على فيسبوك"
+            />
+            <Toggle
+              on={(s.social as any)?.facebook?.autoHashtags||false}
+              onClick={()=>updateSettings('social',{...s.social,facebook:{...(s.social as any)?.facebook,autoHashtags:!((s.social as any)?.facebook?.autoHashtags)}} as any)}
+              label="إضافة هاشتاقات تلقائياً"
+            />
             <button onClick={() => notify('success', '✅ تم الحفظ')} className="btn btn-primary" style={{ width: 'fit-content' }}>حفظ</button>
+          </Section>
+
+          <Section title="🎵 TikTok Shop">
+            <Field label="TikTok App Key">
+              <input className="input" dir="ltr" placeholder="xxxxxxxxxx" value={(s.social as any)?.tiktok?.pageId||''} onChange={e=>updateSettings('social',{...s.social,tiktok:{...(s.social as any)?.tiktok,pageId:e.target.value}} as any)}/>
+            </Field>
+            <Field label="TikTok Access Token">
+              <input className="input" type="password" dir="ltr" placeholder="act.xxxxxxxx..." value={(s.social as any)?.tiktok?.accessToken||''} onChange={e=>updateSettings('social',{...s.social,tiktok:{...(s.social as any)?.tiktok,accessToken:e.target.value}} as any)}/>
+            </Field>
+            <button onClick={()=>notify('success','✅ تم الحفظ')} className="btn btn-primary" style={{width:'fit-content'}}>حفظ</button>
           </Section>
 
           <div className="card" style={{ padding: '16px 18px', background: 'rgba(0,210,179,.04)', border: '1px solid rgba(0,210,179,.15)' }}>

@@ -237,6 +237,7 @@ export default function ProductsPage() {
   const galleryRef = useRef<HTMLInputElement>(null);
   const variantCameraRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const variantGalleryRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const urlInputRef = useRef<HTMLInputElement>(null);
 
   // Custom colour for variant builder
   const [customColorName, setCustomColorName] = useState('');
@@ -308,9 +309,6 @@ export default function ProductsPage() {
     setShowWizard(false);
     setEditProd(null);
   };
-
-  const toggleSize = (field: 'sizes', val: string) =>
-    setData(d => ({ ...d, [field]: d[field].includes(val) ? d[field].filter((x: string) => x !== val) : [...d[field], val] }));
 
   // ── AI description ───────────────────────────────────────────
   const generateAI = async () => {
@@ -861,7 +859,7 @@ export default function ProductsPage() {
                     <label className="label">أو أدخل رابط URL</label>
                     <div style={{ display: 'flex', gap: 8 }}>
                       <input
-                        id="url-input"
+                        ref={urlInputRef}
                         className="input" dir="ltr"
                         placeholder="https://example.com/photo.jpg"
                         onKeyDown={e => {
@@ -874,8 +872,7 @@ export default function ProductsPage() {
                       <button
                         className="btn btn-ghost btn-sm"
                         onClick={() => {
-                          const el = document.getElementById('url-input') as HTMLInputElement;
-                          if (el) { addImageUrl(el.value); el.value = ''; }
+                          if (urlInputRef.current) { addImageUrl(urlInputRef.current.value); urlInputRef.current.value = ''; }
                         }}
                       >إضافة</button>
                     </div>
