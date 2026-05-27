@@ -1,27 +1,52 @@
 import { useState, useRef } from 'react';
 import { useStore } from '../store';
-import { Settings, Bot, Package, Truck, FileText, Shield, Users, RefreshCw, Download, Upload, Plus, Trash2, Cloud, Bell, Palette, Wifi } from 'lucide-react';
+import {
+  Settings, Bot, Package, Truck, FileText, Shield, Users,
+  RefreshCw, Download, Upload, Plus, Trash2, Cloud, Bell,
+  Palette, Wifi, Edit2, X, Save,
+} from 'lucide-react';
 import type { TeamMember } from '../types';
 import SystemCheck from '../components/SystemCheck';
 import QRCode from '../components/QRCode';
 
-type Tab = 'general'|'ai'|'chatbot'|'products'|'delivery'|'templates'|'team'|'security'|'notifs'|'design'|'cloud'|'logs'|'connections';
+type Tab =
+  | 'general' | 'ai' | 'chatbot' | 'products' | 'delivery'
+  | 'connections' | 'templates' | 'team' | 'security'
+  | 'notifs' | 'design' | 'cloud' | 'logs';
 
 const TABS: { id: Tab; icon: typeof Settings; label: string }[] = [
-  { id: 'general', icon: Settings, label: 'المتجر' },
-  { id: 'ai', icon: Bot, label: 'AI' },
-  { id: 'chatbot', icon: Bot, label: 'المساعد' },
-  { id: 'products', icon: Package, label: 'المنتجات' },
-  { id: 'delivery', icon: Truck, label: 'التوصيل' },
-  { id: 'connections', icon: Wifi, label: 'الاتصالات' },
-  { id: 'templates', icon: FileText, label: 'القوالب' },
-  { id: 'team', icon: Users, label: 'الفريق' },
-  { id: 'security', icon: Shield, label: 'الأمان' },
-  { id: 'notifs', icon: Bell, label: 'الإشعارات' },
-  { id: 'design', icon: Palette, label: 'التصميم' },
-  { id: 'cloud', icon: Cloud, label: 'السحابة' },
-  { id: 'logs', icon: Settings, label: 'السجلات' },
+  { id: 'general',     icon: Settings,  label: 'المتجر' },
+  { id: 'ai',         icon: Bot,       label: 'AI' },
+  { id: 'chatbot',    icon: Bot,       label: 'المساعد' },
+  { id: 'products',   icon: Package,   label: 'المنتجات' },
+  { id: 'delivery',   icon: Truck,     label: 'التوصيل' },
+  { id: 'connections',icon: Wifi,      label: 'الاتصالات' },
+  { id: 'templates',  icon: FileText,  label: 'القوالب' },
+  { id: 'team',       icon: Users,     label: 'الفريق' },
+  { id: 'security',   icon: Shield,    label: 'الأمان' },
+  { id: 'notifs',     icon: Bell,      label: 'الإشعارات' },
+  { id: 'design',     icon: Palette,   label: 'التصميم' },
+  { id: 'cloud',      icon: Cloud,     label: 'السحابة' },
+  { id: 'logs',       icon: Settings,  label: 'السجلات' },
 ];
+
+const PREDEFINED_PROVIDERS = [
+  { id: 'amana',     name: 'أمانة',     logo: '🚚', mode: 'api'     as const },
+  { id: 'jibli',    name: 'جيبلي',     logo: '📦', mode: 'browser' as const },
+  { id: 'maystro',  name: 'مايسترو',   logo: '🏎️', mode: 'api'     as const },
+  { id: 'colissimo',name: 'Colissimo', logo: '📮', mode: 'api'     as const },
+];
+
+const SEASONAL_THEMES = [
+  { id: 'auto',        label: 'تلقائي (حسب التاريخ)' },
+  { id: 'default',     label: 'افتراضي' },
+  { id: 'ramadan',     label: '🌙 رمضان' },
+  { id: 'eid',         label: '🎉 عيد' },
+  { id: 'summer',      label: '☀️ صيف' },
+  { id: 'blackfriday', label: '🖤 Black Friday' },
+];
+
+// ─── Helper components ─────────────────────────────────────────────────────────
 
 const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
   <div className="card" style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -43,6 +68,8 @@ const Toggle = ({ on, onClick, label, sub }: { on: boolean; onClick: () => void;
     <button onClick={onClick} className={`toggle ${on ? 'on' : ''}`} />
   </div>
 );
+
+// ─── Change Password Form ───────────────────────────────────────────────────────
 
 function ChangePasswordForm({ notify }: { notify: (type: string, msg: string) => void }) {
   const [form, setForm] = useState({ current: '', next: '', confirm: '' });
@@ -79,11 +106,106 @@ function ChangePasswordForm({ notify }: { notify: (type: string, msg: string) =>
   );
 }
 
+// ─── Main Page ─────────────────────────────────────────────────────────────────
+
 export default function SettingsPage() {
-  const { settings, updateSettings, notify, logout, isOnline, refreshData, addTemplate, updateTemplate, deleteTemplate, auditLogs, exportData, importData, resetToDemo } = useStore();
-  const [tab, setTab] = useState<Tab>('general');
-  const importRef = useRef<HTMLInputElement>(null);
-  const s = settings;
+  const {
+    settings, updateSettings, notify, logout, isOnline,
+    refreshData, addTemplate, updateTemplate, deleteTemplate,
+    auditLogs, exportData, importData, resetToDemo,
+  } = useStore();
+
+  const [tab, setTab]   = useState<Tab>('general');
+  const importRef       = useRef<HTMLInputElement>(null);
+  const s               = settings;
+
+  // ── Quick-reply input ref ────────────────────────────────────────────────────
+  const qrInputRef = useRef<HTMLInputElement>(null);
+
+  // ── Template inline form ─────────────────────────────────────────────────────
+  const blankTpl = { name: '', category: 'reply', content: '' };
+  const [tplForm, setTplForm]       = useState(blankTpl);
+  const [tplEditId, setTplEditId]   = useState<string | null>(null);   // null = add mode
+  const [tplFormOpen, setTplFormOpen] = useState(false);
+
+  const openAddTpl = () => {
+    setTplEditId(null);
+    setTplForm(blankTpl);
+    setTplFormOpen(true);
+  };
+
+  const openEditTpl = (t: (typeof s.templates)[0]) => {
+    setTplEditId(t.id);
+    setTplForm({ name: t.name, category: t.category, content: t.content });
+    setTplFormOpen(true);
+  };
+
+  const closeTplForm = () => { setTplFormOpen(false); setTplForm(blankTpl); setTplEditId(null); };
+
+  const saveTpl = () => {
+    if (!tplForm.name.trim() || !tplForm.content.trim()) { notify('error', 'اسم ومحتوى القالب مطلوبان'); return; }
+    if (tplEditId) {
+      updateTemplate(tplEditId, { name: tplForm.name, category: tplForm.category, content: tplForm.content });
+    } else {
+      addTemplate({ name: tplForm.name, category: tplForm.category, content: tplForm.content, variables: [], active: true });
+    }
+    notify('success', '✅ تم الحفظ');
+    closeTplForm();
+  };
+
+  // ── Team inline form ─────────────────────────────────────────────────────────
+  const blankMember = { name: '', email: '', role: 'seller' };
+  const [memberForm, setMemberForm]   = useState(blankMember);
+  const [memberFormOpen, setMemberFormOpen] = useState(false);
+
+  const openAddMember = () => { setMemberForm(blankMember); setMemberFormOpen(true); };
+  const closeMemberForm = () => { setMemberFormOpen(false); setMemberForm(blankMember); };
+
+  const saveMember = () => {
+    if (!memberForm.name.trim() || !memberForm.email.trim()) { notify('error', 'الاسم والبريد الإلكتروني مطلوبان'); return; }
+    const newMember: TeamMember = {
+      id: `u${Date.now()}`,
+      name: memberForm.name.trim(),
+      email: memberForm.email.trim(),
+      role: memberForm.role as TeamMember['role'],
+      active: true,
+    };
+    updateSettings('team', [...s.team, newMember]);
+    notify('success', '✅ تمت إضافة العضو');
+    closeMemberForm();
+  };
+
+  // ── Delivery provider form ────────────────────────────────────────────────────
+  const blankProvider = { name: '', mode: 'api' as 'api' | 'browser', username: '', password: '', apiKey: '', apiEndpoint: '' };
+  const [provForm, setProvForm]         = useState(blankProvider);
+  const [provFormOpen, setProvFormOpen] = useState(false);
+
+  const openAddProvider = (preset?: typeof blankProvider & { name?: string; mode?: 'api' | 'browser' }) => {
+    setProvForm(preset ? { ...blankProvider, ...preset } : blankProvider);
+    setProvFormOpen(true);
+  };
+  const closeProvForm = () => { setProvFormOpen(false); setProvForm(blankProvider); };
+
+  const saveProvider = () => {
+    if (!provForm.name.trim()) { notify('error', 'اسم الشركة مطلوب'); return; }
+    const logo = PREDEFINED_PROVIDERS.find(p => p.name === provForm.name)?.logo || '🚚';
+    const newProv = {
+      id: `prov_${Date.now()}`,
+      name: provForm.name.trim(),
+      logo,
+      mode: provForm.mode,
+      username: provForm.username.trim(),
+      password: provForm.password,
+      apiKey: provForm.apiKey,
+      apiEndpoint: provForm.apiEndpoint.trim(),
+      enabled: true,
+    };
+    updateSettings('delivery', { ...s.delivery, providers: [...s.delivery.providers, newProv] });
+    notify('success', '✅ تمت إضافة الشركة');
+    closeProvForm();
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────────
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -95,21 +217,36 @@ export default function SettingsPage() {
       {/* Tabs */}
       <div className="tabs scroll-x" style={{ gap: 4 }}>
         {TABS.map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)} className={`tab-btn ${tab === t.id ? 'active' : ''}`} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            className={`tab-btn ${tab === t.id ? 'active' : ''}`}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}
+          >
             <t.icon size={14} />{t.label}
           </button>
         ))}
       </div>
 
-      {/* ── General ── */}
+      {/* ══════════════════════════════════════════════════════════════════
+          General Tab
+      ══════════════════════════════════════════════════════════════════ */}
       {tab === 'general' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <Section title="معلومات المتجر">
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <Field label="اسم المتجر"><input className="input" value={s.brand.name} onChange={e => updateSettings('brand', { ...s.brand, name: e.target.value })} /></Field>
-              <Field label="رقم الهاتف"><input className="input" value={s.brand.phone} dir="ltr" onChange={e => updateSettings('brand', { ...s.brand, phone: e.target.value })} /></Field>
-              <Field label="البريد الإلكتروني"><input className="input" type="email" value={s.brand.email} dir="ltr" onChange={e => updateSettings('brand', { ...s.brand, email: e.target.value })} /></Field>
-              <Field label="العنوان"><input className="input" value={s.brand.address} onChange={e => updateSettings('brand', { ...s.brand, address: e.target.value })} /></Field>
+              <Field label="اسم المتجر">
+                <input className="input" value={s.brand.name} onChange={e => updateSettings('brand', { ...s.brand, name: e.target.value })} />
+              </Field>
+              <Field label="رقم الهاتف">
+                <input className="input" value={s.brand.phone} dir="ltr" onChange={e => updateSettings('brand', { ...s.brand, phone: e.target.value })} />
+              </Field>
+              <Field label="البريد الإلكتروني">
+                <input className="input" type="email" value={s.brand.email} dir="ltr" onChange={e => updateSettings('brand', { ...s.brand, email: e.target.value })} />
+              </Field>
+              <Field label="العنوان">
+                <input className="input" value={s.brand.address} onChange={e => updateSettings('brand', { ...s.brand, address: e.target.value })} />
+              </Field>
               <Field label="العملة">
                 <select className="select" value={s.brand.currency} onChange={e => updateSettings('brand', { ...s.brand, currency: e.target.value })}>
                   {['MAD','EUR','USD','GBP','SAR','AED','DZD'].map(c => <option key={c} value={c}>{c}</option>)}
@@ -121,24 +258,52 @@ export default function SettingsPage() {
                 </select>
               </Field>
             </div>
-            <Field label="الوصف"><textarea className="textarea" rows={2} value={s.brand.description} onChange={e => updateSettings('brand', { ...s.brand, description: e.target.value })} /></Field>
+            <Field label="رابط شعار المتجر (URL)">
+              <input
+                className="input"
+                dir="ltr"
+                placeholder="https://example.com/logo.png"
+                value={(s.brand as any).logoUrl || ''}
+                onChange={e => updateSettings('brand', { ...s.brand, logoUrl: e.target.value })}
+              />
+              {(s.brand as any).logoUrl && (
+                <img
+                  src={(s.brand as any).logoUrl}
+                  alt="logo preview"
+                  style={{ marginTop: 8, height: 56, borderRadius: 10, objectFit: 'contain', background: 'rgba(255,255,255,0.06)', padding: 6 }}
+                  onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                />
+              )}
+            </Field>
+            <Field label="الوصف">
+              <textarea className="textarea" rows={2} value={s.brand.description} onChange={e => updateSettings('brand', { ...s.brand, description: e.target.value })} />
+            </Field>
             <button onClick={() => notify('success', '✅ تم الحفظ')} className="btn btn-primary" style={{ width: 'fit-content' }}>حفظ</button>
           </Section>
 
           <Section title="أهداف المبيعات">
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <Field label={`هدف يومي (${s.brand.currency})`}><input className="input" type="number" value={s.goals.daily} dir="ltr" onChange={e => updateSettings('goals', { ...s.goals, daily: parseInt(e.target.value)||0 })} /></Field>
-              <Field label={`هدف شهري (${s.brand.currency})`}><input className="input" type="number" value={s.goals.monthly} dir="ltr" onChange={e => updateSettings('goals', { ...s.goals, monthly: parseInt(e.target.value)||0 })} /></Field>
+              <Field label={`هدف يومي (${s.brand.currency})`}>
+                <input className="input" type="number" value={s.goals.daily} dir="ltr" onChange={e => updateSettings('goals', { ...s.goals, daily: parseInt(e.target.value)||0 })} />
+              </Field>
+              <Field label={`هدف شهري (${s.brand.currency})`}>
+                <input className="input" type="number" value={s.goals.monthly} dir="ltr" onChange={e => updateSettings('goals', { ...s.goals, monthly: parseInt(e.target.value)||0 })} />
+              </Field>
             </div>
           </Section>
 
-          {/* QR Code */}
           <Section title="🔗 رابط الكتالوج العام">
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
               <QRCode value={`${window.location.origin}?catalog=1`} size={130} label="امسح للوصول للكتالوج" />
               <div style={{ display: 'flex', gap: 8, width: '100%' }}>
-                <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}?catalog=1`); notify('success', '✅ تم نسخ الرابط'); }} className="btn btn-ghost" style={{ flex: 1 }}>📋 نسخ الرابط</button>
-                <button onClick={() => { if (navigator.share) navigator.share({ title: s.brand.name, url: `${window.location.origin}?catalog=1` }); }} className="btn btn-primary" style={{ flex: 1 }}>📱 مشاركة</button>
+                <button
+                  onClick={() => { navigator.clipboard.writeText(`${window.location.origin}?catalog=1`); notify('success', '✅ تم نسخ الرابط'); }}
+                  className="btn btn-ghost" style={{ flex: 1 }}
+                >📋 نسخ الرابط</button>
+                <button
+                  onClick={() => { if (navigator.share) navigator.share({ title: s.brand.name, url: `${window.location.origin}?catalog=1` }); }}
+                  className="btn btn-primary" style={{ flex: 1 }}
+                >📱 مشاركة</button>
               </div>
               <p style={{ fontSize: 12, color: 'var(--txt-3)', textAlign: 'center' }}>الزبائن يرون منتجاتك ويطلبون عبر واتساب مباشرة</p>
             </div>
@@ -146,14 +311,25 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* ── AI ── */}
+      {/* ══════════════════════════════════════════════════════════════════
+          AI Tab
+      ══════════════════════════════════════════════════════════════════ */}
       {tab === 'ai' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <Section title="مزوّد الذكاء الاصطناعي">
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
               {(['openai','gemini'] as const).map(p => (
-                <button key={p} onClick={() => updateSettings('ai', { ...s.ai, provider: p })}
-                  style={{ padding: '13px', borderRadius: 12, fontWeight: 800, fontSize: 14, cursor: 'pointer', transition: 'all .18s', border: `1.5px solid ${s.ai.provider === p ? 'rgba(99,102,241,0.45)' : 'var(--clr-border)'}`, background: s.ai.provider === p ? 'rgba(99,102,241,0.12)' : 'rgba(255,255,255,0.04)', color: s.ai.provider === p ? 'var(--clr-pri-h)' : 'var(--txt-3)' }}>
+                <button
+                  key={p}
+                  onClick={() => updateSettings('ai', { ...s.ai, provider: p })}
+                  style={{
+                    padding: '13px', borderRadius: 12, fontWeight: 800, fontSize: 14,
+                    cursor: 'pointer', transition: 'all .18s',
+                    border: `1.5px solid ${s.ai.provider === p ? 'rgba(99,102,241,0.45)' : 'var(--clr-border)'}`,
+                    background: s.ai.provider === p ? 'rgba(99,102,241,0.12)' : 'rgba(255,255,255,0.04)',
+                    color: s.ai.provider === p ? 'var(--clr-pri-h)' : 'var(--txt-3)',
+                  }}
+                >
                   {p === 'openai' ? '🧠 OpenAI GPT' : '🤖 Google Gemini (مجاني)'}
                 </button>
               ))}
@@ -183,151 +359,444 @@ export default function SettingsPage() {
                   {['Darija','Arabic','French','English'].map(l => <option key={l} value={l}>{l}</option>)}
                 </select>
               </Field>
-              <Field label="تأخير الرد (ثوانٍ)"><input className="input" type="number" min={0} max={15} value={s.ai.replyDelay} dir="ltr" onChange={e => updateSettings('ai', { ...s.ai, replyDelay: parseInt(e.target.value)||2 })} /></Field>
-              <Field label="الحرارة (Temperature)"><input className="input" type="number" min={0} max={2} step={0.1} value={s.ai.temperature} dir="ltr" onChange={e => updateSettings('ai', { ...s.ai, temperature: parseFloat(e.target.value)||0.7 })} /></Field>
-              <Field label="حد الخصم التلقائي %"><input className="input" type="number" min={0} max={50} value={s.ai.maxDiscount} dir="ltr" onChange={e => updateSettings('ai', { ...s.ai, maxDiscount: parseInt(e.target.value)||15 })} /></Field>
+              <Field label="تأخير الرد (ثوانٍ)">
+                <input className="input" type="number" min={0} max={15} value={s.ai.replyDelay} dir="ltr" onChange={e => updateSettings('ai', { ...s.ai, replyDelay: parseInt(e.target.value)||2 })} />
+              </Field>
+              <Field label="الحرارة (Temperature)">
+                <input className="input" type="number" min={0} max={2} step={0.1} value={s.ai.temperature} dir="ltr" onChange={e => updateSettings('ai', { ...s.ai, temperature: parseFloat(e.target.value)||0.7 })} />
+              </Field>
+              <Field label="حد الخصم التلقائي %">
+                <input className="input" type="number" min={0} max={50} value={s.ai.maxDiscount} dir="ltr" onChange={e => updateSettings('ai', { ...s.ai, maxDiscount: parseInt(e.target.value)||15 })} />
+              </Field>
             </div>
-            <Field label="System Prompt"><textarea className="textarea" rows={3} value={s.ai.systemPrompt} onChange={e => updateSettings('ai', { ...s.ai, systemPrompt: e.target.value })} /></Field>
+            <Field label="System Prompt">
+              <textarea className="textarea" rows={3} value={s.ai.systemPrompt} onChange={e => updateSettings('ai', { ...s.ai, systemPrompt: e.target.value })} />
+            </Field>
             {[
               { l: 'محاكاة السلوك البشري', k: 'humanSimulation', sub: 'يكتب ببطء ويتأخر قليلاً' },
               { l: 'خصم تلقائي عند التفاوض', k: 'autoDiscount', sub: '' },
-              { l: 'وضع الدارجة المغربية', k: 'darijaMode', sub: '' },
-            ].map(item => <Toggle key={item.k} on={(s.ai as any)[item.k]} onClick={() => updateSettings('ai', { ...s.ai, [item.k]: !(s.ai as any)[item.k] })} label={item.l} sub={item.sub} />)}
+              { l: 'وضع الدارجة المغربية',   k: 'darijaMode',   sub: '' },
+            ].map(item => (
+              <Toggle
+                key={item.k}
+                on={(s.ai as any)[item.k]}
+                onClick={() => updateSettings('ai', { ...s.ai, [item.k]: !(s.ai as any)[item.k] })}
+                label={item.l}
+                sub={item.sub}
+              />
+            ))}
             <button onClick={() => notify('success', '✅ تم حفظ إعدادات AI')} className="btn btn-primary" style={{ width: 'fit-content' }}>حفظ</button>
           </Section>
         </div>
       )}
 
-      {/* ── Chatbot ── */}
+      {/* ══════════════════════════════════════════════════════════════════
+          Chatbot Tab
+      ══════════════════════════════════════════════════════════════════ */}
       {tab === 'chatbot' && (
         <Section title="إعدادات المساعد الذكي">
-          <Field label="رسالة الترحيب"><textarea className="textarea" rows={2} value={s.chatbot.greetingMessage} onChange={e => updateSettings('chatbot', { ...s.chatbot, greetingMessage: e.target.value })} /></Field>
-          <Field label="رسالة الفشل"><textarea className="textarea" rows={2} value={s.chatbot.fallbackMessage} onChange={e => updateSettings('chatbot', { ...s.chatbot, fallbackMessage: e.target.value })} /></Field>
+          <Field label="رسالة الترحيب">
+            <textarea className="textarea" rows={2} value={s.chatbot.greetingMessage} onChange={e => updateSettings('chatbot', { ...s.chatbot, greetingMessage: e.target.value })} />
+          </Field>
+          <Field label="رسالة الفشل">
+            <textarea className="textarea" rows={2} value={s.chatbot.fallbackMessage} onChange={e => updateSettings('chatbot', { ...s.chatbot, fallbackMessage: e.target.value })} />
+          </Field>
+
           <div>
             <label className="label">ردود سريعة</label>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
               {s.chatbot.quickReplies.map((r, i) => (
                 <span key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', borderRadius: 20, background: 'rgba(255,255,255,0.06)', border: '1px solid var(--clr-border)', fontSize: 12.5 }}>
                   {r}
-                  <button onClick={() => updateSettings('chatbot', { ...s.chatbot, quickReplies: s.chatbot.quickReplies.filter((_,j)=>j!==i) })} style={{ background: 'none', border: 'none', color: '#f87171', cursor: 'pointer', fontSize: 14, lineHeight: 1 }}>✕</button>
+                  <button
+                    onClick={() => updateSettings('chatbot', { ...s.chatbot, quickReplies: s.chatbot.quickReplies.filter((_,j) => j !== i) })}
+                    style={{ background: 'none', border: 'none', color: '#f87171', cursor: 'pointer', fontSize: 14, lineHeight: 1 }}
+                  >✕</button>
                 </span>
               ))}
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
-              <input id="qr-in" className="input" placeholder="رد سريع جديد..." />
-              <button onClick={() => { const el = document.getElementById('qr-in') as HTMLInputElement; if (el?.value.trim()) { updateSettings('chatbot', { ...s.chatbot, quickReplies: [...s.chatbot.quickReplies, el.value.trim()] }); el.value = ''; } }} className="btn btn-ghost">إضافة</button>
+              <input ref={qrInputRef} className="input" placeholder="رد سريع جديد..." onKeyDown={e => {
+                if (e.key === 'Enter' && qrInputRef.current?.value.trim()) {
+                  updateSettings('chatbot', { ...s.chatbot, quickReplies: [...s.chatbot.quickReplies, qrInputRef.current.value.trim()] });
+                  qrInputRef.current.value = '';
+                }
+              }} />
+              <button onClick={() => {
+                if (qrInputRef.current?.value.trim()) {
+                  updateSettings('chatbot', { ...s.chatbot, quickReplies: [...s.chatbot.quickReplies, qrInputRef.current.value.trim()] });
+                  qrInputRef.current.value = '';
+                }
+              }} className="btn btn-ghost">إضافة</button>
             </div>
           </div>
+
           <button onClick={() => notify('success', '✅ تم الحفظ')} className="btn btn-primary" style={{ width: 'fit-content' }}>حفظ</button>
         </Section>
       )}
 
-      {/* ── Products ── */}
+      {/* ══════════════════════════════════════════════════════════════════
+          Products Tab
+      ══════════════════════════════════════════════════════════════════ */}
       {tab === 'products' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <Section title="إعدادات المنتجات">
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
-              <Field label="بادئة SKU"><input className="input" value={s.products.skuPrefix} dir="ltr" style={{ fontFamily: 'monospace' }} onChange={e => updateSettings('products', { ...s.products, skuPrefix: e.target.value })} /></Field>
-              <Field label="تنبيه مخزون منخفض (≤)"><input className="input" type="number" value={s.products.lowStockAlert} dir="ltr" onChange={e => updateSettings('products', { ...s.products, lowStockAlert: parseInt(e.target.value)||5 })} /></Field>
-              <Field label="الضريبة %"><input className="input" type="number" value={s.products.taxRate} dir="ltr" onChange={e => updateSettings('products', { ...s.products, taxRate: parseFloat(e.target.value)||0 })} /></Field>
+              <Field label="بادئة SKU">
+                <input className="input" value={s.products.skuPrefix} dir="ltr" style={{ fontFamily: 'monospace' }} onChange={e => updateSettings('products', { ...s.products, skuPrefix: e.target.value })} />
+              </Field>
+              <Field label="تنبيه مخزون منخفض (≤)">
+                <input className="input" type="number" value={s.products.lowStockAlert} dir="ltr" onChange={e => updateSettings('products', { ...s.products, lowStockAlert: parseInt(e.target.value)||5 })} />
+              </Field>
+              <Field label="الضريبة %">
+                <input className="input" type="number" value={s.products.taxRate} dir="ltr" onChange={e => updateSettings('products', { ...s.products, taxRate: parseFloat(e.target.value)||0 })} />
+              </Field>
             </div>
             <Toggle on={s.products.autoSku} onClick={() => updateSettings('products', { ...s.products, autoSku: !s.products.autoSku })} label="توليد SKU تلقائياً" />
             <Toggle on={s.products.autoPublishOnCreate} onClick={() => updateSettings('products', { ...s.products, autoPublishOnCreate: !s.products.autoPublishOnCreate })} label="نشر تلقائي عند الإضافة" />
           </Section>
+
           <Section title="التصنيفات">
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
               {s.products.categories.map((c, i) => (
                 <span key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', borderRadius: 20, background: 'rgba(255,255,255,0.06)', border: '1px solid var(--clr-border)', fontSize: 12.5 }}>
                   {c}
-                  <button onClick={() => updateSettings('products', { ...s.products, categories: s.products.categories.filter((_,j)=>j!==i) })} style={{ background: 'none', border: 'none', color: '#f87171', cursor: 'pointer', fontSize: 14 }}>✕</button>
+                  <button onClick={() => updateSettings('products', { ...s.products, categories: s.products.categories.filter((_,j) => j !== i) })} style={{ background: 'none', border: 'none', color: '#f87171', cursor: 'pointer', fontSize: 14 }}>✕</button>
                 </span>
               ))}
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
-              <input id="cat-in" className="input" placeholder="تصنيف جديد..." />
-              <button onClick={() => { const el = document.getElementById('cat-in') as HTMLInputElement; if (el?.value.trim()) { updateSettings('products', { ...s.products, categories: [...s.products.categories, el.value.trim()] }); el.value = ''; } }} className="btn btn-ghost">إضافة</button>
+              <input id="cat-in" className="input" placeholder="تصنيف جديد..." onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  const el = document.getElementById('cat-in') as HTMLInputElement;
+                  if (el?.value.trim()) { updateSettings('products', { ...s.products, categories: [...s.products.categories, el.value.trim()] }); el.value = ''; }
+                }
+              }} />
+              <button onClick={() => {
+                const el = document.getElementById('cat-in') as HTMLInputElement;
+                if (el?.value.trim()) { updateSettings('products', { ...s.products, categories: [...s.products.categories, el.value.trim()] }); el.value = ''; }
+              }} className="btn btn-ghost">إضافة</button>
             </div>
           </Section>
         </div>
       )}
 
-      {/* ── Delivery ── */}
+      {/* ══════════════════════════════════════════════════════════════════
+          Delivery Tab  — full provider management UI
+      ══════════════════════════════════════════════════════════════════ */}
       {tab === 'delivery' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <Section title="خيارات التوصيل">
-            <Toggle on={s.delivery.autoSendOnApproval} onClick={() => updateSettings('delivery', { ...s.delivery, autoSendOnApproval: !s.delivery.autoSendOnApproval })} label="إرسال تلقائي عند الموافقة" />
-            <Toggle on={s.delivery.notifyCustomerOnShip} onClick={() => updateSettings('delivery', { ...s.delivery, notifyCustomerOnShip: !s.delivery.notifyCustomerOnShip })} label="إشعار الزبون عند الشحن" />
+            <Toggle
+              on={s.delivery.autoSendOnApproval}
+              onClick={() => updateSettings('delivery', { ...s.delivery, autoSendOnApproval: !s.delivery.autoSendOnApproval })}
+              label="إرسال تلقائي عند الموافقة"
+            />
+            <Toggle
+              on={s.delivery.notifyCustomerOnShip}
+              onClick={() => updateSettings('delivery', { ...s.delivery, notifyCustomerOnShip: !s.delivery.notifyCustomerOnShip })}
+              label="إشعار الزبون عند الشحن"
+            />
           </Section>
+
+          {/* Provider list */}
           <Section title="شركات التوصيل">
             {s.delivery.providers.length === 0 ? (
-              <p style={{ fontSize: 13, color: 'var(--txt-3)', textAlign: 'center', padding: '12px 0' }}>لا توجد شركات — أضف من صفحة التوصيل</p>
+              <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--txt-3)', fontSize: 13 }}>
+                <p style={{ marginBottom: 8 }}>لا توجد شركات توصيل مُضافة</p>
+              </div>
             ) : (
               s.delivery.providers.map((p, i) => (
                 <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 12, background: 'rgba(255,255,255,0.04)', border: '1px solid var(--clr-border)' }}>
-                  <span style={{ fontSize: 20 }}>{p.logo}</span>
-                  <div style={{ flex: 1 }}>
+                  <span style={{ fontSize: 22, flexShrink: 0 }}>{p.logo}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ fontSize: 14, fontWeight: 800, color: 'var(--txt-1)' }}>{p.name}</p>
-                    <p style={{ fontSize: 11.5, color: 'var(--txt-3)' }}>{p.mode} · {p.username}</p>
+                    <p style={{ fontSize: 11.5, color: 'var(--txt-3)' }}>
+                      {p.mode === 'api' ? 'API' : 'متصفح'}
+                      {p.username ? ` · ${p.username}` : ''}
+                    </p>
                   </div>
-                  <button onClick={() => updateSettings('delivery', { ...s.delivery, providers: s.delivery.providers.map((x,j) => j===i ? {...x,enabled:!x.enabled} : x) })} className={`toggle ${p.enabled ? 'on' : ''}`} />
-                  <button onClick={() => updateSettings('delivery', { ...s.delivery, providers: s.delivery.providers.filter(x => x.id !== p.id) })} className="btn btn-danger btn-sm" style={{ paddingInline: 10 }}><Trash2 size={13} /></button>
+                  <button
+                    onClick={() => updateSettings('delivery', { ...s.delivery, providers: s.delivery.providers.map((x, j) => j === i ? { ...x, enabled: !x.enabled } : x) })}
+                    className={`toggle ${p.enabled ? 'on' : ''}`}
+                  />
+                  <button
+                    onClick={() => updateSettings('delivery', { ...s.delivery, providers: s.delivery.providers.filter(x => x.id !== p.id) })}
+                    className="btn btn-danger btn-sm"
+                    style={{ paddingInline: 10 }}
+                  ><Trash2 size={13} /></button>
                 </div>
               ))
             )}
+
+            {/* Add provider form */}
+            {provFormOpen && (
+              <div style={{ marginTop: 8, padding: '18px', borderRadius: 14, background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.2)', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
+                  <p style={{ fontSize: 14, fontWeight: 800, color: 'var(--txt-1)' }}>إضافة شركة توصيل</p>
+                  <button onClick={closeProvForm} style={{ background: 'none', border: 'none', color: 'var(--txt-3)', cursor: 'pointer' }}><X size={16} /></button>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <Field label="اسم الشركة">
+                    <input className="input" placeholder="أمانة، جيبلي..." value={provForm.name} onChange={e => setProvForm(f => ({ ...f, name: e.target.value }))} />
+                  </Field>
+                  <Field label="نوع الاتصال">
+                    <select className="select" value={provForm.mode} onChange={e => setProvForm(f => ({ ...f, mode: e.target.value as 'api' | 'browser' }))}>
+                      <option value="api">API</option>
+                      <option value="browser">متصفح (Browser)</option>
+                    </select>
+                  </Field>
+                  <Field label="اسم المستخدم">
+                    <input className="input" dir="ltr" value={provForm.username} onChange={e => setProvForm(f => ({ ...f, username: e.target.value }))} />
+                  </Field>
+                  <Field label="كلمة المرور">
+                    <input className="input" type="password" dir="ltr" value={provForm.password} onChange={e => setProvForm(f => ({ ...f, password: e.target.value }))} />
+                  </Field>
+                  {provForm.mode === 'api' && (
+                    <>
+                      <Field label="API Key">
+                        <input className="input" dir="ltr" style={{ fontFamily: 'monospace' }} value={provForm.apiKey} onChange={e => setProvForm(f => ({ ...f, apiKey: e.target.value }))} />
+                      </Field>
+                      <Field label="API Endpoint">
+                        <input className="input" dir="ltr" placeholder="https://api.example.com" value={provForm.apiEndpoint} onChange={e => setProvForm(f => ({ ...f, apiEndpoint: e.target.value }))} />
+                      </Field>
+                    </>
+                  )}
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={saveProvider} className="btn btn-primary" style={{ flex: 1 }}><Save size={14} /> حفظ الشركة</button>
+                  <button onClick={closeProvForm} className="btn btn-ghost">إلغاء</button>
+                </div>
+              </div>
+            )}
+
+            {!provFormOpen && (
+              <button onClick={() => openAddProvider()} className="btn btn-primary btn-sm" style={{ width: 'fit-content', marginTop: 4 }}>
+                <Plus size={14} /> إضافة شركة
+              </button>
+            )}
+          </Section>
+
+          {/* Quick add from predefined providers */}
+          <Section title="شركات معروفة (إضافة سريعة)">
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              {PREDEFINED_PROVIDERS.map(prov => {
+                const alreadyAdded = s.delivery.providers.some(p => p.name === prov.name);
+                return (
+                  <button
+                    key={prov.id}
+                    disabled={alreadyAdded}
+                    onClick={() => openAddProvider({ name: prov.name, mode: prov.mode, username: '', password: '', apiKey: '', apiEndpoint: '' })}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      padding: '12px 14px', borderRadius: 12, cursor: alreadyAdded ? 'not-allowed' : 'pointer',
+                      border: `1px solid ${alreadyAdded ? 'rgba(16,185,129,0.3)' : 'var(--clr-border)'}`,
+                      background: alreadyAdded ? 'rgba(16,185,129,0.07)' : 'rgba(255,255,255,0.04)',
+                      opacity: alreadyAdded ? 0.7 : 1, transition: 'all .18s',
+                    }}
+                  >
+                    <span style={{ fontSize: 22 }}>{prov.logo}</span>
+                    <div style={{ textAlign: 'right' }}>
+                      <p style={{ fontSize: 13.5, fontWeight: 800, color: 'var(--txt-1)' }}>{prov.name}</p>
+                      <p style={{ fontSize: 11.5, color: 'var(--txt-3)' }}>{prov.mode === 'api' ? 'API' : 'متصفح'}</p>
+                    </div>
+                    {alreadyAdded && <span style={{ marginRight: 'auto', fontSize: 12, color: '#34d399' }}>✓ مُضاف</span>}
+                  </button>
+                );
+              })}
+            </div>
           </Section>
         </div>
       )}
 
-      {/* ── Templates ── */}
+      {/* ══════════════════════════════════════════════════════════════════
+          Templates Tab  — inline form, no prompt()
+      ══════════════════════════════════════════════════════════════════ */}
       {tab === 'templates' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <p style={{ fontSize: 15, fontWeight: 900, color: 'var(--txt-1)' }}>القوالب ({s.templates.length})</p>
-            <button onClick={() => { const name = prompt('اسم القالب:'); const content = prompt('نص القالب:'); if (name && content) addTemplate({ name, category: 'reply', content, variables: [], active: true }); }} className="btn btn-primary btn-sm"><Plus size={14} /> إضافة</button>
+            {!tplFormOpen && (
+              <button onClick={openAddTpl} className="btn btn-primary btn-sm">
+                <Plus size={14} /> إضافة قالب
+              </button>
+            )}
           </div>
+
+          {/* Inline template form */}
+          {tplFormOpen && (
+            <div style={{ padding: '18px', borderRadius: 14, background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.2)', display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <p style={{ fontSize: 14, fontWeight: 800, color: 'var(--txt-1)' }}>
+                  {tplEditId ? 'تعديل القالب' : 'قالب جديد'}
+                </p>
+                <button onClick={closeTplForm} style={{ background: 'none', border: 'none', color: 'var(--txt-3)', cursor: 'pointer' }}><X size={16} /></button>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <Field label="اسم القالب">
+                  <input
+                    className="input"
+                    placeholder="مثال: رسالة ترحيب"
+                    value={tplForm.name}
+                    onChange={e => setTplForm(f => ({ ...f, name: e.target.value }))}
+                  />
+                </Field>
+                <Field label="الفئة">
+                  <select
+                    className="select"
+                    value={tplForm.category}
+                    onChange={e => setTplForm(f => ({ ...f, category: e.target.value }))}
+                  >
+                    {['reply','order','delivery','promo','followup','other'].map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </Field>
+              </div>
+              <Field label="محتوى القالب">
+                <textarea
+                  className="textarea"
+                  rows={4}
+                  placeholder="مرحبا {name}، شكراً على طلبك..."
+                  value={tplForm.content}
+                  onChange={e => setTplForm(f => ({ ...f, content: e.target.value }))}
+                />
+                <p style={{ fontSize: 11.5, color: 'var(--txt-3)', marginTop: 4 }}>يمكن استخدام {'{'}name{'}'} {'{'}product{'}'} {'{'}price{'}'} كمتغيرات</p>
+              </Field>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={saveTpl} className="btn btn-primary" style={{ flex: 1 }}><Save size={14} /> حفظ</button>
+                <button onClick={closeTplForm} className="btn btn-ghost">إلغاء</button>
+              </div>
+            </div>
+          )}
+
+          {/* Templates grid */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             {s.templates.map(t => (
-              <div key={t.id} className="card" style={{ padding: '14px 16px', position: 'relative' }}>
+              <div key={t.id} className="card" style={{ padding: '14px 16px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <span style={{ fontSize: 13.5, fontWeight: 800, color: 'var(--txt-1)' }}>{t.name}</span>
-                  <div style={{ display: 'flex', gap: 5 }}>
-                    <button onClick={() => { const c = prompt('تعديل المحتوى:', t.content); if (c) updateTemplate(t.id, { content: c }); }} style={{ background: 'none', border: 'none', color: 'var(--txt-3)', cursor: 'pointer', fontSize: 16 }}>✏️</button>
-                    <button onClick={() => deleteTemplate(t.id)} style={{ background: 'none', border: 'none', color: '#f87171', cursor: 'pointer', fontSize: 16 }}>🗑️</button>
+                  <div>
+                    <span style={{ fontSize: 13.5, fontWeight: 800, color: 'var(--txt-1)' }}>{t.name}</span>
+                    <span style={{ marginRight: 8, fontSize: 11, color: 'var(--txt-3)', background: 'rgba(255,255,255,0.06)', padding: '2px 8px', borderRadius: 10 }}>{t.category}</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    <button
+                      onClick={() => openEditTpl(t)}
+                      style={{ background: 'none', border: 'none', color: 'var(--txt-3)', cursor: 'pointer', padding: 4, borderRadius: 6 }}
+                      title="تعديل"
+                    ><Edit2 size={14} /></button>
+                    <button
+                      onClick={() => deleteTemplate(t.id)}
+                      style={{ background: 'none', border: 'none', color: '#f87171', cursor: 'pointer', padding: 4, borderRadius: 6 }}
+                      title="حذف"
+                    ><Trash2 size={14} /></button>
                   </div>
                 </div>
-                <p style={{ fontSize: 12.5, color: 'var(--txt-3)', lineHeight: 1.6, padding: '8px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.04)', border: '1px solid var(--clr-border)' }}>{t.content}</p>
+                <p style={{ fontSize: 12.5, color: 'var(--txt-3)', lineHeight: 1.6, padding: '8px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.04)', border: '1px solid var(--clr-border)', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                  {t.content.length > 120 ? t.content.slice(0, 120) + '…' : t.content}
+                </p>
               </div>
             ))}
           </div>
+
+          {s.templates.length === 0 && !tplFormOpen && (
+            <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--txt-3)', fontSize: 13 }}>
+              <p>لا توجد قوالب بعد — اضغط "إضافة قالب" للبدء</p>
+            </div>
+          )}
         </div>
       )}
 
-      {/* ── Team ── */}
+      {/* ══════════════════════════════════════════════════════════════════
+          Team Tab  — inline form, no prompt()
+      ══════════════════════════════════════════════════════════════════ */}
       {tab === 'team' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <p style={{ fontSize: 15, fontWeight: 900, color: 'var(--txt-1)' }}>الفريق</p>
-            <button onClick={() => { const name = prompt('الاسم:'); const email = prompt('البريد:'); if (name && email) updateSettings('team', [...s.team, { id: `u${Date.now()}`, name, email, role: 'seller', active: true }]); }} className="btn btn-primary btn-sm"><Plus size={14} /> إضافة</button>
+            <p style={{ fontSize: 15, fontWeight: 900, color: 'var(--txt-1)' }}>الفريق ({s.team.length})</p>
+            {!memberFormOpen && (
+              <button onClick={openAddMember} className="btn btn-primary btn-sm">
+                <Plus size={14} /> إضافة عضو
+              </button>
+            )}
           </div>
-          <div className="card" style={{ overflow: 'hidden' }}>
-            {s.team.map((m: TeamMember, i: number) => (
-              <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '14px 18px', borderBottom: i < s.team.length-1 ? '1px solid var(--clr-border)' : 'none' }}>
-                <div style={{ width: 40, height: 40, borderRadius: 12, background: 'var(--clr-pri-g)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 900, color: '#fff', flexShrink: 0 }}>{m.name[0]}</div>
-                <div style={{ flex: 1 }}>
-                  <p style={{ fontSize: 14.5, fontWeight: 800, color: 'var(--txt-1)' }}>{m.name}</p>
-                  <p style={{ fontSize: 12, color: 'var(--txt-3)' }}>{m.email}</p>
-                </div>
-                <select className="select" style={{ width: 130, height: 36, fontSize: 13, paddingInline: '10px' }} value={m.role}
-                  onChange={e => { const t=[...s.team]; t[i]={...t[i],role:e.target.value as any}; updateSettings('team',t); }}>
-                  {['admin','seller','support','delivery'].map(r => <option key={r} value={r}>{r}</option>)}
-                </select>
-                <button onClick={() => { const t=[...s.team]; t[i]={...t[i],active:!t[i].active}; updateSettings('team',t); }}
-                  style={{ fontSize: 12, fontWeight: 800, padding: '5px 12px', borderRadius: 20, cursor: 'pointer', border: 'none', background: m.active ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)', color: m.active ? '#34d399' : '#f87171' }}>
-                  {m.active ? 'نشط' : 'معطّل'}
-                </button>
+
+          {/* Inline member form */}
+          {memberFormOpen && (
+            <div style={{ padding: '18px', borderRadius: 14, background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.2)', display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <p style={{ fontSize: 14, fontWeight: 800, color: 'var(--txt-1)' }}>إضافة عضو جديد</p>
+                <button onClick={closeMemberForm} style={{ background: 'none', border: 'none', color: 'var(--txt-3)', cursor: 'pointer' }}><X size={16} /></button>
               </div>
-            ))}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+                <Field label="الاسم الكامل">
+                  <input
+                    className="input"
+                    placeholder="أحمد بنعلي"
+                    value={memberForm.name}
+                    onChange={e => setMemberForm(f => ({ ...f, name: e.target.value }))}
+                  />
+                </Field>
+                <Field label="البريد الإلكتروني">
+                  <input
+                    className="input"
+                    type="email"
+                    dir="ltr"
+                    placeholder="ahmed@store.com"
+                    value={memberForm.email}
+                    onChange={e => setMemberForm(f => ({ ...f, email: e.target.value }))}
+                  />
+                </Field>
+                <Field label="الدور">
+                  <select className="select" value={memberForm.role} onChange={e => setMemberForm(f => ({ ...f, role: e.target.value }))}>
+                    {['admin','seller','support','delivery'].map(r => <option key={r} value={r}>{r}</option>)}
+                  </select>
+                </Field>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={saveMember} className="btn btn-primary" style={{ flex: 1 }}><Save size={14} /> إضافة</button>
+                <button onClick={closeMemberForm} className="btn btn-ghost">إلغاء</button>
+              </div>
+            </div>
+          )}
+
+          {/* Team list */}
+          <div className="card" style={{ overflow: 'hidden' }}>
+            {s.team.length === 0 ? (
+              <p style={{ padding: '24px', textAlign: 'center', color: 'var(--txt-3)', fontSize: 13 }}>لا يوجد أعضاء بعد</p>
+            ) : (
+              s.team.map((m: TeamMember, i: number) => (
+                <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '14px 18px', borderBottom: i < s.team.length - 1 ? '1px solid var(--clr-border)' : 'none' }}>
+                  <div style={{ width: 40, height: 40, borderRadius: 12, background: 'var(--clr-pri-g)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 900, color: '#fff', flexShrink: 0 }}>
+                    {m.name[0]}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: 14.5, fontWeight: 800, color: 'var(--txt-1)' }}>{m.name}</p>
+                    <p style={{ fontSize: 12, color: 'var(--txt-3)' }}>{m.email}</p>
+                  </div>
+                  <select
+                    className="select"
+                    style={{ width: 130, height: 36, fontSize: 13, paddingInline: '10px' }}
+                    value={m.role}
+                    onChange={e => { const t=[...s.team]; t[i]={...t[i], role: e.target.value as any}; updateSettings('team', t); }}
+                  >
+                    {['admin','seller','support','delivery'].map(r => <option key={r} value={r}>{r}</option>)}
+                  </select>
+                  <button
+                    onClick={() => { const t=[...s.team]; t[i]={...t[i], active:!t[i].active}; updateSettings('team', t); }}
+                    style={{ fontSize: 12, fontWeight: 800, padding: '5px 12px', borderRadius: 20, cursor: 'pointer', border: 'none', background: m.active ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)', color: m.active ? '#34d399' : '#f87171' }}
+                  >
+                    {m.active ? 'نشط' : 'معطّل'}
+                  </button>
+                  <button
+                    onClick={() => updateSettings('team', s.team.filter(x => x.id !== m.id))}
+                    style={{ background: 'none', border: 'none', color: '#f87171', cursor: 'pointer', padding: 4 }}
+                  ><Trash2 size={14} /></button>
+                </div>
+              ))
+            )}
           </div>
+
           {/* Permissions table */}
           <div className="card" style={{ overflow: 'hidden' }}>
             <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--clr-border)' }}>
@@ -335,14 +804,29 @@ export default function SettingsPage() {
             </div>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                <thead><tr style={{ borderBottom: '1px solid var(--clr-border)' }}>
-                  {['الصلاحية','👑 Admin','🛒 Seller','💬 Support','🚚 Delivery'].map(h => <th key={h} style={{ padding: '12px 14px', textAlign: h === 'الصلاحية' ? 'right' : 'center', color: 'var(--txt-3)', fontWeight: 700 }}>{h}</th>)}
-                </tr></thead>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--clr-border)' }}>
+                    {['الصلاحية','👑 Admin','🛒 Seller','💬 Support','🚚 Delivery'].map(h => (
+                      <th key={h} style={{ padding: '12px 14px', textAlign: h === 'الصلاحية' ? 'right' : 'center', color: 'var(--txt-3)', fontWeight: 700 }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
                 <tbody>
-                  {[['لوحة التحكم',true,true,true,true],['إضافة منتج',true,true,false,false],['حذف منتج',true,false,false,false],['الطلبات',true,true,true,true],['الزبائن',true,true,true,false],['المحادثات',true,true,true,false],['التحليلات',true,true,false,false],['الإعدادات',true,false,false,false]].map(([perm,...perms],i) => (
+                  {[
+                    ['لوحة التحكم',   true,  true,  true,  true ],
+                    ['إضافة منتج',    true,  true,  false, false],
+                    ['حذف منتج',      true,  false, false, false],
+                    ['الطلبات',       true,  true,  true,  true ],
+                    ['الزبائن',       true,  true,  true,  false],
+                    ['المحادثات',     true,  true,  true,  false],
+                    ['التحليلات',     true,  true,  false, false],
+                    ['الإعدادات',     true,  false, false, false],
+                  ].map(([perm, ...perms], i) => (
                     <tr key={i} style={{ borderBottom: '1px solid var(--clr-border)' }}>
                       <td style={{ padding: '10px 14px', color: 'var(--txt-1)', fontWeight: 600 }}>{perm as string}</td>
-                      {(perms as boolean[]).map((has, j) => <td key={j} style={{ textAlign: 'center', padding: '10px', fontSize: 16 }}>{has ? '✅' : '❌'}</td>)}
+                      {(perms as boolean[]).map((has, j) => (
+                        <td key={j} style={{ textAlign: 'center', padding: '10px', fontSize: 16 }}>{has ? '✅' : '❌'}</td>
+                      ))}
                     </tr>
                   ))}
                 </tbody>
@@ -352,13 +836,19 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* ── Security ── */}
+      {/* ══════════════════════════════════════════════════════════════════
+          Security Tab
+      ══════════════════════════════════════════════════════════════════ */}
       {tab === 'security' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <Section title="الأمان">
-            <Toggle on={s.security.twoFactorEnabled} onClick={() => updateSettings('security', { ...s.security, twoFactorEnabled: !s.security.twoFactorEnabled })} label="المصادقة الثنائية (2FA)" sub="حماية إضافية لحسابك" />
-            
-            {/* OTP Test for 2FA */}
+            <Toggle
+              on={s.security.twoFactorEnabled}
+              onClick={() => updateSettings('security', { ...s.security, twoFactorEnabled: !s.security.twoFactorEnabled })}
+              label="المصادقة الثنائية (2FA)"
+              sub="حماية إضافية لحسابك"
+            />
+
             {s.security.twoFactorEnabled && (
               <div style={{ background: 'rgba(0,200,150,.06)', border: '1px solid rgba(0,200,150,.2)', borderRadius: 12, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink1)' }}>اختبار المصادقة الثنائية</div>
@@ -380,78 +870,161 @@ export default function SettingsPage() {
               </div>
             )}
 
-            {/* Change Password */}
             <div style={{ background: 'var(--void2)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 16px' }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink1)', marginBottom: 12 }}>تغيير كلمة المرور</div>
               <ChangePasswordForm notify={notify} />
             </div>
-            <Field label="تسجيل الخروج التلقائي (دقائق)"><input className="input" type="number" value={s.security.autoLogoutMinutes} dir="ltr" onChange={e => updateSettings('security', { ...s.security, autoLogoutMinutes: parseInt(e.target.value)||60 })} /></Field>
+
+            <Field label="تسجيل الخروج التلقائي (دقائق)">
+              <input className="input" type="number" value={s.security.autoLogoutMinutes} dir="ltr" onChange={e => updateSettings('security', { ...s.security, autoLogoutMinutes: parseInt(e.target.value)||60 })} />
+            </Field>
           </Section>
+
           <Section title="النسخ الاحتياطي">
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <button onClick={exportData} className="btn btn-ghost" style={{ justifyContent: 'center' }}><Download size={15} /> تصدير نسخة احتياطية</button>
               <button onClick={() => importRef.current?.click()} className="btn btn-ghost" style={{ justifyContent: 'center' }}><Upload size={15} /> استيراد نسخة</button>
               <input ref={importRef} type="file" accept=".json" style={{ display: 'none' }} onChange={e => { const f=e.target.files?.[0]; if(f){const r=new FileReader();r.onload=ev=>importData(ev.target?.result as string);r.readAsText(f);} }} />
             </div>
-            <button onClick={() => { if(confirm('هل أنت متأكد؟ ستُفقد البيانات الحالية.')) resetToDemo(); }} className="btn btn-danger" style={{ justifyContent: 'center', width: '100%' }}>
+            <button
+              onClick={() => { if (window.confirm('هل أنت متأكد؟ ستُفقد البيانات الحالية.')) resetToDemo(); }}
+              className="btn btn-danger"
+              style={{ justifyContent: 'center', width: '100%' }}
+            >
               <RefreshCw size={15} /> إعادة البيانات التجريبية
             </button>
           </Section>
         </div>
       )}
 
-      {/* ── Notifs ── */}
+      {/* ══════════════════════════════════════════════════════════════════
+          Notifications Tab
+      ══════════════════════════════════════════════════════════════════ */}
       {tab === 'notifs' && (
         <Section title="إعدادات الإشعارات">
           {[
-            { l: '🛒 طلب جديد', k: 'newOrder' },
-            { l: '💬 رسالة جديدة', k: 'newMessage' },
-            { l: '⚠️ مخزون منخفض', k: 'lowStock' },
-            { l: '🚚 عند الشحن', k: 'orderShipped' },
-            { l: '🔊 صوت تنبيه', k: 'sound' },
+            { l: '🛒 طلب جديد',                k: 'newOrder' },
+            { l: '💬 رسالة جديدة',             k: 'newMessage' },
+            { l: '⚠️ مخزون منخفض',             k: 'lowStock' },
+            { l: '🚚 عند الشحن',               k: 'orderShipped' },
+            { l: '🔊 صوت تنبيه',               k: 'sound' },
             { l: '📱 إشعارات WhatsApp للزبائن', k: 'whatsappBroadcast' },
-          ].map(item => <Toggle key={item.k} on={(s.notifs as any)[item.k]} onClick={() => updateSettings('notifs', { ...s.notifs, [item.k]: !(s.notifs as any)[item.k] })} label={item.l} />)}
+          ].map(item => (
+            <Toggle
+              key={item.k}
+              on={(s.notifs as any)[item.k]}
+              onClick={() => updateSettings('notifs', { ...s.notifs, [item.k]: !(s.notifs as any)[item.k] })}
+              label={item.l}
+            />
+          ))}
         </Section>
       )}
 
-      {/* ── Design ── */}
+      {/* ══════════════════════════════════════════════════════════════════
+          Design Tab  — + seasonal theme selector
+      ══════════════════════════════════════════════════════════════════ */}
       {tab === 'design' && (
         <Section title="التصميم">
+          {/* Light/Dark theme */}
           <div>
             <label className="label">الثيم</label>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               {(['dark','light'] as const).map(t => (
-                <button key={t} onClick={() => updateSettings('design', { ...s.design, theme: t })}
-                  style={{ padding: '16px', borderRadius: 13, fontSize: 14, fontWeight: 800, cursor: 'pointer', transition: 'all .18s', border: `1.5px solid ${s.design.theme === t ? 'rgba(99,102,241,0.45)' : 'var(--clr-border)'}`, background: t === 'dark' ? '#09090f' : '#f8f9fc', color: t === 'dark' ? '#fff' : '#0f172a' }}>
+                <button
+                  key={t}
+                  onClick={() => updateSettings('design', { ...s.design, theme: t })}
+                  style={{
+                    padding: '16px', borderRadius: 13, fontSize: 14, fontWeight: 800,
+                    cursor: 'pointer', transition: 'all .18s',
+                    border: `1.5px solid ${s.design.theme === t ? 'rgba(99,102,241,0.45)' : 'var(--clr-border)'}`,
+                    background: t === 'dark' ? '#09090f' : '#f8f9fc',
+                    color: t === 'dark' ? '#fff' : '#0f172a',
+                  }}
+                >
                   {t === 'dark' ? '🌙 داكن' : '☀️ فاتح'}
                 </button>
               ))}
             </div>
           </div>
-          <Toggle on={s.design.watermarkEnabled} onClick={() => updateSettings('design', { ...s.design, watermarkEnabled: !s.design.watermarkEnabled })} label="علامة مائية على الصور" />
-          {s.design.watermarkEnabled && <Field label="نص العلامة"><input className="input" value={s.design.watermarkText} onChange={e => updateSettings('design', { ...s.design, watermarkText: e.target.value })} /></Field>}
-          <Toggle on={s.design.compressImages} onClick={() => updateSettings('design', { ...s.design, compressImages: !s.design.compressImages })} label="ضغط الصور تلقائياً" />
+
+          {/* Seasonal theme */}
+          <div>
+            <label className="label">الثيم الموسمي</label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+              {SEASONAL_THEMES.map(st => {
+                const current = (s.design as any).seasonalTheme || 'auto';
+                const active   = current === st.id;
+                return (
+                  <button
+                    key={st.id}
+                    onClick={() => updateSettings('design', { ...s.design, seasonalTheme: st.id } as any)}
+                    style={{
+                      padding: '10px 12px', borderRadius: 11, fontSize: 13, fontWeight: 700,
+                      cursor: 'pointer', transition: 'all .18s', textAlign: 'center',
+                      border: `1.5px solid ${active ? 'rgba(99,102,241,0.45)' : 'var(--clr-border)'}`,
+                      background: active ? 'rgba(99,102,241,0.12)' : 'rgba(255,255,255,0.04)',
+                      color: active ? 'var(--clr-pri-h)' : 'var(--txt-2)',
+                    }}
+                  >
+                    {st.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <Toggle
+            on={s.design.watermarkEnabled}
+            onClick={() => updateSettings('design', { ...s.design, watermarkEnabled: !s.design.watermarkEnabled })}
+            label="علامة مائية على الصور"
+          />
+          {s.design.watermarkEnabled && (
+            <Field label="نص العلامة">
+              <input className="input" value={s.design.watermarkText} onChange={e => updateSettings('design', { ...s.design, watermarkText: e.target.value })} />
+            </Field>
+          )}
+          <Toggle
+            on={s.design.compressImages}
+            onClick={() => updateSettings('design', { ...s.design, compressImages: !s.design.compressImages })}
+            label="ضغط الصور تلقائياً"
+          />
         </Section>
       )}
 
-      {/* ── Cloud ── */}
+      {/* ══════════════════════════════════════════════════════════════════
+          Cloud Tab
+      ══════════════════════════════════════════════════════════════════ */}
       {tab === 'cloud' && (
         <Section title="الحفظ السحابي — Supabase">
           <div style={{ padding: '12px 14px', borderRadius: 11, background: 'rgba(99,102,241,0.07)', border: '1px solid rgba(99,102,241,0.2)' }}>
             <p style={{ fontSize: 13, color: 'var(--txt-2)', lineHeight: 1.6 }}>Supabase مجاني حتى 500MB — يحل مشكلة localStorage نهائياً ويتيح المزامنة بين الأجهزة.</p>
           </div>
-          <Field label="Supabase Project URL"><input className="input" placeholder="https://xxxx.supabase.co" value={s.supabaseUrl} dir="ltr" style={{ fontFamily: 'monospace' }} onChange={e => updateSettings('supabaseUrl', e.target.value as any)} /></Field>
-          <Field label="Supabase Anon Key"><input className="input" type="password" placeholder="eyJ..." value={s.supabaseKey} dir="ltr" style={{ fontFamily: 'monospace' }} onChange={e => updateSettings('supabaseKey', e.target.value as any)} /></Field>
+          <Field label="Supabase Project URL">
+            <input className="input" placeholder="https://xxxx.supabase.co" value={s.supabaseUrl} dir="ltr" style={{ fontFamily: 'monospace' }} onChange={e => updateSettings('supabaseUrl', e.target.value as any)} />
+          </Field>
+          <Field label="Supabase Anon Key">
+            <input className="input" type="password" placeholder="eyJ..." value={s.supabaseKey} dir="ltr" style={{ fontFamily: 'monospace' }} onChange={e => updateSettings('supabaseKey', e.target.value as any)} />
+          </Field>
           <button onClick={async () => {
             if (!s.supabaseUrl || !s.supabaseKey) { notify('error', 'يرجى إدخال URL والمفتاح'); return; }
             notify('info', '⏳ جارٍ اختبار الاتصال...');
-            try { const r = await fetch(`${s.supabaseUrl}/rest/v1/`, { headers: { 'apikey': s.supabaseKey } }); r.ok ? notify('success', '✅ Supabase متصل!') : notify('error', '❌ فشل الاتصال'); } catch { notify('error', '❌ فشل — تحقق من URL'); }
+            try {
+              const r = await fetch(`${s.supabaseUrl}/rest/v1/`, { headers: { 'apikey': s.supabaseKey } });
+              r.ok ? notify('success', '✅ Supabase متصل!') : notify('error', '❌ فشل الاتصال');
+            } catch { notify('error', '❌ فشل — تحقق من URL'); }
           }} className="btn btn-primary" style={{ justifyContent: 'center' }}>اختبار الاتصال</button>
-          <Toggle on={s.cloudEnabled} onClick={() => updateSettings('cloudEnabled', !s.cloudEnabled as any)} label="تفعيل الحفظ السحابي" sub="البيانات ستُحفظ في Supabase" />
+          <Toggle
+            on={s.cloudEnabled}
+            onClick={() => updateSettings('cloudEnabled', !s.cloudEnabled as any)}
+            label="تفعيل الحفظ السحابي"
+            sub="البيانات ستُحفظ في Supabase"
+          />
         </Section>
       )}
 
-      {/* ── Logs ── */}
+      {/* ══════════════════════════════════════════════════════════════════
+          Logs Tab
+      ══════════════════════════════════════════════════════════════════ */}
       {tab === 'logs' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div className="card" style={{ overflow: 'hidden' }}>
@@ -461,7 +1034,9 @@ export default function SettingsPage() {
             <div style={{ maxHeight: 400, overflowY: 'auto' }}>
               {auditLogs.slice(0, 30).map(log => (
                 <div key={log.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '10px 18px', borderBottom: '1px solid var(--clr-border)' }}>
-                  <span style={{ fontSize: 15, flexShrink: 0 }}>{log.type === 'order' ? '🛒' : log.type === 'product' ? '📦' : log.type === 'ai' ? '🤖' : log.type === 'delivery' ? '🚚' : '⚙️'}</span>
+                  <span style={{ fontSize: 15, flexShrink: 0 }}>
+                    {log.type === 'order' ? '🛒' : log.type === 'product' ? '📦' : log.type === 'ai' ? '🤖' : log.type === 'delivery' ? '🚚' : '⚙️'}
+                  </span>
                   <div style={{ flex: 1 }}>
                     <p style={{ fontSize: 13, color: 'var(--txt-2)' }}>{log.action}</p>
                     {log.details && <p style={{ fontSize: 11.5, color: 'var(--txt-3)' }}>{log.details}</p>}
@@ -469,14 +1044,18 @@ export default function SettingsPage() {
                   <span style={{ fontSize: 11, color: 'var(--txt-3)', flexShrink: 0 }}>{log.timestamp.split(' ')[1]}</span>
                 </div>
               ))}
-              {auditLogs.length === 0 && <p style={{ padding: '24px', textAlign: 'center', color: 'var(--txt-3)', fontSize: 13 }}>لا نشاط بعد</p>}
+              {auditLogs.length === 0 && (
+                <p style={{ padding: '24px', textAlign: 'center', color: 'var(--txt-3)', fontSize: 13 }}>لا نشاط بعد</p>
+              )}
             </div>
           </div>
           <SystemCheck />
         </div>
       )}
 
-      {/* ── Connections ── */}
+      {/* ══════════════════════════════════════════════════════════════════
+          Connections Tab
+      ══════════════════════════════════════════════════════════════════ */}
       {tab === 'connections' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <Section title="🤖 مفاتيح الذكاء الاصطناعي">
@@ -487,7 +1066,7 @@ export default function SettingsPage() {
                 value={s.ai.apiKey || ''}
                 onChange={e => updateSettings('ai', { ...s.ai, apiKey: e.target.value })}
               />
-              <p style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 4 }}>من platform.openai.com/api-keys</p>
+              <p style={{ fontSize: 11, color: 'var(--txt-3)', marginTop: 4 }}>من platform.openai.com/api-keys</p>
             </Field>
             <Field label="Google Gemini API Key (مجاني)">
               <input
@@ -496,17 +1075,17 @@ export default function SettingsPage() {
                 value={s.ai.geminiKey || ''}
                 onChange={e => updateSettings('ai', { ...s.ai, geminiKey: e.target.value })}
               />
-              <p style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 4 }}>من aistudio.google.com/app/apikey</p>
+              <p style={{ fontSize: 11, color: 'var(--txt-3)', marginTop: 4 }}>من aistudio.google.com/app/apikey</p>
             </Field>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={() => updateSettings('ai', { ...s.ai, provider: 'openai' })}
-                className={`chip ${s.ai.provider === 'openai' ? 'active' : ''}`}>
-                🧠 OpenAI
-              </button>
-              <button onClick={() => updateSettings('ai', { ...s.ai, provider: 'gemini' })}
-                className={`chip ${s.ai.provider === 'gemini' ? 'active' : ''}`}>
-                🤖 Gemini
-              </button>
+              <button
+                onClick={() => updateSettings('ai', { ...s.ai, provider: 'openai' })}
+                className={`chip ${s.ai.provider === 'openai' ? 'active' : ''}`}
+              >🧠 OpenAI</button>
+              <button
+                onClick={() => updateSettings('ai', { ...s.ai, provider: 'gemini' })}
+                className={`chip ${s.ai.provider === 'gemini' ? 'active' : ''}`}
+              >🤖 Gemini</button>
             </div>
             <button onClick={() => notify('success', '✅ تم الحفظ')} className="btn btn-primary" style={{ width: 'fit-content' }}>حفظ</button>
           </Section>
@@ -561,8 +1140,8 @@ export default function SettingsPage() {
 
           <div className="card" style={{ padding: '16px 18px', background: 'rgba(0,210,179,.04)', border: '1px solid rgba(0,210,179,.15)' }}>
             <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--mint)', marginBottom: 6 }}>💡 نصيحة</p>
-            <p style={{ fontSize: 12, color: 'var(--ink3)', lineHeight: 1.6 }}>
-              لربط واتساب: اذهب لـ developers.facebook.com وأنشئ App من نوع Business.<br/>
+            <p style={{ fontSize: 12, color: 'var(--txt-3)', lineHeight: 1.6 }}>
+              لربط واتساب: اذهب لـ developers.facebook.com وأنشئ App من نوع Business.<br />
               للحصول على Gemini مجاناً: اذهب لـ aistudio.google.com وأنشئ API Key.
             </p>
           </div>
