@@ -9,13 +9,15 @@ import type { Product, ProductStatus } from '../types';
 // ── Category config ───────────────────────────────────────────
 
 const CATS = [
-  { id: 'men',    icon: '👕', label: 'ملابس رجال',  color: '#3B82F6' },
-  { id: 'women',  icon: '👗', label: 'ملابس نساء',  color: '#EC4899' },
-  { id: 'kids',   icon: '🧒', label: 'أطفال',       color: '#F59E0B' },
-  { id: 'shoes',  icon: '👟', label: 'أحذية',       color: '#8B5CF6' },
-  { id: 'access', icon: '👜', label: 'أكسسوارات',  color: '#10B981' },
-  { id: 'home',   icon: '🏠', label: 'ديكور ومنزل',color: '#F97316' },
-  { id: 'other',  icon: '📦', label: 'أخرى',       color: '#6B7280' },
+  { id: 'men',     icon: '👕', label: 'ملابس رجال',   color: '#3B82F6', type: 'product' },
+  { id: 'women',   icon: '👗', label: 'ملابس نساء',   color: '#EC4899', type: 'product' },
+  { id: 'kids',    icon: '🧒', label: 'أطفال',        color: '#F59E0B', type: 'product' },
+  { id: 'shoes',   icon: '👟', label: 'أحذية',        color: '#8B5CF6', type: 'product' },
+  { id: 'access',  icon: '👜', label: 'أكسسوارات',   color: '#10B981', type: 'product' },
+  { id: 'home',    icon: '🏠', label: 'ديكور ومنزل', color: '#F97316', type: 'product' },
+  { id: 'service', icon: '🔧', label: 'خدمة',         color: '#8B5CF6', type: 'service' },
+  { id: 'digital', icon: '💻', label: 'رقمي / دروس',  color: '#0EA5E9', type: 'digital' },
+  { id: 'other',   icon: '📦', label: 'أخرى',         color: '#6B7280', type: 'product' },
 ] as const;
 
 type CatId = typeof CATS[number]['id'];
@@ -82,7 +84,21 @@ const CAT_CFG: Record<string, {
       { id: 'room',     label: 'الغرفة المناسبة',  options: ['غرفة نوم','صالون','مطبخ','حمام','مكتب'] },
     ],
   },
-  other: { emoji: '📦', sizes: [], colors: [], fields: [] },
+  other:   { emoji: '📦', sizes: [], colors: [], fields: [] },
+  service: {
+    emoji: '🔧', sizes: [], colors: [],
+    fields: [
+      { id: 'serviceType', label: 'نوع الخدمة', options: ['كهرباء','سباكة','نجارة','تصميم','تدريس','تنظيف','تصوير','برمجة','تسويق','أخرى'] },
+      { id: 'workArea',    label: 'منطقة العمل', options: ['الدار البيضاء','الرباط','مراكش','فاس','طنجة','أكادير','جميع المدن'] },
+    ],
+  },
+  digital: {
+    emoji: '💻', sizes: [], colors: [],
+    fields: [
+      { id: 'format',   label: 'صيغة الملف',  options: ['PDF','MP4','ZIP','MP3','صورة','أخرى'] },
+      { id: 'language', label: 'اللغة',        options: ['العربية','الفرنسية','الإنجليزية','دارجة','أمازيغية'] },
+    ],
+  },
 };
 
 // ── Variant types ─────────────────────────────────────────────
@@ -94,11 +110,14 @@ type ColorVariant = { id: string; color: string; hex: string; images: string[]; 
 
 type WizardData = {
   category: string;
+  type: 'product' | 'service' | 'digital';
   name: string;
   description: string;
   price: string;
   cost: string;
   stock: string;
+  duration: string;
+  workArea: string;
   images: string[];
   imageUrl: string;
   status: ProductStatus;
@@ -114,8 +133,8 @@ type WizardData = {
 };
 
 const initData = (): WizardData => ({
-  category: '', name: '', description: '',
-  price: '', cost: '', stock: '',
+  category: '', type: 'product', name: '', description: '',
+  price: '', cost: '', stock: '', duration: '', workArea: '',
   images: [], imageUrl: '', status: 'draft',
   variants: [],
   designOpts: { showName: false, showPrice: false, watermark: false, textColor: '#ffffff' },
@@ -457,6 +476,9 @@ export default function ProductsPage() {
         category: catLabel,
         emoji: cfg.emoji,
         status,
+        type: data.type || 'product',
+        duration: data.duration || '',
+        workArea: data.workArea || '',
         isForChildren: data.category === 'kids',
         ageRange: data.ageRange || '',
         variants: data.variants,
@@ -576,6 +598,13 @@ export default function ProductsPage() {
                   <span className={`status-${p.status}`} style={{ position: 'absolute', top: 8, right: 8 }}>
                     {p.status === 'published' ? 'منشور' : p.status === 'draft' ? 'مسودة' : 'مؤرشف'}
                   </span>
+                  {/* Type badge for service/digital */}
+                  {(p as any).type === 'service' && (
+                    <span style={{ position: 'absolute', bottom: 8, right: 8, background: 'rgba(139,92,246,.9)', color: '#fff', fontSize: 9, fontWeight: 800, padding: '2px 7px', borderRadius: 99 }}>🔧 خدمة</span>
+                  )}
+                  {(p as any).type === 'digital' && (
+                    <span style={{ position: 'absolute', bottom: 8, right: 8, background: 'rgba(14,165,233,.9)', color: '#fff', fontSize: 9, fontWeight: 800, padding: '2px 7px', borderRadius: 99 }}>💻 رقمي</span>
+                  )}
 
                   {/* Image count badge */}
                   {p.images?.length > 1 && (
@@ -594,13 +623,13 @@ export default function ProductsPage() {
                     </button>
                   </div>
 
-                  {/* Low stock overlay */}
-                  {p.stock > 0 && p.stock <= settings.products.lowStockAlert && (
+                  {/* Low stock overlay — products only */}
+                  {(!(p as any).type || (p as any).type === 'product') && p.stock > 0 && p.stock <= settings.products.lowStockAlert && (
                     <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(245,158,11,.85)', padding: '4px 8px', fontSize: 10, fontWeight: 700, color: '#fff', textAlign: 'center' }}>
                       ⚠ آخر {p.stock} قطعة
                     </div>
                   )}
-                  {p.stock === 0 && (
+                  {(!(p as any).type || (p as any).type === 'product') && p.stock === 0 && (
                     <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <span style={{ background: 'var(--ember)', color: '#fff', padding: '5px 12px', borderRadius: 99, fontSize: 11, fontWeight: 800 }}>نفذ المخزون</span>
                     </div>
@@ -641,14 +670,21 @@ export default function ProductsPage() {
 
                   {/* Stock controls + share */}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                      <button onClick={() => adjustStock(p.id, -1)} className="icon-btn" style={{ width: 24, height: 24, fontSize: 13, padding: 0 }}>−</button>
-                      <span style={{
-                        fontSize: 11, fontWeight: 700, minWidth: 26, textAlign: 'center',
-                        color: p.stock === 0 ? 'var(--ember)' : p.stock <= settings.products.lowStockAlert ? '#F59E0B' : 'var(--ink2)',
-                      }}>{p.stock}</span>
-                      <button onClick={() => adjustStock(p.id, +1)} className="icon-btn" style={{ width: 24, height: 24, fontSize: 13, padding: 0 }}>+</button>
-                    </div>
+                    {(!(p as any).type || (p as any).type === 'product') ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <button onClick={() => adjustStock(p.id, -1)} className="icon-btn" style={{ width: 24, height: 24, fontSize: 13, padding: 0 }}>−</button>
+                        <span style={{
+                          fontSize: 11, fontWeight: 700, minWidth: 26, textAlign: 'center',
+                          color: p.stock === 0 ? 'var(--ember)' : p.stock <= settings.products.lowStockAlert ? '#F59E0B' : 'var(--ink2)',
+                        }}>{p.stock}</span>
+                        <button onClick={() => adjustStock(p.id, +1)} className="icon-btn" style={{ width: 24, height: 24, fontSize: 13, padding: 0 }}>+</button>
+                      </div>
+                    ) : (
+                      <span style={{ fontSize: 10, color: 'var(--ink3)', fontWeight: 600 }}>
+                        {(p as any).type === 'service' ? '🔧 خدمة' : '💻 رقمي'}
+                        {(p as any).duration ? ` · ${(p as any).duration}` : ''}
+                      </span>
+                    )}
                     <button onClick={() => shareWA(p)} className="btn btn-ghost btn-xs" style={{ gap: 4, fontSize: 11 }}>
                       <Share2 size={11} /> واتساب
                     </button>
@@ -678,7 +714,10 @@ export default function ProductsPage() {
             <div className="modal-header">
               <div>
                 <h2 style={{ fontSize: 17, fontWeight: 900, color: 'var(--ink1)' }}>
-                  {editProd ? '✏️ تعديل المنتج' : '✨ منتج جديد'}
+                  {editProd
+                    ? (data.type === 'service' ? '✏️ تعديل الخدمة' : data.type === 'digital' ? '✏️ تعديل المنتج الرقمي' : '✏️ تعديل المنتج')
+                    : (data.type === 'service' ? '🔧 خدمة جديدة' : data.type === 'digital' ? '💻 منتج رقمي' : '✨ منتج جديد')
+                  }
                 </h2>
                 {step > 1 && data.category && (
                   <p style={{ fontSize: 12, color: 'var(--ink3)', marginTop: 3 }}>
@@ -705,9 +744,9 @@ export default function ProductsPage() {
               {step === 1 && (
                 <div>
                   <p style={{ fontSize: 14, color: 'var(--ink2)', fontWeight: 600, textAlign: 'center', marginBottom: 18 }}>
-                    ما هو نوع المنتج؟
+                    ما هو نوع ما تبيعه؟
                   </p>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 10 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
                     {CATS.map(cat => (
                       <button
                         key={cat.id}
@@ -715,6 +754,7 @@ export default function ProductsPage() {
                           setData(d => ({
                             ...d,
                             category: cat.id,
+                            type: (cat.type || 'product') as 'product' | 'service' | 'digital',
                             sizes: CAT_CFG[cat.id]?.sizes?.slice(0, 3) || [],
                             colors: [],
                             variants: [],
@@ -750,17 +790,17 @@ export default function ProductsPage() {
               {step === 2 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                   <div>
-                    <label className="label">اسم المنتج *</label>
+                    <label className="label">{data.type === 'service' ? 'اسم الخدمة *' : data.type === 'digital' ? 'اسم المنتج الرقمي *' : 'اسم المنتج *'}</label>
                     <input
                       className="input" autoFocus
-                      placeholder="مثال: قميص كتان أبيض..."
+                      placeholder={data.type === 'service' ? 'مثال: تركيب كهرباء...' : data.type === 'digital' ? 'مثال: دورة تعلم البرمجة...' : 'مثال: قميص كتان أبيض...'}
                       value={data.name}
                       onChange={e => setData(d => ({ ...d, name: e.target.value }))}
                     />
                   </div>
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                      <label className="label" style={{ margin: 0 }}>وصف المنتج</label>
+                      <label className="label" style={{ margin: 0 }}>{data.type === 'service' ? 'وصف الخدمة' : 'وصف المنتج'}</label>
                       <button
                         onClick={generateAI}
                         disabled={!data.name || aiLoading}
@@ -773,12 +813,35 @@ export default function ProductsPage() {
                     </div>
                     <textarea
                       className="textarea" rows={3}
-                      placeholder="وصف جذاب يشجع على الشراء..."
+                      placeholder={data.type === 'service' ? 'صف ما تقدمه من خدمات...' : 'وصف جذاب يشجع على الشراء...'}
                       value={data.description}
                       onChange={e => setData(d => ({ ...d, description: e.target.value }))}
                       style={{ resize: 'none' }}
                     />
                   </div>
+                  {/* Service-specific fields */}
+                  {data.type === 'service' && (
+                    <>
+                      <div>
+                        <label className="label">مدة الخدمة</label>
+                        <input
+                          className="input"
+                          placeholder="مثال: ساعتين، نصف يوم، يوم كامل..."
+                          value={data.duration}
+                          onChange={e => setData(d => ({ ...d, duration: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <label className="label">منطقة العمل</label>
+                        <input
+                          className="input"
+                          placeholder="مثال: الدار البيضاء، الرباط، جميع المدن..."
+                          value={data.workArea}
+                          onChange={e => setData(d => ({ ...d, workArea: e.target.value }))}
+                        />
+                      </div>
+                    </>
+                  )}
                   {/* Dynamic category fields */}
                   {cfg.fields.map(f => (
                     <div key={f.id}>
@@ -1099,18 +1162,20 @@ export default function ProductsPage() {
                     </div>
                   )}
 
-                  {/* Stock */}
-                  {data.variants.length > 0 ? (
-                    <div style={{ padding: '12px 14px', borderRadius: 10, background: 'var(--panel2)', border: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: 13, color: 'var(--ink2)' }}>المخزون (من الألوان)</span>
-                      <strong style={{ fontSize: 16, color: 'var(--mint)' }}>{totalVariantStock} قطعة</strong>
-                    </div>
-                  ) : (
-                    <div>
-                      <label className="label">المخزون الأولي</label>
-                      <input className="input" type="number" min="0" placeholder="0" value={data.stock}
-                        onChange={e => setData(d => ({ ...d, stock: e.target.value }))} />
-                    </div>
+                  {/* Stock — not applicable for services/digital */}
+                  {data.type !== 'service' && data.type !== 'digital' && (
+                    data.variants.length > 0 ? (
+                      <div style={{ padding: '12px 14px', borderRadius: 10, background: 'var(--panel2)', border: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: 13, color: 'var(--ink2)' }}>المخزون (من الألوان)</span>
+                        <strong style={{ fontSize: 16, color: 'var(--mint)' }}>{totalVariantStock} قطعة</strong>
+                      </div>
+                    ) : (
+                      <div>
+                        <label className="label">المخزون الأولي</label>
+                        <input className="input" type="number" min="0" placeholder="0" value={data.stock}
+                          onChange={e => setData(d => ({ ...d, stock: e.target.value }))} />
+                      </div>
+                    )
                   )}
                 </div>
               )}

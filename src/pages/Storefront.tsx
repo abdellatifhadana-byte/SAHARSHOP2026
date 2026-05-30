@@ -13,6 +13,7 @@ interface SProduct {
   stock:number; category:string; sizes:string[]; colors:string[];
   status:string; emoji:string; imageUrl:string; images:string[]; sku?:string;
   sales:number; views?:number; colorImages?:Record<string,string>; createdAt?:string;
+  type?:'product'|'service'|'digital'; duration?:string; workArea?:string; portfolio?:string[];
 }
 interface CartItem { product:SProduct; quantity:number; size:string; color:string; }
 interface StoreInfo { brand:{name:string;phone:string;currency:string;logo?:string;description?:string;instagram?:string;facebook?:string;whatsapp?:string;email?:string}; deliveryCosts?:Record<string,number>; }
@@ -137,10 +138,12 @@ function ProductCard({ p, onAdd, onView, currency }: { p:SProduct; onAdd:(p:SPro
 
         {/* Top badges */}
         <div style={{ position:'absolute',top:10,right:10,display:'flex',flexDirection:'column',gap:4,alignItems:'flex-end' }}>
-          {isNew && <span style={{ background:'rgba(0,200,150,.9)',backdropFilter:'blur(4px)',color:'#fff',fontSize:9,fontWeight:800,padding:'3px 8px',borderRadius:99,letterSpacing:'.05em' }}>✨ جديد</span>}
-          {p.stock <= 5 && p.stock > 0 && <span style={{ background:'rgba(245,158,11,.9)',backdropFilter:'blur(4px)',color:'#fff',fontSize:9,fontWeight:800,padding:'3px 8px',borderRadius:99 }}>⚡ آخر {p.stock}</span>}
+          {p.type === 'service' && <span style={{ background:'rgba(139,92,246,.9)',backdropFilter:'blur(4px)',color:'#fff',fontSize:9,fontWeight:800,padding:'3px 8px',borderRadius:99 }}>🔧 خدمة</span>}
+          {p.type === 'digital' && <span style={{ background:'rgba(14,165,233,.9)',backdropFilter:'blur(4px)',color:'#fff',fontSize:9,fontWeight:800,padding:'3px 8px',borderRadius:99 }}>💻 رقمي</span>}
+          {(!p.type || p.type === 'product') && isNew && <span style={{ background:'rgba(0,200,150,.9)',backdropFilter:'blur(4px)',color:'#fff',fontSize:9,fontWeight:800,padding:'3px 8px',borderRadius:99,letterSpacing:'.05em' }}>✨ جديد</span>}
+          {(!p.type || p.type === 'product') && p.stock <= 5 && p.stock > 0 && <span style={{ background:'rgba(245,158,11,.9)',backdropFilter:'blur(4px)',color:'#fff',fontSize:9,fontWeight:800,padding:'3px 8px',borderRadius:99 }}>⚡ آخر {p.stock}</span>}
           {p.sales > 10 && <span style={{ background:'rgba(255,77,26,.9)',backdropFilter:'blur(4px)',color:'#fff',fontSize:9,fontWeight:800,padding:'3px 8px',borderRadius:99 }}>🔥 الأكثر طلباً</span>}
-          {p.stock === 0 && <span style={{ background:'rgba(0,0,0,.7)',backdropFilter:'blur(4px)',color:'#fff',fontSize:9,fontWeight:800,padding:'3px 8px',borderRadius:99 }}>نفذ المخزون</span>}
+          {(!p.type || p.type === 'product') && p.stock === 0 && <span style={{ background:'rgba(0,0,0,.7)',backdropFilter:'blur(4px)',color:'#fff',fontSize:9,fontWeight:800,padding:'3px 8px',borderRadius:99 }}>نفذ المخزون</span>}
         </div>
 
         {/* Like */}
@@ -162,17 +165,18 @@ function ProductCard({ p, onAdd, onView, currency }: { p:SProduct; onAdd:(p:SPro
         )}
 
         {/* Quick add — shows on hover */}
-        <button onClick={e=>{e.stopPropagation();if(p.stock>0)onAdd(p);}}
+        <button onClick={e=>{e.stopPropagation();if(p.type==='service'||p.type==='digital'||p.stock>0)onAdd(p);}}
           style={{
             position:'absolute',bottom:0,left:0,right:0,height:40,
             background:'linear-gradient(135deg,#FF4D1A,#ff6b42)',
-            border:'none',color:'#fff',fontSize:13,fontWeight:800,cursor:p.stock>0?'pointer':'not-allowed',
+            border:'none',color:'#fff',fontSize:13,fontWeight:800,
+            cursor:(p.type==='service'||p.type==='digital'||p.stock>0)?'pointer':'not-allowed',
             display:'flex',alignItems:'center',justifyContent:'center',gap:7,
             transition:'all .25s ease',
-            opacity:hover&&p.stock>0?1:0,
-            transform:hover&&p.stock>0?'translateY(0)':'translateY(8px)',
+            opacity:hover&&(p.type==='service'||p.type==='digital'||p.stock>0)?1:0,
+            transform:hover&&(p.type==='service'||p.type==='digital'||p.stock>0)?'translateY(0)':'translateY(8px)',
           }}>
-          <ShoppingCart size={14}/> أضف للسلة سريعاً
+          <ShoppingCart size={14}/> {p.type==='service'?'احجز الآن':p.type==='digital'?'اشتر الآن':'أضف للسلة سريعاً'}
         </button>
       </div>
 
@@ -268,8 +272,21 @@ function ProductModal({ p, cart, onClose, currency, userId }: { p:SProduct; cart
             {p.price.toLocaleString()} {currency}
           </div>
 
-          {/* Sizes */}
-          {p.sizes?.length > 0 && (
+          {/* Service meta */}
+          {p.type === 'service' && (p.duration || p.workArea) && (
+            <div style={{ display:'flex',flexWrap:'wrap',gap:8,marginBottom:14 }}>
+              {p.duration && <span style={{ display:'flex',alignItems:'center',gap:5,fontSize:12,color:'var(--ink2)',background:'var(--void2)',border:'1px solid var(--border)',borderRadius:99,padding:'4px 12px' }}>⏱ {p.duration}</span>}
+              {p.workArea && <span style={{ display:'flex',alignItems:'center',gap:5,fontSize:12,color:'var(--ink2)',background:'var(--void2)',border:'1px solid var(--border)',borderRadius:99,padding:'4px 12px' }}>📍 {p.workArea}</span>}
+            </div>
+          )}
+          {/* Digital badge */}
+          {p.type === 'digital' && (
+            <div style={{ marginBottom:14,padding:'8px 14px',background:'rgba(14,165,233,.1)',border:'1px solid rgba(14,165,233,.3)',borderRadius:8,fontSize:12,color:'var(--ink2)' }}>
+              💻 منتج رقمي — سيُرسل إليك مباشرة بعد التأكيد
+            </div>
+          )}
+          {/* Sizes — products only */}
+          {(!p.type || p.type === 'product') && p.sizes?.length > 0 && (
             <div style={{ marginBottom:14 }}>
               <div style={{ fontSize:11,fontWeight:700,color:'var(--ink3)',marginBottom:8 }}>المقاس</div>
               <div style={{ display:'flex',gap:8,flexWrap:'wrap' }}>
@@ -345,9 +362,9 @@ function ProductModal({ p, cart, onClose, currency, userId }: { p:SProduct; cart
           <div style={{ display:'flex',alignItems:'center',gap:12,marginBottom:20 }}>
             <div style={{ fontSize:11,fontWeight:700,color:'var(--ink3)' }}>الكمية</div>
             <div style={{ display:'flex',alignItems:'center',gap:8,background:'var(--void2)',borderRadius:8,padding:'4px 8px' }}>
-              <button onClick={()=>setQty(q=>Math.max(1,q-1))} style={{ width:26,height:26,borderRadius:6,background:'var(--panel)',border:'1px solid var(--border)',cursor:'pointer',color:'var(--ink2)',display:'flex',alignItems:'center',justifyContent:'center' }}><Minus size={12}/></button>
-              <span style={{ fontSize:15,fontWeight:700,color:'var(--ink1)',minWidth:24,textAlign:'center' }}>{qty}</span>
-              <button onClick={()=>setQty(q=>Math.min(p.stock,q+1))} style={{ width:26,height:26,borderRadius:6,background:'var(--panel)',border:'1px solid var(--border)',cursor:'pointer',color:'var(--ink2)',display:'flex',alignItems:'center',justifyContent:'center' }}><Plus size={12}/></button>
+              <button onClick={()=>setQty(q=>Math.max(1,q-1))} style={{ width:36,height:36,borderRadius:6,background:'var(--panel)',border:'1px solid var(--border)',cursor:'pointer',color:'var(--ink2)',display:'flex',alignItems:'center',justifyContent:'center' }}><Minus size={14}/></button>
+              <span style={{ fontSize:15,fontWeight:700,color:'var(--ink1)',minWidth:28,textAlign:'center' }}>{qty}</span>
+              <button onClick={()=>setQty(q=>Math.min(p.stock,q+1))} style={{ width:36,height:36,borderRadius:6,background:'var(--panel)',border:'1px solid var(--border)',cursor:'pointer',color:'var(--ink2)',display:'flex',alignItems:'center',justifyContent:'center' }}><Plus size={14}/></button>
             </div>
             <span style={{ fontSize:11,color:'var(--ink3)' }}>{p.stock} متوفرة</span>
           </div>
@@ -359,7 +376,10 @@ function ProductModal({ p, cart, onClose, currency, userId }: { p:SProduct; cart
             display:'flex',alignItems:'center',justifyContent:'center',gap:8,
             boxShadow:`0 4px 16px ${added?'rgba(0,200,150,.3)':'rgba(255,77,26,.35)'}`,
           }}>
-            {added ? <><Check size={18}/> تمت الإضافة!</> : <><ShoppingCart size={16}/> أضف للسلة — {(p.price*qty).toLocaleString()} {currency}</>}
+            {added
+              ? <><Check size={18}/> {p.type==='service'?'تم الحجز!':'تمت الإضافة!'}</>
+              : <><ShoppingCart size={16}/> {p.type==='service'?'احجز الآن':p.type==='digital'?'اشتر الآن':'أضف للسلة'} — {(p.price*qty).toLocaleString()} {currency}</>
+            }
           </button>
         </div>
       </div>
@@ -447,7 +467,7 @@ function CartSidebar({ cart, storeInfo, userId, onClose, onOrderSuccess }: { car
   return (
     <div style={{ position:'fixed',inset:0,zIndex:400,display:'flex' }}>
       <div onClick={onClose} style={{ flex:1,background:'rgba(0,0,0,.6)',backdropFilter:'blur(4px)' }} />
-      <div style={{ width:Math.min(400,window.innerWidth),background:'var(--panel)',borderRight:'1px solid var(--border)',display:'flex',flexDirection:'column',overflowY:'auto',animation:'slide-in .25s ease' }}>
+      <div style={{ width:'min(400px,100vw)',background:'var(--panel)',borderRight:'1px solid var(--border)',display:'flex',flexDirection:'column',overflowY:'auto',animation:'slide-in .25s ease' }}>
 
         {/* Header */}
         <div style={{ padding:'16px 18px',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:10 }}>
@@ -1108,7 +1128,7 @@ export default function Storefront() {
         );
       })()}
 
-      <div style={{ padding:'0 16px 120px',display:viewMode==='list'?'flex':'grid', flexDirection:viewMode==='list'?'column':'row', gridTemplateColumns:viewMode==='grid'?'repeat(auto-fill,minmax(160px,1fr))':'none', gap:viewMode==='list'?10:14 }}>
+      <div style={{ padding:'0 16px 120px',display:viewMode==='list'?'flex':'grid', flexDirection:viewMode==='list'?'column':'row', gridTemplateColumns:viewMode==='grid'?'repeat(auto-fill,minmax(140px,1fr))':'none', gap:viewMode==='list'?10:14 }}>
         {filtered.map(p => (
           <ProductCard key={p.id} p={p} currency={cur}
             onAdd={handleAddToCart}

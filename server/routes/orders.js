@@ -152,7 +152,7 @@ router.put('/:id/ship', auth, (req, res) => {
   if (shipWaToken && shipWaPhoneId && shippedOrder?.customerPhone) {
     try {
       const shipCur = shipSettings2.brand?.currency || 'MAD';
-      const trackUrl = shipSettings.delivery?.trackingUrlTemplate ? shipSettings2.delivery.trackingUrlTemplate.replace('{tracking}', tracking) : '';
+      const trackUrl = shipSettings2.delivery?.trackingUrlTemplate ? shipSettings2.delivery.trackingUrlTemplate.replace('{tracking}', tracking) : '';
       const shipMsg = `مرحباً ${shippedOrder.customerName}! 👋\n\n🚚 طلبك في الطريق إليك!\n\n📦 رقم التتبع: ${tracking}\n🏢 شركة التوصيل: ${prov}\n⏱️ متوقع الوصول خلال: 24-48 ساعة\n${trackUrl ? `\n🔗 تتبع طلبك: ${trackUrl}` : ''}\n\nشكراً لثقتك! 🙏`;
       const shipBody = JSON.stringify({ messaging_product:'whatsapp', to:shippedOrder.customerPhone.replace(/\s/g,''), type:'text', text:{ body:shipMsg } });
       const https3 = require('https');

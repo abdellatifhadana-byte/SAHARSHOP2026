@@ -48,7 +48,7 @@ router.delete('/:id', auth, (req, res) => {
 router.get('/public/catalog', (req, res) => {
   const { userId } = req.query;
   if (!userId) return res.status(400).json({ error: 'userId required' });
-  const products = db.getProducts(userId).filter(p => p.status === 'published' && p.stock > 0);
+  const products = db.getProducts(userId).filter(p => p.status === 'published' && (p.type === 'service' || p.type === 'digital' || p.stock > 0));
   const settings = db.getSettings(userId) || {};
   const deliveryCosts = settings.deliveryCosts || {};
   res.json({ products, brand: settings.brand || {}, deliveryCosts });

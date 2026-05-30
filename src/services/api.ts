@@ -121,13 +121,28 @@ export const customersAPI = {
   },
   create: (data: any)    => request<any>('POST', '/customers', data),
   update: (id: string, d: any) => request<any>('PUT', `/customers/${id}`, d),
+  remove: (id: string)   => request<any>('DELETE', `/customers/${id}`),
 };
 
 // ── Conversations ─────────────────────────────────────────────
 export const conversationsAPI = {
   list:         ()              => request<any[]>('GET', '/conversations'),
   create:       (data: any)     => request<any>('POST', '/conversations', data),
+  update:       (id: string, d: any) => request<any>('PUT', `/conversations/${id}`, d),
+  remove:       (id: string)    => request<any>('DELETE', `/conversations/${id}`),
   sendMessage:  (id: string, d: any) => request<any>('POST', `/conversations/${id}/messages`, d),
+};
+
+// ── Coupons ───────────────────────────────────────────────────
+export const couponsAPI = {
+  list:     ()              => request<any[]>('GET', '/coupons'),
+  create:   (data: any)     => request<any>('POST', '/coupons', data),
+  update:   (id: string, d: any) => request<any>('PUT', `/coupons/${id}`, d),
+  remove:   (id: string)    => request<any>('DELETE', `/coupons/${id}`),
+  validate: (code: string, userId: string, total: number) =>
+    request<{ valid: boolean; discount: number; message?: string; couponId?: string }>(
+      'GET', `/coupons/validate?code=${encodeURIComponent(code)}&userId=${userId}&total=${total}`
+    ),
 };
 
 // ── Settings ──────────────────────────────────────────────────
@@ -165,6 +180,7 @@ export const deliveryAPI = {
   save:     (data: any)  => request<any>('POST', '/delivery', data),
   remove:   (id: string) => request<any>('DELETE', `/delivery/${id}`),
   simulate: (orderId: string) => request<any>('POST', `/delivery/simulate/${orderId}`),
+  create:   (orderId: string, data?: any) => request<any>('POST', `/delivery/create/${orderId}`, data),
 };
 
 // ── AI chat via backend ───────────────────────────────────────

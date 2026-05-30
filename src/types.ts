@@ -16,6 +16,8 @@ export type LogSeverity = 'info' | 'success' | 'warning' | 'error';
 
 // ── Entities ──────────────────────────────────────────────────
 
+export type ProductType = 'product' | 'service' | 'digital';
+
 export interface Product {
   id: string;
   name: string;
@@ -35,6 +37,10 @@ export interface Product {
   views: number;
   sales: number;
   createdAt: string;
+  type: ProductType;
+  duration?: string; // for services: "ساعتين" / "نصف يوم"
+  workArea?: string; // for services: "الدار البيضاء، الرباط"
+  portfolio?: string[]; // service portfolio images
 }
 
 export interface Customer {

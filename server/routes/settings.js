@@ -151,7 +151,7 @@ router.get('/backups', auth, (req, res) => {
 router.get('/backups/:filename', auth, (req, res) => {
   const fs = require('fs');
   const path = require('path');
-  const filename = req.params.filename;
+  const filename = path.basename(req.params.filename);
   if (!filename.includes(req.user.id)) return res.status(403).json({ error: 'Forbidden' });
   const filepath = path.join(__dirname, '../data/backups', filename);
   if (!fs.existsSync(filepath)) return res.status(404).json({ error: 'Backup not found' });
