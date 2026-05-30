@@ -204,8 +204,21 @@ function printOrder(order: any, currency: string) {
   const w = window.open('', '_blank'); if (w) { w.document.write(html); w.document.close(); }
 }
 
+function OrdersSkeleton() {
+  const pulse: React.CSSProperties = { borderRadius: 10, background: 'var(--panel2)', animation: 'pulse-ember 1.6s ease-in-out infinite' };
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ ...pulse, height: 44 }} />
+      <div style={{ ...pulse, height: 40 }} />
+      {[1,2,3,4].map(i => <div key={i} style={{ ...pulse, height: 78 }} />)}
+    </div>
+  );
+}
+
 export default function OrdersPage() {
-  const { orders, approveOrder, rejectOrder, shipOrder, deliverOrder, settings, notify, customers } = useStore();
+  const { orders, approveOrder, rejectOrder, shipOrder, deliverOrder, settings, notify, customers, isLoading } = useStore();
+
+  if (isLoading) return <OrdersSkeleton />;
   const [filter, setFilter] = useState('pending');
   const [search, setSearch] = useState('');
   const [expanded, setExpanded] = useState<string | null>(null);

@@ -77,15 +77,14 @@ router.post('/request-otp', auth, (req, res) => {
   const expires = Date.now() + 5 * 60 * 1000; // 5 minutes
   otpStore.set(user.email, { code, expires });
   
-  // In production: send via email/SMS
-  // For now: return in response (development mode)
-  const isDev = process.env.NODE_ENV !== 'production';
+  // Security: OTP logged server-side ONLY — never returned to client
+  // TODO v3.3: replace console.log with nodemailer/SMS service
   console.log(`[2FA] OTP for ${user.email}: ${code}`);
-  
-  res.json({ 
-    sent: true, 
+
+  res.json({
+    sent: true,
     email: user.email.replace(/(.{2}).*(@)/, '$1***$2'),
-    ...(isDev ? { code } : {}) // Show code in dev mode only
+    // 'code' intentionally omitted from response regardless of NODE_ENV
   });
 });
 

@@ -103,8 +103,22 @@ export const ordersAPI = {
 };
 
 // ── Customers ─────────────────────────────────────────────────
+export interface CustomerPage {
+  data:    any[];
+  total:   number;
+  limit:   number;
+  offset:  number;
+  hasMore: boolean;
+}
 export const customersAPI = {
-  list:   ()             => request<any[]>('GET', '/customers'),
+  list: (params?: { limit?: number; offset?: number; q?: string }) => {
+    const qs = new URLSearchParams();
+    if (params?.limit  != null) qs.set('limit',  String(params.limit));
+    if (params?.offset != null) qs.set('offset', String(params.offset));
+    if (params?.q)               qs.set('q',      params.q);
+    const query = qs.toString();
+    return request<CustomerPage>('GET', `/customers${query ? '?' + query : ''}`);
+  },
   create: (data: any)    => request<any>('POST', '/customers', data),
   update: (id: string, d: any) => request<any>('PUT', `/customers/${id}`, d),
 };

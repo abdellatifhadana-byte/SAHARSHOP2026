@@ -104,8 +104,25 @@ function AIGreeting() {
   );
 }
 
+// Skeleton shown on first load for real (non-demo) users while backend data fetches
+function DashboardSkeleton() {
+  const pulse: React.CSSProperties = { borderRadius: 10, background: 'var(--panel2)', animation: 'pulse-ember 1.6s ease-in-out infinite' };
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+      <div style={{ ...pulse, height: 44 }} />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        {[1,2,3,4].map(i => <div key={i} style={{ ...pulse, height: 90 }} />)}
+      </div>
+      <div style={{ ...pulse, height: 180 }} />
+      <div style={{ ...pulse, height: 140 }} />
+    </div>
+  );
+}
+
 export default function DashboardPage() {
-  const { settings, products, orders, customers, conversations, setPage, user } = useStore();
+  const { settings, products, orders, customers, conversations, setPage, user, isLoading } = useStore();
+
+  if (isLoading) return <DashboardSkeleton />;
   const userId = user?.id || (() => {
     try { const u = localStorage.getItem('ai_commerce_user'); return u ? JSON.parse(u)?.id : null; } catch { return null; }
   })();

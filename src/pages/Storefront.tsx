@@ -12,7 +12,7 @@ interface SProduct {
   id:string; name:string; description:string; price:number; cost?:number;
   stock:number; category:string; sizes:string[]; colors:string[];
   status:string; emoji:string; imageUrl:string; images:string[]; sku?:string;
-  sales:number; views?:number;
+  sales:number; views?:number; colorImages?:Record<string,string>; createdAt?:string;
 }
 interface CartItem { product:SProduct; quantity:number; size:string; color:string; }
 interface StoreInfo { brand:{name:string;phone:string;currency:string;logo?:string;description?:string;instagram?:string;facebook?:string;whatsapp?:string;email?:string}; deliveryCosts?:Record<string,number>; }
@@ -211,6 +211,8 @@ function ProductModal({ p, cart, onClose, currency, userId }: { p:SProduct; cart
   const [color, setColor] = useState(p.colors?.[0]||'');
   const [qty,   setQty]   = useState(1);
   const [added, setAdded] = useState(false);
+  const firstColorImg = p.colors?.[0] && p.colorImages?.[p.colors[0]];
+  const [activeImage, setActiveImage] = useState(firstColorImg || p.imageUrl || '');
 
   const handleAdd = () => {
     cart.add(p, size, color);
@@ -226,10 +228,10 @@ function ProductModal({ p, cart, onClose, currency, userId }: { p:SProduct; cart
         background:'var(--panel)',borderRadius:'24px 24px 0 0',width:'100%',maxWidth:520,
         maxHeight:'90vh',overflowY:'auto',padding:'0 0 24px',
       }}>
-        {/* Image */}
-        <div style={{ height:260,position:'relative',background:p.imageUrl?'#000':'var(--void2)' }}>
-          {p.imageUrl
-            ? <img src={p.imageUrl} alt={p.name} style={{ width:'100%',height:'100%',objectFit:'cover' }} />
+        {/* Main image */}
+        <div style={{ height:260,position:'relative',background:activeImage?'#000':'var(--void2)',flexShrink:0 }}>
+          {activeImage
+            ? <img src={activeImage} alt={p.name} style={{ width:'100%',height:'100%',objectFit:'cover',transition:'opacity .2s' }} />
             : <div style={{ width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:80 }}>{p.emoji||'📦'}</div>
           }
           <button onClick={onClose} style={{ position:'absolute',top:14,left:14,width:34,height:34,borderRadius:'50%',background:'rgba(0,0,0,.5)',border:'none',color:'#fff',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center' }}>
@@ -237,6 +239,24 @@ function ProductModal({ p, cart, onClose, currency, userId }: { p:SProduct; cart
           </button>
           {p.sales > 0 && <div style={{ position:'absolute',bottom:14,right:14,background:'var(--ember)',color:'#fff',fontSize:11,fontWeight:700,padding:'3px 10px',borderRadius:99 }}>{p.sales}+ مبيعة</div>}
         </div>
+        {/* Image thumbnails — shown when product has multiple images */}
+        {(p.images?.length > 0) && (() => {
+          const allImgs = [p.imageUrl, ...(p.images||[])].filter((img,i,arr) => img && arr.indexOf(img)===i);
+          if (allImgs.length <= 1) return null;
+          return (
+            <div style={{ display:'flex',gap:6,overflowX:'auto',padding:'8px 14px',background:'var(--void2)',borderBottom:'1px solid var(--border)' }}>
+              {allImgs.map((img,i) => (
+                <button key={i} onClick={()=>setActiveImage(img)} style={{
+                  flexShrink:0,width:48,height:48,borderRadius:7,overflow:'hidden',
+                  border:`2px solid ${activeImage===img?'var(--ember)':'var(--border2)'}`,
+                  background:'var(--void3)',cursor:'pointer',padding:0,transition:'border-color .15s',
+                }}>
+                  <img src={img} alt="" style={{ width:'100%',height:'100%',objectFit:'cover' }} loading="lazy" />
+                </button>
+              ))}
+            </div>
+          );
+        })()}
 
         <div style={{ padding:'20px 20px 0' }}>
           <div style={{ fontSize:11,color:'var(--ink3)',marginBottom:4 }}>{p.category} {p.sku ? `· #${p.sku}` : ''}</div>
@@ -271,14 +291,11 @@ function ProductModal({ p, cart, onClose, currency, userId }: { p:SProduct; cart
               <div style={{ fontSize:11,fontWeight:700,color:'var(--ink3)',marginBottom:8 }}>اللون</div>
               <div style={{ display:'flex',gap:8,flexWrap:'wrap' }}>
                 {p.colors.map(clr => {
-                  const colorImg = (p as any).colorImages?.[clr];
+                  const colorImg = p.colorImages?.[clr];
                   return (
                     <button key={clr} onClick={()=>{
                       setColor(clr);
-                      // Update displayed image if color has its own image
-                      if (colorImg) {
-                        // We'll handle via state
-                      }
+                      setActiveImage(colorImg || p.imageUrl || '');
                     }} style={{
                       padding: colorImg ? '4px' : '6px 14px',
                       borderRadius: colorImg ? 10 : 8,
@@ -299,12 +316,6 @@ function ProductModal({ p, cart, onClose, currency, userId }: { p:SProduct; cart
                   );
                 })}
               </div>
-              {/* Show color-specific image */}
-              {color && (p as any).colorImages?.[color] && (p as any).colorImages[color] !== p.imageUrl && (
-                <div style={{ marginTop:10,borderRadius:12,overflow:'hidden',height:140 }}>
-                  <img src={(p as any).colorImages[color]} alt={color} style={{ width:'100%',height:'100%',objectFit:'cover' }} />
-                </div>
-              )}
             </div>
           )}
 
@@ -370,9 +381,27 @@ function CartSidebar({ cart, storeInfo, userId, onClose, onOrderSuccess }: { car
   const [orderCode, setOrderCode] = useState('');
   const cur = storeInfo.brand.currency || 'MAD';
   const deliveryCost = getDeliveryCost(form.city, storeInfo.deliveryCosts);
-  const grandTotal   = cart.total + deliveryCost;
+  const grandTotal   = Math.max(0, cart.total - couponDiscount) + deliveryCost;
 
   const filteredCities = MOROCCAN_CITIES.filter(c => c.includes(citySearch) || citySearch === '');
+
+  const applyCoupon = async () => {
+    if (!couponCode.trim()) return;
+    try {
+      const r = await fetch(`/api/coupons/validate?code=${encodeURIComponent(couponCode)}&userId=${userId}&total=${cart.total}`);
+      if (r.ok) {
+        const d = await r.json();
+        setCouponDiscount(d.discount || 0);
+        setCouponMsg(d.discount > 0 ? `✅ خصم ${d.discount} ${cur} تم تطبيقه` : '❌ الكود غير صحيح');
+      } else {
+        setCouponDiscount(0);
+        setCouponMsg('❌ الكود غير صحيح أو منتهي الصلاحية');
+      }
+    } catch {
+      setCouponDiscount(0);
+      setCouponMsg('❌ تعذر التحقق من الكود');
+    }
+  };
 
   const handleOrder = async () => {
     if (!form.name || !form.phone || !form.city) {
@@ -550,25 +579,34 @@ function CartSidebar({ cart, storeInfo, userId, onClose, onOrderSuccess }: { car
                 أريد استقبال العروض والمنتجات الجديدة عبر واتساب
               </label>
 
-              {/* Summary */}
-              {form.city && (
-                <div style={{ background:'var(--void2)',borderRadius:'var(--r)',padding:'14px 16px',border:'1px solid var(--border)' }}>
-                  <div style={{ fontSize:12,fontWeight:700,color:'var(--ink3)',marginBottom:10 }}>ملخص الطلب</div>
-                  {cart.items.map((item,i)=>(
-                    <div key={i} style={{ display:'flex',justifyContent:'space-between',fontSize:12,color:'var(--ink2)',marginBottom:5 }}>
-                      <span>{item.product.name} x{item.quantity}</span>
-                      <span>{(item.product.price*item.quantity).toLocaleString()} {cur}</span>
-                    </div>
-                  ))}
-                  <div style={{ display:'flex',justifyContent:'space-between',fontSize:12,color:'var(--ink2)',paddingTop:8,borderTop:'1px solid var(--border)',marginTop:5 }}>
-                    <span>التوصيل إلى {form.city}</span><span>{deliveryCost} {cur}</span>
+              {/* Order summary — always visible in checkout */}
+              <div style={{ background:'var(--void2)',borderRadius:'var(--r)',padding:'14px 16px',border:'1px solid var(--border)' }}>
+                <div style={{ fontSize:12,fontWeight:700,color:'var(--ink3)',marginBottom:10,letterSpacing:'.06em' }}>ملخص الطلب</div>
+                {cart.items.map((item,i)=>(
+                  <div key={i} style={{ display:'flex',justifyContent:'space-between',fontSize:12,color:'var(--ink2)',marginBottom:5,gap:8 }}>
+                    <span style={{ flex:1 }}>{item.product.name}{item.size?` (${item.size})`:''}  {item.color?`· ${item.color}`:''} ×{item.quantity}</span>
+                    <span style={{ flexShrink:0,fontWeight:700 }}>{(item.product.price*item.quantity).toLocaleString()} {cur}</span>
                   </div>
-                  <div style={{ display:'flex',justifyContent:'space-between',fontSize:16,fontWeight:900,color:'var(--ink1)',paddingTop:10,marginTop:5 }}>
-                    <span>الإجمالي</span>
+                ))}
+                <div style={{ paddingTop:8,borderTop:'1px solid var(--border)',marginTop:8,display:'flex',flexDirection:'column',gap:5 }}>
+                  <div style={{ display:'flex',justifyContent:'space-between',fontSize:12,color:'var(--ink2)' }}>
+                    <span>المجموع الفرعي</span><span>{cart.total.toLocaleString()} {cur}</span>
+                  </div>
+                  {couponDiscount > 0 && (
+                    <div style={{ display:'flex',justifyContent:'space-between',fontSize:12,color:'var(--mint)',fontWeight:700 }}>
+                      <span>🏷️ الخصم</span><span>-{couponDiscount.toLocaleString()} {cur}</span>
+                    </div>
+                  )}
+                  <div style={{ display:'flex',justifyContent:'space-between',fontSize:12,color:'var(--ink2)' }}>
+                    <span>🚚 التوصيل إلى {form.city||'—'}</span>
+                    <span>{form.city ? `${deliveryCost} ${cur}` : 'يُحسب بعد اختيار المدينة'}</span>
+                  </div>
+                  <div style={{ display:'flex',justifyContent:'space-between',fontSize:16,fontWeight:900,color:'var(--ink1)',paddingTop:8,marginTop:2,borderTop:'1px solid var(--border)' }}>
+                    <span>💰 الإجمالي</span>
                     <span style={{ color:'var(--ember)' }}>{grandTotal.toLocaleString()} {cur}</span>
                   </div>
                 </div>
-              )}
+              </div>
 
               <button onClick={handleOrder} disabled={loading} style={{
                 width:'100%',height:52,background:'var(--ember)',border:'none',

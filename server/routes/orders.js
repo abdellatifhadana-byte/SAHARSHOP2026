@@ -2,6 +2,7 @@
 const { validateOrder, sanitizeBody } = require('../middleware/validate');
 const router = require('express').Router();
 const auth   = require('../middleware/auth');
+const crypto = require('crypto');
 const { db } = require('../database');
 
 router.get('/', auth, (req, res) => res.json(db.getOrders(req.user.id)));
@@ -57,7 +58,7 @@ router.put('/:id/approve', auth, (req, res) => {
   const providers = db.getDeliveryProviders(req.user.id).filter(p => p.enabled);
   if (settings.delivery?.autoSendOnApproval && providers.length > 0) {
     const prov = providers[0];
-    const tracking = `TRK-${Math.floor(Math.random() * 900000 + 100000)}`;
+    const tracking = `TRK-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
     db.updateOrder(order.id, { status: 'processing', deliveryProvider: prov.name, trackingNumber: tracking });
     db.addLog({ userId: req.user.id, user: 'System', action: `Sent to delivery: ${order.id}`, details: `${prov.name} — ${tracking}`, type: 'delivery', severity: 'info' });
   }
@@ -138,7 +139,7 @@ router.put('/:id/reject', auth, (req, res) => {
 router.put('/:id/ship', auth, (req, res) => {
   const o = db.getOrder(req.params.id);
   if (!o || o.userId !== req.user.id) return res.status(404).json({ error: 'Not found' });
-  const tracking = req.body.trackingNumber || `TRK-${Math.floor(Math.random() * 900000 + 100000)}`;
+  const tracking = req.body.trackingNumber || `TRK-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
   const prov = req.body.provider || db.getSettings(req.user.id)?.delivery?.defaultProvider || 'Amana';
   db.updateOrder(o.id, { status: 'shipped', trackingNumber: tracking, deliveryProvider: prov });
   db.addLog({ userId: req.user.id, user: 'Manager', action: `Shipped: ${o.id}`, details: tracking, type: 'delivery', severity: 'success' });
@@ -168,6 +169,14 @@ router.put('/:id/deliver', auth, (req, res) => {
   if (!o || o.userId !== req.user.id) return res.status(404).json({ error: 'Not found' });
   db.updateOrder(o.id, { status: 'delivered' });
   db.addLog({ userId: req.user.id, user: 'System', action: `Delivered: ${o.id}`, details: o.customerName, type: 'order', severity: 'success' });
+
+  // Award loyalty points on delivery confirmation
+  if (o.customerId && o.total > 0) {
+    const delivSettings = db.getSettings(req.user.id) || {};
+    const pts = Math.floor(o.total * (delivSettings.loyalty?.pointsPerMAD || 1));
+    try { db.addLoyaltyPoints(req.user.id, o.customerId, pts); } catch(e) {}
+  }
+
   req.app.get('broadcast')?.(req.user.id, { event: 'order_updated', data: db.getOrder(o.id) });
   
   // Generate WhatsApp review request
@@ -186,26 +195,20 @@ router.post('/public', sanitizeBody, validateOrder, async (req, res) => {
   if (!userId || !items?.length || !customerName || !customerPhone)
     return res.status(400).json({ error: 'userId, items, name, phone required' });
   try {
-    // Generate unique customer tracking code
-    const customerCode = Math.random().toString(36).slice(2, 8).toUpperCase();
-    
-    const order = db.createOrder({
-      userId, customerName, customerPhone, city: city||'', address: address||'',
-      items, total: +total||0, source: source||'Storefront',
-      status: 'pending', notes: notes||'',
-      customerCode,
-    });
+    // crypto.randomBytes: 8 hex chars, ~40 bits entropy — brute-force resistant
+    const customerCode = crypto.randomBytes(4).toString('hex').toUpperCase();
+
+    // Atomic transaction: both order + customer succeed or both roll back
+    const { order, customer } = db.createOrderWithCustomer(
+      { userId, customerName, customerPhone, city: city||'', address: address||'',
+        items, total: +total||0, source: source||'Storefront',
+        status: 'pending', notes: notes||'', customerCode },
+      { userId, name: customerName, phone: customerPhone,
+        city: city||'', address: address||'', source: source||'Storefront' }
+    );
+
     db.addNotification({ userId, type: 'info', message: `🛒 طلب جديد من ${customerName} — ${order.total} MAD` });
     db.addLog({ userId, user: 'Storefront', action: `New order: ${customerName}`, details: `${city} — ${total} MAD`, type: 'order', severity: 'info' });
-
-    // Find/create customer
-    const customers = db.getCustomers(userId);
-    let customer = customers.find(c => c.phone === customerPhone);
-    if (!customer) {
-      customer = db.createCustomer({ userId, name: customerName, phone: customerPhone, city: city||'', address: address||'', source: source||'Storefront' });
-    } else {
-      db.updateCustomer(customer.id, { lastOrderDate: new Date().toISOString().split('T')[0] });
-    }
 
     res.status(201).json({ order, customerId: customer.id });
   } catch (e) { res.status(500).json({ error: e.message }); }

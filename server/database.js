@@ -18,6 +18,11 @@ try { sqlite.exec("ALTER TABLE orders ADD COLUMN customerCode TEXT DEFAULT ''");
 // Migration: add colorImages and sizeType to products if missing
 try { sqlite.exec("ALTER TABLE products ADD COLUMN colorImages TEXT DEFAULT '{}'"); } catch {}
 try { sqlite.exec("ALTER TABLE products ADD COLUMN sizeType TEXT DEFAULT 'adult'"); } catch {}
+// Migration: add API fields to delivery_providers
+try { sqlite.exec("ALTER TABLE delivery_providers ADD COLUMN apiType TEXT DEFAULT ''"); } catch {}
+try { sqlite.exec("ALTER TABLE delivery_providers ADD COLUMN apiKey TEXT DEFAULT ''"); } catch {}
+try { sqlite.exec("ALTER TABLE delivery_providers ADD COLUMN apiEndpoint TEXT DEFAULT ''"); } catch {}
+try { sqlite.exec("ALTER TABLE delivery_providers ADD COLUMN webhookUrl TEXT DEFAULT ''"); } catch {}
 
 // ── Schema ────────────────────────────────────────────────────
 sqlite.exec(`
@@ -181,6 +186,19 @@ sqlite.exec(`
   );
 `);
 
+// ── Performance indexes — prevent full-table scans at 1000+ rows ─
+sqlite.exec(`
+  CREATE INDEX IF NOT EXISTS idx_orders_userId    ON orders(userId);
+  CREATE INDEX IF NOT EXISTS idx_orders_status    ON orders(status);
+  CREATE INDEX IF NOT EXISTS idx_orders_createdAt ON orders(createdAt);
+  CREATE INDEX IF NOT EXISTS idx_products_userId  ON products(userId);
+  CREATE INDEX IF NOT EXISTS idx_products_status  ON products(status);
+  CREATE INDEX IF NOT EXISTS idx_customers_userId ON customers(userId);
+  CREATE INDEX IF NOT EXISTS idx_customers_phone  ON customers(phone);
+  CREATE INDEX IF NOT EXISTS idx_convs_userId     ON conversations(userId);
+  CREATE INDEX IF NOT EXISTS idx_logs_userId      ON audit_logs(userId);
+`);
+
 // ── ID generator ──────────────────────────────────────────────
 function uid() { return crypto.randomBytes(8).toString('hex'); }
 function now() { return new Date().toISOString(); }
@@ -275,7 +293,8 @@ const db = {
     return o ? _parseOrder(o) : null;
   },
   createOrder(o) {
-    const customerCode = o.customerCode || Math.random().toString(36).slice(2,8).toUpperCase();
+    // crypto already imported at top — randomBytes is brute-force resistant unlike Math.random()
+    const customerCode = o.customerCode || crypto.randomBytes(4).toString('hex').toUpperCase();
     const order = { id: uid(), userId: o.userId, customerId: o.customerId||'', customerName: o.customerName, customerPhone: o.customerPhone||'', city: o.city||'', address: o.address||'', items: JSON.stringify(o.items||[]), total: +o.total||0, status: o.status||'pending', source: o.source||'manual', deliveryProvider: '', trackingNumber: '', notes: o.notes||'', needsReview: 0, reviewReason: '', customerCode, createdAt: now() };
     sqlite.prepare(`INSERT INTO orders (id,userId,customerId,customerName,customerPhone,city,address,items,total,status,source,deliveryProvider,trackingNumber,notes,needsReview,reviewReason,customerCode,createdAt) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(order.id,order.userId,order.customerId,order.customerName,order.customerPhone,order.city,order.address,order.items,order.total,order.status,order.source,order.deliveryProvider,order.trackingNumber,order.notes,order.needsReview,order.reviewReason,order.customerCode||'',order.createdAt);
     return _parseOrder(order);
@@ -284,6 +303,30 @@ const db = {
     const allowed = ['customerId','customerName','customerPhone','city','address','items','total','status','source','deliveryProvider','trackingNumber','notes','needsReview','reviewReason','customerCode'];
     _update('orders', id, u, allowed);
     return this.getOrder(id);
+  },
+
+  // Atomic: find-or-create customer + create order in a single SQLite transaction
+  // Prevents orphaned orders if customer insert fails
+  createOrderWithCustomer(orderData, customerData) {
+    return sqlite.transaction(() => {
+      // Find existing customer by phone under same userId
+      const existing = sqlite.prepare(
+        'SELECT * FROM customers WHERE userId = ? AND phone = ?'
+      ).get(customerData.userId, customerData.phone || '');
+
+      let customer;
+      if (existing) {
+        customer = _parseCustomer(existing);
+        // Update last order date
+        sqlite.prepare("UPDATE customers SET lastOrderDate = ? WHERE id = ?")
+          .run(new Date().toISOString().split('T')[0], customer.id);
+      } else {
+        customer = db.createCustomer(customerData);
+      }
+
+      const order = db.createOrder({ ...orderData, customerId: customer.id });
+      return { order, customer };
+    })();
   },
 
   // ── Conversations ─────────────────────────────────────────────
@@ -315,15 +358,16 @@ const db = {
 
   // ── Delivery providers ────────────────────────────────────────
   getDeliveryProviders(userId) {
-    return sqlite.prepare('SELECT * FROM delivery_providers WHERE userId = ? ORDER BY name').all(userId).map(p => ({ ...p, enabled: !!p.enabled, cost: +p.cost }));
+    return sqlite.prepare('SELECT * FROM delivery_providers WHERE userId = ? ORDER BY name').all(userId)
+      .map(p => ({ ...p, enabled: !!p.enabled, cost: +p.cost, apiType: p.apiType||'', apiKey: p.apiKey||'', apiEndpoint: p.apiEndpoint||'', webhookUrl: p.webhookUrl||'' }));
   },
   upsertDeliveryProvider(p) {
     const existing = p.id ? sqlite.prepare('SELECT id FROM delivery_providers WHERE id = ?').get(p.id) : null;
     if (existing) {
-      sqlite.prepare(`UPDATE delivery_providers SET name=?,websiteUrl=?,addOrderPage=?,trackingUrl=?,phone=?,cost=?,enabled=? WHERE id=?`).run(p.name,p.websiteUrl||'',p.addOrderPage||'',p.trackingUrl||'',p.phone||'',+(p.cost||0),p.enabled?1:1,p.id);
+      sqlite.prepare(`UPDATE delivery_providers SET name=?,websiteUrl=?,addOrderPage=?,trackingUrl=?,phone=?,cost=?,enabled=?,apiType=?,apiKey=?,apiEndpoint=?,webhookUrl=? WHERE id=?`).run(p.name,p.websiteUrl||'',p.addOrderPage||'',p.trackingUrl||'',p.phone||'',+(p.cost||0),p.enabled?1:1,p.apiType||'',p.apiKey||'',p.apiEndpoint||'',p.webhookUrl||'',p.id);
     } else {
       const id = uid();
-      sqlite.prepare(`INSERT INTO delivery_providers (id,userId,name,websiteUrl,addOrderPage,trackingUrl,phone,cost,enabled,createdAt) VALUES (?,?,?,?,?,?,?,?,?,?)`).run(id,p.userId,p.name,p.websiteUrl||'',p.addOrderPage||'',p.trackingUrl||'',p.phone||'',+(p.cost||0),1,now());
+      sqlite.prepare(`INSERT INTO delivery_providers (id,userId,name,websiteUrl,addOrderPage,trackingUrl,phone,cost,enabled,apiType,apiKey,apiEndpoint,webhookUrl,createdAt) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(id,p.userId,p.name,p.websiteUrl||'',p.addOrderPage||'',p.trackingUrl||'',p.phone||'',+(p.cost||0),1,p.apiType||'',p.apiKey||'',p.apiEndpoint||'',p.webhookUrl||'',now());
     }
   },
   deleteDeliveryProvider(id) {
@@ -458,4 +502,61 @@ db.findOrderByCode = function(userId, code) {
       "SELECT * FROM orders WHERE userId = ? AND UPPER(customerCode) = UPPER(?)"
     ).get(userId, (code || '').trim()) || null;
   } catch { return null; }
+};
+
+// ── COUPONS SYSTEM ────────────────────────────────────────────
+sqlite.exec(`
+  CREATE TABLE IF NOT EXISTS coupons (
+    id TEXT PRIMARY KEY,
+    userId TEXT NOT NULL,
+    code TEXT NOT NULL,
+    type TEXT DEFAULT 'percent',
+    value REAL DEFAULT 0,
+    minOrder REAL DEFAULT 0,
+    maxUses INTEGER DEFAULT 0,
+    usedCount INTEGER DEFAULT 0,
+    expiresAt TEXT DEFAULT '',
+    active INTEGER DEFAULT 1,
+    createdAt TEXT NOT NULL,
+    FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE
+  );
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_coupons_code ON coupons(userId, code);
+`);
+
+db.getCoupons = function(userId) {
+  return sqlite.prepare('SELECT * FROM coupons WHERE userId=? ORDER BY createdAt DESC').all(userId)
+    .map(c => ({ ...c, active: !!c.active }));
+};
+db.getCouponByCode = function(userId, code) {
+  return sqlite.prepare('SELECT * FROM coupons WHERE userId=? AND UPPER(code)=UPPER(?)').get(userId, (code||'').trim()) || null;
+};
+db.createCoupon = function(c) {
+  const id = uid();
+  sqlite.prepare(
+    'INSERT INTO coupons (id,userId,code,type,value,minOrder,maxUses,usedCount,expiresAt,active,createdAt) VALUES (?,?,?,?,?,?,?,0,?,1,?)'
+  ).run(id, c.userId, (c.code||'').toUpperCase().trim(), c.type||'percent', +(c.value||0), +(c.minOrder||0), +(c.maxUses||0), c.expiresAt||'', new Date().toISOString());
+  return db.getCoupons(c.userId).find(x => x.id === id);
+};
+db.updateCoupon = function(id, u) {
+  const allowed = ['code','type','value','minOrder','maxUses','expiresAt','active'];
+  _update('coupons', id, u, allowed);
+};
+db.deleteCoupon = function(id) {
+  sqlite.prepare('DELETE FROM coupons WHERE id=?').run(id);
+};
+db.incrementCouponUse = function(id) {
+  sqlite.prepare('UPDATE coupons SET usedCount=usedCount+1 WHERE id=?').run(id);
+};
+db.validateCoupon = function(userId, code, orderTotal) {
+  const c = db.getCouponByCode(userId, code);
+  if (!c) return { valid: false, reason: 'الكود غير موجود' };
+  if (!c.active) return { valid: false, reason: 'الكود غير نشط' };
+  if (c.maxUses > 0 && c.usedCount >= c.maxUses) return { valid: false, reason: 'تم استخدام هذا الكود بالكامل' };
+  if (c.expiresAt && new Date(c.expiresAt) < new Date()) return { valid: false, reason: 'انتهت صلاحية الكود' };
+  if (c.minOrder > 0 && orderTotal < c.minOrder) return { valid: false, reason: `الحد الأدنى للطلب ${c.minOrder} ${c.currency||'MAD'}` };
+  let discount = 0;
+  if (c.type === 'percent') discount = Math.round(orderTotal * c.value / 100);
+  else if (c.type === 'fixed') discount = Math.min(c.value, orderTotal);
+  else if (c.type === 'shipping') discount = 0; // handled on frontend
+  return { valid: true, discount, type: c.type, value: c.value, couponId: c.id };
 };

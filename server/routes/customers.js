@@ -3,7 +3,30 @@ const router = require('express').Router();
 const auth   = require('../middleware/auth');
 const { db } = require('../database');
 
-router.get('/', auth, (req, res) => res.json(db.getCustomers(req.user.id)));
+// GET /api/customers?limit=50&offset=0&q=
+// Paginated — default page size 50, max 200
+router.get('/', auth, (req, res) => {
+  const limit  = Math.min(parseInt(req.query.limit)  || 50,  200);
+  const offset = Math.max(parseInt(req.query.offset) || 0,   0);
+  const q      = (req.query.q || '').toLowerCase().trim();
+
+  const all     = db.getCustomers(req.user.id);
+  const filtered = q
+    ? all.filter(c =>
+        c.name?.toLowerCase().includes(q) ||
+        c.phone?.includes(q)              ||
+        c.city?.toLowerCase().includes(q)
+      )
+    : all;
+
+  res.json({
+    data:   filtered.slice(offset, offset + limit),
+    total:  filtered.length,
+    limit,
+    offset,
+    hasMore: offset + limit < filtered.length,
+  });
+});
 
 router.post('/', auth, (req, res) => {
   const c = db.createCustomer({ ...req.body, userId: req.user.id });

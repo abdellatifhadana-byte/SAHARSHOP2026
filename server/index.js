@@ -24,33 +24,52 @@ const DATA_DIR = path.join(__dirname, 'data');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
 // ── Middleware ───────────────────────────────────────────────
-app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
+// CSP: restrictive in production, relaxed locally for Vite HMR
+app.use(helmet({
+  contentSecurityPolicy: process.env.NODE_ENV === 'production' ? {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],           // React needs inline scripts
+      styleSrc:  ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+      imgSrc:    ["'self'", 'data:', 'https:', 'blob:'],  // base64 product images
+      connectSrc:["'self'",
+        'https://api.openai.com',
+        'https://generativelanguage.googleapis.com',
+        'https://graph.facebook.com',
+      ],
+      fontSrc:   ["'self'", 'https://fonts.gstatic.com'],
+      mediaSrc:  ["'self'", 'blob:'],
+      objectSrc: ["'none'"],
+      frameAncestors: ["'none'"],
+    },
+  } : false,
+  crossOriginEmbedderPolicy: false,
+}));
 app.use(compression());
 
-const allowedOrigins = [
-  process.env.FRONTEND_URL || 'http://localhost:5173',
-  'http://localhost:3000',
-  'http://localhost:3001',
-  'http://localhost:4173',
-];
-if (process.env.PRODUCTION_URL) allowedOrigins.push(process.env.PRODUCTION_URL);
-
+// CORS: strict allowlist — unknown origins blocked in production
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow: no origin (mobile apps, curl), localhost, Railway, configured domains
+    // Allow: no origin (same-origin, Capacitor mobile apps)
     if (!origin) return callback(null, true);
     const allowed = [
-      'http://localhost:5173', 'http://localhost:3001', 'http://localhost:4173',
-      ...(process.env.PRODUCTION_URL ? [process.env.PRODUCTION_URL] : []),
+      'http://localhost:5173', 'http://localhost:3000',
+      'http://localhost:3001', 'http://localhost:4173',
+      ...(process.env.PRODUCTION_URL   ? [process.env.PRODUCTION_URL]                          : []),
+      ...(process.env.FRONTEND_URL     ? [process.env.FRONTEND_URL]                            : []),
       ...(process.env.RAILWAY_PUBLIC_DOMAIN ? [`https://${process.env.RAILWAY_PUBLIC_DOMAIN}`] : []),
     ];
-    if (allowed.some(o => origin.startsWith(o)) || origin.endsWith('.railway.app') || origin.endsWith('.up.railway.app')) {
-      return callback(null, true);
-    }
-    // In production, log unknown origins but allow (for mobile apps)
+    const permitted =
+      allowed.some(o => origin.startsWith(o)) ||
+      origin.endsWith('.railway.app') ||
+      origin.endsWith('.up.railway.app');
+
+    if (permitted) return callback(null, true);
+
+    // Production: block unknown origins — do NOT silently allow
     if (process.env.NODE_ENV === 'production') {
-      console.warn('[CORS] Unknown origin:', origin);
-      return callback(null, true);
+      console.warn('[CORS] Blocked unknown origin in production:', origin);
+      return callback(new Error(`CORS: ${origin} not allowed`));
     }
     callback(new Error(`CORS: ${origin} not allowed`));
   },
@@ -78,6 +97,7 @@ app.use('/api/webhooks',      require('./routes/webhooks'));
 app.use('/api/analytics',     require('./routes/analytics'));
 app.use('/api/media',         require('./routes/media'));
 app.use('/api/loyalty', require('./routes/loyalty'));
+app.use('/api/coupons',       require('./routes/coupons'));
 app.use('/api/ai',            require('./routes/ai'));
 
 // ── Health ───────────────────────────────────────────────────

@@ -21,6 +21,7 @@ interface StoreValue {
   notifications: AppNotification[];
   currentPage: Page;
   currentRole: UserRole;
+  isLoading: boolean;
   isOnline: boolean;
   sidebarOpen: boolean;
 
@@ -94,24 +95,30 @@ function getInitialPage(): Page {
   return (URL_TO_PAGE[path] as Page) || 'dashboard';
 }
 
-// Read token from localStorage on startup
+// TODO v3.3: migrate token storage to HttpOnly secure cookies to eliminate XSS exposure.
+// localStorage is used here for simplicity — acceptable for MVP but not production hardened.
 const storedToken = (() => { try { return localStorage.getItem('ai_commerce_token'); } catch { return null; } })();
 if (storedToken) api.setToken(storedToken);
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
+  // Demo token: keep seed data so the demo experience works without a backend.
+  // Real login: start with empty arrays — real data loads from backend via refreshData().
+  const isDemo = storedToken === 'demo-token-local';
+
   const [state, setState] = useState({
     token: storedToken,
     user: (() => { try { const u = localStorage.getItem('ai_commerce_user'); return u ? JSON.parse(u) : null; } catch { return null; } })(),
     settings: defaultSettings,
-    products: seedProducts,
-    customers: seedCustomers,
-    orders: seedOrders,
-    conversations: seedConversations,
-    auditLogs: seedAuditLogs,
+    products:      isDemo ? seedProducts      : [] as typeof seedProducts,
+    customers:     isDemo ? seedCustomers     : [] as typeof seedCustomers,
+    orders:        isDemo ? seedOrders        : [] as typeof seedOrders,
+    conversations: isDemo ? seedConversations : [] as typeof seedConversations,
+    auditLogs:     isDemo ? seedAuditLogs     : [] as typeof seedAuditLogs,
     notifications: [] as AppNotification[],
     currentPage: (storedToken ? getInitialPage() : 'dashboard') as Page,
     currentRole: 'admin' as UserRole,
     isOnline: false,
+    isLoading: !!storedToken && !isDemo, // true only for real logged-in users pending first fetch
     sidebarOpen: false,
   });
 
@@ -127,9 +134,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   // Full data sync from backend
   const refreshData = useCallback(async () => {
-    // Demo mode: skip backend calls
+    // Demo mode: skip backend calls, seed data already in state
     if (api.getToken() === 'demo-token-local') {
-      setState(s => ({ ...s, isOnline: false }));
+      setState(s => ({ ...s, isOnline: false, isLoading: false }));
       return;
     }
     const online = await api.checkBackend();
@@ -138,13 +145,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const saved = localStorage.getItem('ai_commerce_os_state');
         if (saved) {
           const parsed = JSON.parse(saved);
-          setState(s => ({ ...s, ...parsed, isOnline: false, token: s.token, user: s.user }));
+          setState(s => ({ ...s, ...parsed, isOnline: false, isLoading: false, token: s.token, user: s.user }));
+        } else {
+          setState(s => ({ ...s, isLoading: false }));
         }
-      } catch {}
+      } catch { setState(s => ({ ...s, isLoading: false })); }
       return;
     }
 
-    if (!api.getToken()) { setState(s => ({ ...s, isOnline: true })); return; }
+    if (!api.getToken()) { setState(s => ({ ...s, isOnline: true, isLoading: false })); return; }
 
     try {
       const meData = await api.authAPI.me().catch(() => null);
@@ -163,13 +172,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         user: currentUser || s.user,
         products: products || s.products,
         orders: orders || s.orders,
-        customers: customers || s.customers,
+        customers: (customers as any)?.data ?? customers ?? s.customers,
         settings: (settings && settings.brand) ? { ...s.settings, ...settings } : s.settings,
         conversations: convs || s.conversations,
         isOnline: true,
+        isLoading: false,
       }));
     } catch (e: any) {
-      setState(s => ({ ...s, isOnline: false }));
+      setState(s => ({ ...s, isOnline: false, isLoading: false }));
     }
   }, []);
 
