@@ -113,7 +113,7 @@ export default function ImageEditorPage() {
           content: storeName,
           x: 50, y: 90,
           size: 32,
-          color: '#FF4D1A',
+          color: '#FF6A00',
           opacity: 1,
         }]);
       }, 300);
@@ -184,7 +184,7 @@ export default function ImageEditorPage() {
     const cur = settings.brand.currency || 'MAD';
     setLayers([
       { id:uid(), type:'text', content:p.name, x:exportSize.w/2, y:exportSize.h*0.75, size:42, color:'#ffffff' },
-      { id:uid(), type:'text', content:`${p.price} ${cur}`, x:exportSize.w/2, y:exportSize.h*0.85, size:38, color:'#FF4D1A' },
+      { id:uid(), type:'text', content:`${p.price} ${cur}`, x:exportSize.w/2, y:exportSize.h*0.85, size:38, color:'#FF6A00' },
     ]);
   };
 
@@ -247,7 +247,7 @@ export default function ImageEditorPage() {
               <button key={s.label} onClick={()=>setExportSize(s)} style={{
                 padding:'5px 12px',borderRadius:8,fontSize:11,fontWeight:600,cursor:'pointer',
                 border:`1px solid ${exportSize.label===s.label?'var(--ember)':'var(--border)'}`,
-                background:exportSize.label===s.label?'rgba(255,77,26,.1)':'var(--panel)',
+                background:exportSize.label===s.label?'rgba(255,106,0,.1)':'var(--panel)',
                 color:exportSize.label===s.label?'var(--ember2)':'var(--ink2)',
               }}>{s.desc} ({s.w}×{s.h})</button>
             ))}
@@ -333,7 +333,7 @@ export default function ImageEditorPage() {
                   setLayers(l => [...l, { id:uid(), type:'logo', content:dataUrl, x:exportSize.w*0.85, y:exportSize.h*0.1, size:100 }]);
                 };
                 img.onerror = () => logoRef.current?.click();
-              }} className="btn btn-ghost btn-sm" style={{ gap:6,fontSize:11,width:'100%',background:'rgba(255,77,26,.08)',border:'1px solid rgba(255,77,26,.2)',color:'var(--ember)' }}>
+              }} className="btn btn-ghost btn-sm" style={{ gap:6,fontSize:11,width:'100%',background:'rgba(255,106,0,.08)',border:'1px solid rgba(255,106,0,.2)',color:'var(--ember)' }}>
                 <img src="/sahar-logo-text.png" alt="" style={{ width:14,height:14,objectFit:'contain' }}/> لوغو SAHAR shop
               </button>
               <button onClick={()=>logoRef.current?.click()} className="btn btn-ghost btn-sm" style={{ gap:6,fontSize:11,width:'100%' }}>
@@ -375,14 +375,14 @@ export default function ImageEditorPage() {
               {[...layers].reverse().map(layer=>(
                 <div key={layer.id} onClick={()=>setSelected(layer.id)} style={{
                   display:'flex',alignItems:'center',gap:8,padding:'7px 10px',borderRadius:8,marginBottom:4,cursor:'pointer',
-                  background:selected===layer.id?'rgba(255,77,26,.1)':'var(--void2)',
+                  background:selected===layer.id?'rgba(255,106,0,.1)':'var(--void2)',
                   border:`1px solid ${selected===layer.id?'var(--ember)':'transparent'}`,
                 }}>
                   <span style={{ fontSize:14 }}>{layer.type==='sticker'?layer.content:layer.type==='logo'?'🖼':'"'}</span>
                   <span style={{ flex:1,fontSize:11,color:'var(--ink2)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>
                     {layer.type==='text'?layer.content:layer.type==='logo'?'لوغو':'ملصق'}
                   </span>
-                  <button onClick={e=>{e.stopPropagation();removeLayer(layer.id)}} style={{ width:22,height:22,borderRadius:5,background:'rgba(255,77,26,.12)',border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--ember)' }}>
+                  <button onClick={e=>{e.stopPropagation();removeLayer(layer.id)}} style={{ width:22,height:22,borderRadius:5,background:'rgba(255,106,0,.12)',border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--ember)' }}>
                     <Trash2 size={10}/>
                   </button>
                 </div>

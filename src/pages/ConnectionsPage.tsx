@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useStore } from '../store';
-import { Wifi, CheckCircle, Loader2, Eye, EyeOff, AlertTriangle, ExternalLink, RefreshCw } from 'lucide-react';
+import { Wifi, CheckCircle, Loader2, Eye, EyeOff, AlertTriangle, ExternalLink, RefreshCw, Zap } from 'lucide-react';
 import { IconWhatsApp, IconFacebook, IconInstagram, IconTikTok } from '../components/icons';
 
 const SERVICES = [
@@ -56,7 +56,37 @@ const SERVICES = [
     guide: ['اذهب لـ ads.tiktok.com', 'أنشئ حساب Ads Manager', 'اذهب إلى Tools > API', 'أنشئ Access Token'],
     url: 'https://ads.tiktok.com',
   },
+  {
+    id: 'supabase', name: 'Supabase', icon: '⚡', grad: 'linear-gradient(135deg,#3ecf8e,#1a7a4c)', desc: 'قاعدة بيانات سحابية — نسخة احتياطية تلقائية',
+    fields: [
+      { key: 'supabaseUrl', label: 'Project URL', ph: 'https://xxxx.supabase.co', help: 'من Settings → API في مشروعك', direct: true },
+      { key: 'supabaseKey', label: 'Anon Key', ph: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...', help: 'المفتاح العام (anon/public)', secret: true, direct: true },
+    ],
+    guide: ['اذهب لـ supabase.com وأنشئ مشروعاً', 'اذهب لـ Settings → API', 'انسخ Project URL', 'انسخ anon public key'],
+    url: 'https://supabase.com',
+  },
+  {
+    id: 'cloudinary', name: 'Cloudinary', icon: '☁️', grad: 'linear-gradient(135deg,#3448c5,#6875f5)', desc: 'رفع وتخزين الصور تلقائياً — CDN عالمي',
+    fields: [
+      { key: 'cloudinaryCloudName', label: 'Cloud Name', ph: 'my-store', help: 'من Dashboard → Cloud Name', direct: true },
+      { key: 'cloudinaryApiKey', label: 'API Key', ph: '123456789012345', help: 'من Settings → Access Keys', direct: true },
+      { key: 'cloudinaryApiSecret', label: 'API Secret', ph: 'xxxxxxxxxxxxxxxxxxxxxxxx', help: 'من Settings → Access Keys', secret: true, direct: true },
+    ],
+    guide: ['سجل على cloudinary.com', 'اذهب لـ Dashboard', 'انسخ Cloud Name', 'من Settings → Access Keys انسخ API Key و Secret'],
+    url: 'https://cloudinary.com',
+  },
 ];
+
+// Service IDs that store directly in settings (not in settings.social)
+const DIRECT_FIELDS = new Set(['supabase', 'cloudinary']);
+
+const FIELD_KEY_MAP: Record<string, string> = {
+  'supabase.supabaseUrl': 'supabaseUrl',
+  'supabase.supabaseKey': 'supabaseKey',
+  'cloudinary.cloudinaryCloudName': 'cloudinaryCloudName',
+  'cloudinary.cloudinaryApiKey': 'cloudinaryApiKey',
+  'cloudinary.cloudinaryApiSecret': 'cloudinaryApiSecret',
+};
 
 export default function ConnectionsPage() {
   const { settings, updateSettings, notify } = useStore();
@@ -64,12 +94,16 @@ export default function ConnectionsPage() {
   const [visible, setVisible] = useState<Record<string, boolean>>({});
   const [values, setValues] = useState<Record<string, Record<string, string>>>({});
   const [loading, setLoading] = useState<Record<string, boolean>>({});
+  const [testResults, setTestResults] = useState<Record<string, { ok: boolean; info?: string } | null>>({});
+  const [testingAll, setTestingAll] = useState(false);
 
-  const stored = (id: string, key: string) => {
+  const stored = (id: string, key: string): string => {
     if (id === 'openai') return settings.ai.apiKey || '';
     if (id === 'gemini') return settings.ai.geminiKey || '';
+    if (id === 'supabase') return (settings as any)[key] || '';
+    if (id === 'cloudinary') return (settings as any)[key] || '';
     const s = settings.social[id as keyof typeof settings.social];
-    return !s ? '' : key === 'pageId' || key === 'phoneId' ? (s.pageId || '') : (s.accessToken || '');
+    return !s ? '' : key === 'pageId' || key === 'phoneId' ? (s.pageId || '') : key === 'advertiserId' ? ((s as any).advertiserId || '') : (s.accessToken || '');
   };
 
   const val = (id: string, k: string) => values[id]?.[k] ?? stored(id, k);
@@ -78,8 +112,12 @@ export default function ConnectionsPage() {
   const isConnected = (id: string) => {
     if (id === 'openai') return !!settings.ai.apiKey;
     if (id === 'gemini') return !!settings.ai.geminiKey;
+    if (id === 'supabase') return !!(settings as any).supabaseUrl && !!(settings as any).supabaseKey;
+    if (id === 'cloudinary') return !!(settings as any).cloudinaryCloudName && !!(settings as any).cloudinaryApiKey;
     return settings.social[id as keyof typeof settings.social]?.connected || false;
   };
+
+  const getToken = () => localStorage.getItem('ai_commerce_token') || '';
 
   const connect = useCallback(async (svc: typeof SERVICES[0]) => {
     const allFilled = svc.fields.every(f => val(svc.id, f.key).trim());
@@ -88,45 +126,77 @@ export default function ConnectionsPage() {
     let ok = false;
     try {
       if (svc.id === 'openai') {
-        try {
-          const authTok2 = localStorage.getItem('ai_commerce_token') || '';
-          const r2 = await fetch('/api/settings/verify-connection', {
-            method: 'POST', signal: AbortSignal.timeout(12000),
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authTok2}` },
-            body: JSON.stringify({ service: 'openai', apiKey: val('openai', 'apiKey') }),
-          });
-          const d2 = await r2.json();
-          ok = d2.ok;
-          if (ok) { updateSettings('ai', { ...settings.ai, apiKey: val('openai', 'apiKey'), provider: 'openai' }); notify('success', `✅ OpenAI متصل! ${d2.info || ''}`); }
-          else notify('error', `❌ مفتاح OpenAI غير صحيح: ${d2.error}`);
-        } catch { ok = false; notify('error', '❌ خطأ في الاتصال بـ OpenAI'); }
+        const r = await fetch('/api/settings/verify-connection', {
+          method: 'POST', signal: AbortSignal.timeout(12000),
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
+          body: JSON.stringify({ service: 'openai', apiKey: val('openai', 'apiKey') }),
+        });
+        const d = await r.json();
+        ok = d.ok;
+        if (ok) { updateSettings('ai', { ...settings.ai, apiKey: val('openai', 'apiKey'), provider: 'openai' }); notify('success', `✅ OpenAI متصل! ${d.info || ''}`); }
+        else notify('error', `❌ مفتاح OpenAI غير صحيح: ${d.error}`);
+
       } else if (svc.id === 'gemini') {
-        const k = val('gemini', 'geminiKey');
-        const r = await fetch(`https://generativelanguage.googleapis.com/v1/models?key=${k}`, { signal: AbortSignal.timeout(8000) });
-        ok = r.ok;
-        if (ok) { updateSettings('ai', { ...settings.ai, geminiKey: k, provider: 'gemini' }); notify('success', '✅ Gemini متصل!'); }
-        else notify('error', '❌ مفتاح Gemini غير صحيح');
-      } else {
-        const token = val(svc.id, 'accessToken'); const pageId = val(svc.id, 'pageId') || val(svc.id, 'phoneId') || '';
-        // Use backend proxy to avoid CORS
+        const r = await fetch('/api/settings/verify-connection', {
+          method: 'POST', signal: AbortSignal.timeout(12000),
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
+          body: JSON.stringify({ service: 'gemini', apiKey: val('gemini', 'geminiKey') }),
+        });
+        const d = await r.json();
+        ok = d.ok;
+        if (ok) { updateSettings('ai', { ...settings.ai, geminiKey: val('gemini', 'geminiKey'), provider: 'gemini' }); notify('success', `✅ Gemini متصل! ${d.info || ''}`); }
+        else notify('error', `❌ مفتاح Gemini غير صحيح: ${d.error}`);
+
+      } else if (svc.id === 'supabase') {
+        const url = val('supabase', 'supabaseUrl');
+        const key = val('supabase', 'supabaseKey');
         try {
-          const authTok = localStorage.getItem('ai_commerce_token') || '';
-          const r = await fetch('/api/settings/verify-connection', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authTok}` },
-            body: JSON.stringify({ service: svc.id, token, pageId }),
-            signal: AbortSignal.timeout(12000),
+          const r = await fetch(`${url}/rest/v1/`, { headers: { 'apikey': key, 'Authorization': `Bearer ${key}` }, signal: AbortSignal.timeout(8000) });
+          ok = r.status < 400;
+        } catch { ok = false; }
+        if (ok) {
+          updateSettings('supabaseUrl' as any, url);
+          updateSettings('supabaseKey' as any, key);
+          updateSettings('cloudEnabled' as any, true);
+          notify('success', '✅ Supabase متصل!');
+        } else notify('error', '❌ URL أو Key غير صحيح');
+
+      } else if (svc.id === 'cloudinary') {
+        const cn = val('cloudinary', 'cloudinaryCloudName');
+        const ak = val('cloudinary', 'cloudinaryApiKey');
+        const as_ = val('cloudinary', 'cloudinaryApiSecret');
+        try {
+          const auth64 = btoa(`${ak}:${as_}`);
+          const r = await fetch(`/api/settings/verify-connection`, {
+            method: 'POST', signal: AbortSignal.timeout(10000),
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
+            body: JSON.stringify({ service: 'cloudinary', cloudName: cn, apiKey: ak, apiSecret: as_ }),
           });
           const d = await r.json();
           ok = d.ok;
-          if (ok) {
-            updateSettings('social', { ...settings.social, [svc.id]: { ...settings.social[svc.id as keyof typeof settings.social], connected: true, pageId, accessToken: token, name: d.name || svc.name } });
-            notify('success', `✅ ${svc.name} متصل${d.name ? ` — ${d.name}` : ''}!`);
-          } else {
-            notify('error', `❌ ${svc.name}: ${d.error || 'Token غير صحيح'}`);
-          }
-        } catch (err: any) {
-          notify('error', `❌ خطأ: ${err.message}`);
+        } catch { ok = false; }
+        if (ok) {
+          updateSettings('cloudinaryCloudName' as any, cn);
+          updateSettings('cloudinaryApiKey' as any, ak);
+          updateSettings('cloudinaryApiSecret' as any, as_);
+          notify('success', '✅ Cloudinary متصل!');
+        } else notify('error', '❌ بيانات Cloudinary غير صحيحة');
+
+      } else {
+        const token2 = val(svc.id, 'accessToken');
+        const pageId = val(svc.id, 'pageId') || val(svc.id, 'phoneId') || '';
+        const r = await fetch('/api/settings/verify-connection', {
+          method: 'POST', signal: AbortSignal.timeout(12000),
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
+          body: JSON.stringify({ service: svc.id, token: token2, pageId }),
+        });
+        const d = await r.json();
+        ok = d.ok;
+        if (ok) {
+          updateSettings('social', { ...settings.social, [svc.id]: { ...settings.social[svc.id as keyof typeof settings.social], connected: true, pageId, accessToken: token2, name: d.name || svc.name } });
+          notify('success', `✅ ${svc.name} متصل${d.name ? ` — ${d.name}` : ''}!`);
+        } else {
+          notify('error', `❌ ${svc.name}: ${d.error || 'Token غير صحيح'}`);
         }
       }
     } catch (e: any) { notify('error', `❌ ${e.message || 'خطأ في الاتصال'}`); }
@@ -136,8 +206,29 @@ export default function ConnectionsPage() {
   const disconnect = (svc: typeof SERVICES[0]) => {
     if (svc.id === 'openai') updateSettings('ai', { ...settings.ai, apiKey: '' });
     else if (svc.id === 'gemini') updateSettings('ai', { ...settings.ai, geminiKey: '' });
+    else if (svc.id === 'supabase') { updateSettings('supabaseUrl' as any, ''); updateSettings('supabaseKey' as any, ''); }
+    else if (svc.id === 'cloudinary') { updateSettings('cloudinaryCloudName' as any, ''); updateSettings('cloudinaryApiKey' as any, ''); updateSettings('cloudinaryApiSecret' as any, ''); }
     else updateSettings('social', { ...settings.social, [svc.id]: { ...settings.social[svc.id as keyof typeof settings.social], connected: false, pageId: '', accessToken: '' } });
+    setTestResults(p => ({ ...p, [svc.id]: null }));
     notify('warning', `🔌 تم قطع الاتصال بـ ${svc.name}`);
+  };
+
+  const testAll = async () => {
+    setTestingAll(true);
+    try {
+      const r = await fetch('/api/settings/verify-all', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
+      });
+      const results = await r.json();
+      setTestResults(results);
+      const ok = Object.values(results).filter((v: any) => v?.ok).length;
+      const total = Object.keys(results).length;
+      notify(ok === total ? 'success' : 'warning', `${ok === total ? '✅' : '⚠️'} ${ok}/${total} اتصالات تعمل`);
+    } catch (e: any) {
+      notify('error', `❌ خطأ في الاختبار: ${e.message}`);
+    }
+    setTestingAll(false);
   };
 
   const connected = SERVICES.filter(s => isConnected(s.id)).length;
@@ -149,11 +240,17 @@ export default function ConnectionsPage() {
         <p className="page-sub">اربط حساباتك مرة واحدة — النظام يتكفل بالباقي</p>
       </div>
 
-      {/* Progress */}
+      {/* Progress + Test All */}
       <div className="card" style={{ padding: '18px 20px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
           <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--txt-1)' }}>حالة الاتصالات</span>
-          <span style={{ fontSize: 14, fontWeight: 900, color: connected === SERVICES.length ? '#34d399' : 'var(--clr-warn)' }}>{connected}/{SERVICES.length}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 14, fontWeight: 900, color: connected === SERVICES.length ? '#34d399' : 'var(--clr-warn)' }}>{connected}/{SERVICES.length}</span>
+            <button onClick={testAll} disabled={testingAll || connected === 0} className="btn btn-ghost btn-sm" style={{ gap: 6, opacity: connected === 0 ? 0.4 : 1 }}>
+              {testingAll ? <Loader2 size={13} className="spin" /> : <Zap size={13} />}
+              اختبار جميع الاتصالات
+            </button>
+          </div>
         </div>
         <div className="progress-bar"><div className="progress-fill" style={{ width: `${(connected / SERVICES.length) * 100}%` }} /></div>
         {connected === 0 && <p style={{ fontSize: 12, color: 'var(--txt-3)', marginTop: 8, textAlign: 'center' }}>التطبيق يعمل بمحاكاة ذكية بدون ربط — الربط للنشر الحقيقي فقط</p>}
@@ -164,20 +261,26 @@ export default function ConnectionsPage() {
         {SERVICES.map(svc => {
           const conn = isConnected(svc.id);
           const open = expanded === svc.id;
+          const testResult = testResults[svc.id];
           return (
-            <div key={svc.id} className="card" style={{ overflow: 'hidden', borderColor: conn ? 'rgba(16,185,129,0.25)' : undefined }}>
+            <div key={svc.id} className="card" style={{ overflow: 'hidden', borderColor: conn ? (testResult === null ? 'var(--border)' : testResult?.ok ? 'rgba(16,185,129,0.25)' : 'rgba(239,68,68,0.25)') : conn ? 'rgba(16,185,129,0.25)' : undefined }}>
               {/* Header */}
               <div onClick={() => setExpanded(open ? null : svc.id)}
                 style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '16px 18px', cursor: 'pointer', transition: 'background .18s' }}
                 onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.03)')}
                 onMouseLeave={e => (e.currentTarget.style.background = '')}>
                 <div style={{ width: 46, height: 46, borderRadius: 13, background: svc.grad, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 4px 14px rgba(0,0,0,0.3)', overflow: 'hidden', padding: 6 }}>
-                  {svc.Icon ? <svc.Icon /> : <span style={{ fontSize: 22 }}>{svc.icon}</span>}
+                  {(() => { const SvcIcon = (svc as any).Icon; return SvcIcon ? <SvcIcon /> : <span style={{ fontSize: 22 }}>{(svc as any).icon}</span>; })()}
                 </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <p style={{ fontSize: 15, fontWeight: 900, color: 'var(--txt-1)' }}>{svc.name}</p>
                     {conn && <CheckCircle size={15} color="#34d399" />}
+                    {testResult && (
+                      <span style={{ fontSize: 10, fontWeight: 800, padding: '1px 7px', borderRadius: 99, background: testResult.ok ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)', color: testResult.ok ? '#34d399' : '#f87171' }}>
+                        {testResult.ok ? `✅ يعمل${testResult.info ? ` · ${testResult.info}` : ''}` : '❌ لا يعمل'}
+                      </span>
+                    )}
                   </div>
                   <p style={{ fontSize: 12.5, color: 'var(--txt-3)', marginTop: 2 }}>{svc.desc}</p>
                 </div>
@@ -245,7 +348,7 @@ export default function ConnectionsPage() {
         <AlertTriangle size={18} color="#fbbf24" style={{ flexShrink: 0, marginTop: 1 }} />
         <div>
           <p style={{ fontSize: 13, fontWeight: 800, color: '#fbbf24', marginBottom: 3 }}>ملاحظة أمنية</p>
-          <p style={{ fontSize: 12, color: 'var(--txt-3)', lineHeight: 1.6 }}>المفاتيح تُحفظ في متصفحك. لا تشاركها مع أحد. للاستخدام الاحترافي يُنصح بـ Backend + تشفير قاعدة البيانات.</p>
+          <p style={{ fontSize: 12, color: 'var(--txt-3)', lineHeight: 1.6 }}>المفاتيح تُحفظ في متصفحك وترسل للخادم المحلي. لا تشاركها مع أحد. للاستخدام الاحترافي يُنصح بـ Backend + تشفير قاعدة البيانات.</p>
         </div>
       </div>
     </div>

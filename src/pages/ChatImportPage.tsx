@@ -137,7 +137,7 @@ function extractCustomersLocally(text: string, source: string): ExtractedCustome
 // ══════════════════════════════════════════════
 // AI EXTRACTOR (with API key)
 // ══════════════════════════════════════════════
-async function extractWithAI(text: string, source: string, token: string): Promise<ExtractedCustomer[]> {
+async function extractWithAI(text: string, source: string, token: string, settings: any): Promise<ExtractedCustomer[]> {
   const chunk = text.slice(0, 8000); // Send first 8K chars to AI
   const prompt = `أنت خبير استخراج بيانات. من هذه المحادثة الواحدة أو المتعددة، استخرج معلومات كل زبون.
 
@@ -146,7 +146,7 @@ async function extractWithAI(text: string, source: string, token: string): Promi
   "customers": [
     {
       "name": "الاسم أو فارغ",
-      "phone": "رقم الهاتف بدون مسافات أو فارغ", 
+      "phone": "رقم الهاتف بدون مسافات أو فارغ",
       "city": "المدينة المغربية أو فارغ",
       "address": "العنوان التفصيلي أو فارغ",
       "orders": ["منتج1", "منتج2"],
@@ -164,13 +164,22 @@ ${chunk}`;
     const r = await fetch('/api/ai/reply', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-      body: JSON.stringify({ message: prompt, history: [], systemPrompt: 'أنت خبير استخراج بيانات. أرجع JSON فقط بدون أي نص آخر.' }),
+      body: JSON.stringify({
+        message: prompt,
+        history: [],
+        products: [],
+        settings,
+        systemPrompt: 'أنت خبير استخراج بيانات. أرجع JSON فقط بدون أي نص آخر أو تفسير.',
+      }),
     });
     const data = await r.json();
     const text2 = data.reply || '';
     const clean = text2.replace(/```json\n?/g,'').replace(/```/g,'').trim();
-    const parsed = JSON.parse(clean);
-    
+    const jsonStart = clean.indexOf('{');
+    const jsonEnd = clean.lastIndexOf('}');
+    const jsonStr = jsonStart >= 0 && jsonEnd > jsonStart ? clean.slice(jsonStart, jsonEnd + 1) : clean;
+    const parsed = JSON.parse(jsonStr);
+
     return (parsed.customers || []).map((c: any, i: number) => ({
       id: `ai-${Date.now()}-${i}`,
       name: c.name || `زبون ${i+1}`,
@@ -233,7 +242,7 @@ export default function ChatImportPage() {
       
       if (hasAIKey && useAI) {
         notify('info', '🤖 AI يحلل المحادثة...');
-        extracted = await extractWithAI(content, source, token || '');
+        extracted = await extractWithAI(content, source, token || '', settings);
       } else {
         extracted = extractCustomersLocally(content, source);
       }
@@ -341,7 +350,7 @@ export default function ChatImportPage() {
                 <button key={s} onClick={()=>setSource(s)} style={{
                   padding:'7px 16px',borderRadius:99,fontSize:13,fontWeight:600,cursor:'pointer',
                   border:`1px solid ${source===s?'var(--ember)':'var(--border)'}`,
-                  background:source===s?'rgba(255,77,26,.1)':'var(--panel)',
+                  background:source===s?'rgba(255,106,0,.1)':'var(--panel)',
                   color:source===s?'var(--ember2)':'var(--ink2)',transition:'all .15s',
                 }}>
                   {s==='WhatsApp'?'💬 ':s==='Messenger'?'💙 ':s==='Instagram'?'📸 ':s==='Facebook'?'📘 ':'✏️ '}{s}
@@ -374,7 +383,7 @@ export default function ChatImportPage() {
               textAlign:'center',cursor:'pointer',transition:'all .2s',
               background:'var(--panel)',
             }}
-              onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.borderColor='var(--ember)';(e.currentTarget as HTMLElement).style.background='rgba(255,77,26,.03)'}}
+              onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.borderColor='var(--ember)';(e.currentTarget as HTMLElement).style.background='rgba(255,106,0,.03)'}}
               onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.borderColor='var(--border2)';(e.currentTarget as HTMLElement).style.background='var(--panel)'}}
             >
               <Upload size={32} style={{ color:'var(--ink3)',marginBottom:12 }} />
@@ -426,7 +435,7 @@ export default function ChatImportPage() {
       {/* ── STEP 2: Processing ── */}
       {step === 'processing' && (
         <div style={{ textAlign:'center', padding:'60px 20px' }}>
-          <div style={{ width:64,height:64,borderRadius:'50%',background:'rgba(255,77,26,.1)',border:'2px solid var(--ember)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 20px' }}>
+          <div style={{ width:64,height:64,borderRadius:'50%',background:'rgba(255,106,0,.1)',border:'2px solid var(--ember)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 20px' }}>
             <Bot size={28} style={{ color:'var(--ember)',animation:'spin 2s linear infinite' }} />
           </div>
           <div style={{ fontSize:18,fontWeight:700,color:'var(--ink1)',marginBottom:8 }}>
@@ -501,7 +510,7 @@ export default function ChatImportPage() {
                       {c.source}
                     </span>
                     <span style={{ fontSize:10,color:c.confidence>=70?'var(--mint)':c.confidence>=40?'var(--gold)':'var(--ember)',
-                      background:c.confidence>=70?'rgba(0,200,150,.1)':c.confidence>=40?'rgba(201,149,76,.1)':'rgba(255,77,26,.1)',
+                      background:c.confidence>=70?'rgba(0,200,150,.1)':c.confidence>=40?'rgba(201,149,76,.1)':'rgba(255,106,0,.1)',
                       borderRadius:99,padding:'2px 8px' }}>
                       دقة {c.confidence}%
                     </span>
@@ -521,7 +530,7 @@ export default function ChatImportPage() {
                     {editId===c.id ? <Check size={12}/> : <Eye size={12}/>}
                   </button>
                   <button onClick={()=>removeCustomer(c.id)} style={{
-                    width:28,height:28,borderRadius:7,background:'rgba(255,77,26,.08)',border:'1px solid rgba(255,77,26,.2)',
+                    width:28,height:28,borderRadius:7,background:'rgba(255,106,0,.08)',border:'1px solid rgba(255,106,0,.2)',
                     cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--ember)',
                   }}>
                     <X size={12}/>

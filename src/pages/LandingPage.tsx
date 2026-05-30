@@ -40,7 +40,7 @@ export default function LandingPage() {
       <div style={{
         position: 'absolute', top: -200, left: '50%', transform: 'translateX(-50%)',
         width: 600, height: 400, zIndex: 1,
-        background: 'radial-gradient(ellipse, rgba(255,77,26,.12) 0%, transparent 70%)',
+        background: 'radial-gradient(ellipse, rgba(255,106,0,.12) 0%, transparent 70%)',
         pointerEvents: 'none',
       }} />
 
@@ -57,7 +57,7 @@ export default function LandingPage() {
         viewBox="0 0 800 44" preserveAspectRatio="xMidYMid slice">
         {Array.from({length:40},(_,i)=>(
           <polygon key={i} points={`${i*22-11},0 ${i*22},11 ${i*22-11},22 ${i*22-22},11`}
-            fill={['#FF4D1A','#C9954C','#00C896','#FF4D1A','#C9954C'][i%5]} opacity={0.5}/>
+            fill={['#FF6A00','#C9954C','#00C896','#FF6A00','#C9954C'][i%5]} opacity={0.5}/>
         ))}
         <rect x={0} y={22} width={800} height={1} fill="rgba(255,255,255,.06)"/>
       </svg>
@@ -82,7 +82,7 @@ export default function LandingPage() {
             width: 130, height: 130, margin: '0 auto 18px',
             borderRadius: 30, overflow: 'hidden',
             background: 'rgba(7,8,13,.8)',
-            boxShadow: '0 0 0 1px rgba(255,77,26,.3), 0 16px 64px rgba(255,77,26,.3), 0 4px 24px rgba(0,0,0,.6)',
+            boxShadow: '0 0 0 1px rgba(255,106,0,.3), 0 16px 64px rgba(255,106,0,.3), 0 4px 24px rgba(0,0,0,.6)',
             backdropFilter: 'blur(10px)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
@@ -91,14 +91,14 @@ export default function LandingPage() {
               onError={e => {
                 (e.currentTarget as HTMLImageElement).style.display='none';
                 (e.currentTarget.parentElement as HTMLElement).innerHTML =
-                  '<div style="font-size:52px;font-weight:900;color:#FF4D1A">S</div>';
+                  '<div style="font-size:52px;font-weight:900;color:#FF6A00">S</div>';
               }}
             />
           </div>
 
           {/* Title */}
           <h1 style={{ fontSize:'clamp(28px,7vw,52px)', fontWeight:900, margin:'0 0 6px', letterSpacing:'-0.03em', lineHeight:1.1 }}>
-            <span style={{ color:'#FF4D1A', textShadow:'0 0 30px rgba(255,77,26,.5)' }}>SAHAR</span>
+            <span style={{ color:'#FF6A00', textShadow:'0 0 30px rgba(255,106,0,.5)' }}>SAHAR</span>
             <span style={{ color:'#E8E4DC' }}> shop</span>
           </h1>
           <p style={{ fontSize:12, color:'rgba(255,255,255,.35)', letterSpacing:'0.25em', textTransform:'uppercase', marginBottom:14, fontWeight:600 }}>
@@ -107,7 +107,7 @@ export default function LandingPage() {
           <p style={{ fontSize:15, color:'rgba(255,255,255,.55)', maxWidth:400, margin:'0 auto 18px', lineHeight:1.8 }}>
             نظام تشغيل التجارة الإلكترونية بالذكاء الاصطناعي
             <br/>
-            <span style={{ color:'#FF4D1A', fontWeight:700 }}>مصنوع للسوق المغربي 🇲🇦</span>
+            <span style={{ color:'#FF6A00', fontWeight:700 }}>مصنوع للسوق المغربي 🇲🇦</span>
           </p>
 
           {/* Live badge */}
@@ -147,11 +147,11 @@ export default function LandingPage() {
 
           {/* MERCHANT */}
           <a href={isAuthed ? '/dashboard' : '/login'}
-            style={{ background:'rgba(255,77,26,.08)', border:'1.5px solid rgba(255,77,26,.25)', borderRadius:22, padding:'26px 22px', textDecoration:'none', display:'flex', flexDirection:'column', alignItems:'center', backdropFilter:'blur(12px)', transition:'all .25s ease' }}
-            onMouseEnter={e=>{const el=e.currentTarget as HTMLElement;el.style.borderColor='rgba(255,77,26,.6)';el.style.transform='translateY(-5px)';el.style.background='rgba(255,77,26,.14)';el.style.boxShadow='0 12px 40px rgba(255,77,26,.15)';}}
-            onMouseLeave={e=>{const el=e.currentTarget as HTMLElement;el.style.borderColor='rgba(255,77,26,.25)';el.style.transform='';el.style.background='rgba(255,77,26,.08)';el.style.boxShadow='';}}
+            style={{ background:'rgba(255,106,0,.08)', border:'1.5px solid rgba(255,106,0,.25)', borderRadius:22, padding:'26px 22px', textDecoration:'none', display:'flex', flexDirection:'column', alignItems:'center', backdropFilter:'blur(12px)', transition:'all .25s ease' }}
+            onMouseEnter={e=>{const el=e.currentTarget as HTMLElement;el.style.borderColor='rgba(255,106,0,.6)';el.style.transform='translateY(-5px)';el.style.background='rgba(255,106,0,.14)';el.style.boxShadow='0 12px 40px rgba(255,106,0,.15)';}}
+            onMouseLeave={e=>{const el=e.currentTarget as HTMLElement;el.style.borderColor='rgba(255,106,0,.25)';el.style.transform='';el.style.background='rgba(255,106,0,.08)';el.style.boxShadow='';}}
           >
-            <div style={{ width:56,height:56,borderRadius:16,background:'rgba(255,77,26,.15)',border:'1px solid rgba(255,77,26,.35)',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:14,color:'#FF4D1A' }}>
+            <div style={{ width:56,height:56,borderRadius:16,background:'rgba(255,106,0,.15)',border:'1px solid rgba(255,106,0,.35)',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:14,color:'#FF6A00' }}>
               <Store size={24}/>
             </div>
             <h2 style={{ fontSize:19,fontWeight:900,color:'#E8E4DC',marginBottom:8 }}>
@@ -160,7 +160,7 @@ export default function LandingPage() {
             <p style={{ fontSize:13,color:'rgba(255,255,255,.45)',marginBottom:18,lineHeight:1.7,textAlign:'center' }}>
               {isAuthed ? 'أدر منتجاتك وطلباتك بذكاء اصطناعي' : 'أضف منتجاتك وشارك رابط متجرك مجاناً'}
             </p>
-            <span style={{ display:'flex',alignItems:'center',gap:6,color:'#FF4D1A',fontWeight:800,fontSize:13 }}>
+            <span style={{ display:'flex',alignItems:'center',gap:6,color:'#FF6A00',fontWeight:800,fontSize:13 }}>
               {isAuthed ? 'الدخول للوحة' : 'دخول كتاجر'} <ArrowLeft size={14}/>
             </span>
           </a>
@@ -169,7 +169,7 @@ export default function LandingPage() {
         {/* FEATURES */}
         <div style={{ display:'flex',justifyContent:'center',gap:8,flexWrap:'wrap',marginBottom:24,opacity:loaded?1:0,transition:'opacity .8s ease .2s' }}>
           {[
-            { icon:<Bot size={13}/>, label:'AI بالدارجة', color:'#FF4D1A' },
+            { icon:<Bot size={13}/>, label:'AI بالدارجة', color:'#FF6A00' },
             { icon:<MessageCircle size={13}/>, label:'واتساب', color:'#25D366' },
             { icon:<Truck size={13}/>, label:'توصيل ذكي', color:'#00C896' },
             { icon:<BarChart3 size={13}/>, label:'تحليلات', color:'#C9954C' },

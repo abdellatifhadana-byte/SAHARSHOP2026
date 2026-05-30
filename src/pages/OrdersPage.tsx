@@ -56,7 +56,7 @@ function QuickOrderModal({ onClose, products, settings, addOrder, notify }: any)
               </select>
               <input type="number" min="1" value={item.quantity} onChange={e=>updateItem(idx,'quantity',+e.target.value)} style={{ width:56,padding:'8px',borderRadius:8,background:'var(--void2)',border:'1px solid var(--border)',color:'var(--ink1)',textAlign:'center',fontSize:12 }} />
               <input placeholder="مقاس" value={item.size} onChange={e=>updateItem(idx,'size',e.target.value)} style={{ width:64,padding:'8px',borderRadius:8,background:'var(--void2)',border:'1px solid var(--border)',color:'var(--ink2)',fontSize:11 }} />
-              {form.items.length > 1 && <button onClick={()=>removeItem(idx)} style={{ width:28,height:28,borderRadius:7,background:'rgba(255,77,26,.1)',border:'none',cursor:'pointer',color:'var(--ember)',fontSize:14 }}>×</button>}
+              {form.items.length > 1 && <button onClick={()=>removeItem(idx)} style={{ width:28,height:28,borderRadius:7,background:'rgba(255,106,0,.1)',border:'none',cursor:'pointer',color:'var(--ember)',fontSize:14 }}>×</button>}
             </div>
           ))}
           <button onClick={addItem} style={{ padding:'7px',borderRadius:8,background:'var(--panel2)',border:'1px dashed var(--border2)',color:'var(--ink3)',cursor:'pointer',fontSize:12 }}>+ إضافة منتج آخر</button>
@@ -99,7 +99,7 @@ function printOrder(order: any, currency: string) {
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Tajawal', Arial, sans-serif; direction: rtl; background: #f8f8f8; padding: 20px; color: #1a1a2e; }
   .invoice { max-width: 680px; margin: 0 auto; background: #fff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,.1); }
-  .header { background: linear-gradient(135deg, #FF4D1A, #ff6b42); padding: 28px 32px; display: flex; align-items: center; justify-content: space-between; }
+  .header { background: linear-gradient(135deg, #FF6A00, #ff6b42); padding: 28px 32px; display: flex; align-items: center; justify-content: space-between; }
   .header-logo { width: 60px; height: 60px; background: rgba(255,255,255,.15); border-radius: 14px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
   .header-logo img { width: 100%; height: 100%; object-fit: contain; }
   .header-info h1 { color: #fff; font-size: 24px; font-weight: 900; }
@@ -118,14 +118,14 @@ function printOrder(order: any, currency: string) {
   tr:last-child td { border-bottom: none; }
   .totals { background: #f8f8f8; border-radius: 10px; padding: 16px; margin-bottom: 20px; }
   .total-row { display: flex; justify-content: space-between; padding: 5px 0; font-size: 13px; }
-  .total-final { border-top: 2px solid #FF4D1A; margin-top: 8px; padding-top: 10px; }
-  .total-final span { font-size: 20px; font-weight: 900; color: #FF4D1A; }
-  .code-box { background: linear-gradient(135deg, #fff8f5, #fff3ee); border: 2px dashed #FF4D1A; border-radius: 12px; padding: 16px; text-align: center; margin-bottom: 20px; }
-  .code-box .code { font-size: 28px; font-weight: 900; letter-spacing: .15em; color: #FF4D1A; font-family: monospace; }
+  .total-final { border-top: 2px solid #FF6A00; margin-top: 8px; padding-top: 10px; }
+  .total-final span { font-size: 20px; font-weight: 900; color: #FF6A00; }
+  .code-box { background: linear-gradient(135deg, #fff8f5, #fff3ee); border: 2px dashed #FF6A00; border-radius: 12px; padding: 16px; text-align: center; margin-bottom: 20px; }
+  .code-box .code { font-size: 28px; font-weight: 900; letter-spacing: .15em; color: #FF6A00; font-family: monospace; }
   .code-box p { font-size: 11px; color: #999; margin-top: 4px; }
   .footer { background: #1a1a2e; padding: 16px 32px; display: flex; align-items: center; justify-content: space-between; }
   .footer span { color: rgba(255,255,255,.4); font-size: 11px; }
-  .footer strong { color: #FF4D1A; }
+  .footer strong { color: #FF6A00; }
   @media print {
     body { padding: 0; background: #fff; }
     .invoice { box-shadow: none; }
@@ -216,7 +216,7 @@ function OrdersSkeleton() {
 }
 
 export default function OrdersPage() {
-  const { orders, approveOrder, rejectOrder, shipOrder, deliverOrder, settings, notify, customers, isLoading } = useStore();
+  const { orders, approveOrder, rejectOrder, shipOrder, deliverOrder, settings, notify, customers, products, addOrder, isLoading } = useStore();
 
   if (isLoading) return <OrdersSkeleton />;
   const [filter, setFilter] = useState('pending');
@@ -225,7 +225,24 @@ export default function OrdersPage() {
   const [view, setView] = useState<'list' | 'kanban'>('list');
   const [autoShipState, setAutoShipState] = useState<{id: string, step: number, msg: string} | null>(null);
   const [mainTab, setMainTab] = React.useState<'orders'|'customers'>('orders');
+  const [showQuickOrder, setShowQuickOrder] = useState(false);
   const { currency } = settings.brand;
+
+  const trustByPhone = orders.reduce((acc, o) => {
+    const ph = o.customerPhone;
+    if (!acc[ph]) acc[ph] = { d: 0, c: 0 };
+    if (o.status === 'delivered') acc[ph].d++;
+    if (o.status === 'cancelled') acc[ph].c++;
+    return acc;
+  }, {} as Record<string, { d: number; c: number }>);
+
+  const getTrust = (phone: string) => {
+    const s = trustByPhone[phone];
+    if (!s) return null;
+    const total = s.d + s.c;
+    if (total < 2) return null;
+    return Math.round((s.d / total) * 100);
+  };
 
   const filtered = orders.filter(o => (filter === 'all' || o.status === filter) && (!search || o.customerName.includes(search) || o.id.includes(search) || o.city.includes(search)));
   const counts: Record<string, number> = { all: orders.length };
@@ -313,6 +330,7 @@ export default function OrdersPage() {
           <p className="page-sub">{pending > 0 ? `${pending} طلب ينتظر موافقتك` : 'لا طلبات معلقة'}</p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={() => setShowQuickOrder(true)} className="btn btn-ghost btn-sm">📞 طلب يدوي</button>
           <button onClick={() => setView(view === 'list' ? 'kanban' : 'list')} className="btn btn-ghost btn-sm">
             {view === 'list' ? '⊞ Kanban' : '☰ قائمة'}
           </button>
@@ -387,8 +405,14 @@ export default function OrdersPage() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <p style={{ fontSize: 14, fontWeight: 800, color: 'var(--txt-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{order.customerName}</p>
                     {order.needsReview && <span style={{ fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 20, background: 'rgba(239,68,68,0.12)', color: '#f87171', flexShrink: 0 }}>⚠ مراجعة</span>}
-                    {/* Delivery Trust Score Badge */}
-                    <span style={{ fontSize: 9, fontWeight: 900, padding: '1px 6px', borderRadius: 4, background: 'rgba(16,185,129,0.1)', color: '#34d399', border: '1px solid rgba(16,185,129,0.2)' }}>🛡️ TRUST: 95%</span>
+                    {/* Delivery Trust Score Badge — computed from history */}
+                    {(() => {
+                      const trust = getTrust(order.customerPhone);
+                      if (trust === null) return null;
+                      const color = trust >= 80 ? '#34d399' : trust >= 50 ? '#fbbf24' : '#f87171';
+                      const bg    = trust >= 80 ? 'rgba(16,185,129,0.1)' : trust >= 50 ? 'rgba(245,158,11,0.1)' : 'rgba(248,113,113,0.1)';
+                      return <span style={{ fontSize: 9, fontWeight: 900, padding: '1px 6px', borderRadius: 4, background: bg, color, border: `1px solid ${color}33` }}>🛡️ TRUST: {trust}%</span>;
+                    })()}
                   </div>
                   <p style={{ fontSize: 12, color: 'var(--txt-3)' }}>{order.customerPhone} · {order.city} · {order.source}</p>
                 </div>
@@ -485,6 +509,15 @@ export default function OrdersPage() {
             </div>
           )}
         </div>
+      {showQuickOrder && (
+        <QuickOrderModal
+          onClose={() => setShowQuickOrder(false)}
+          products={products}
+          settings={settings}
+          addOrder={addOrder}
+          notify={notify}
+        />
+      )}
       </>)}
       </>
       )}

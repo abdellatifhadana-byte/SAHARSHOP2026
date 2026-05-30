@@ -141,7 +141,7 @@ export default function BannerStudioPage() {
             style={{
               padding:'7px 14px', borderRadius:'var(--r-sm)',
               border:`1px solid ${template===t.id?'var(--ember)':'var(--border)'}`,
-              background:template===t.id?'rgba(255,77,26,.1)':'var(--panel)',
+              background:template===t.id?'rgba(255,106,0,.1)':'var(--panel)',
               color:template===t.id?'var(--ember2)':'var(--ink2)',
               fontSize:13, fontWeight:600, cursor:'pointer',
               display:'flex',alignItems:'center',gap:6,
@@ -180,7 +180,7 @@ export default function BannerStudioPage() {
 
       {/* Error */}
       {error && (
-        <div style={{ background:'rgba(255,77,26,.08)',border:'1px solid rgba(255,77,26,.2)',
+        <div style={{ background:'rgba(255,106,0,.08)',border:'1px solid rgba(255,106,0,.2)',
           borderRadius:'var(--r)',padding:'12px 14px',fontSize:13,color:'var(--ember2)' }}>
           ⚠️ {error}
         </div>
@@ -228,8 +228,8 @@ export default function BannerStudioPage() {
                     disabled={state === 'loading' || !connected}
                     style={{
                       width:'100%',padding:'10px',borderRadius:10,
-                      background: state === 'success' ? 'rgba(0,200,150,.1)' : state === 'error' ? 'rgba(255,77,26,.1)' : `${p.color}15`,
-                      border: `1px solid ${state === 'success' ? 'rgba(0,200,150,.3)' : state === 'error' ? 'rgba(255,77,26,.3)' : `${p.color}40`}`,
+                      background: state === 'success' ? 'rgba(0,200,150,.1)' : state === 'error' ? 'rgba(255,106,0,.1)' : `${p.color}15`,
+                      border: `1px solid ${state === 'success' ? 'rgba(0,200,150,.3)' : state === 'error' ? 'rgba(255,106,0,.3)' : `${p.color}40`}`,
                       color: state === 'success' ? 'var(--mint)' : state === 'error' ? 'var(--ember)' : p.color,
                       cursor: connected ? 'pointer' : 'not-allowed',
                       opacity: connected ? 1 : 0.5,

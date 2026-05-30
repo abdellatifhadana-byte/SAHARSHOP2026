@@ -147,7 +147,7 @@ export default function DashboardPage() {
 
       {/* Hero KPI — revenue number + today, no sparkline chart */}
       <div style={{background:'var(--ember)',borderRadius:'var(--r-lg)',padding:'22px 20px',
-        position:'relative',overflow:'hidden',boxShadow:'0 4px 24px rgba(255,77,26,.3)'}}>
+        position:'relative',overflow:'hidden',boxShadow:'0 4px 24px rgba(255,106,0,.3)'}}>
         {/* Zellige overlay */}
         <svg style={{position:'absolute',inset:0,width:'100%',height:'100%',opacity:.07,pointerEvents:'none'}}
           viewBox="0 0 400 120" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
@@ -186,11 +186,11 @@ export default function DashboardPage() {
       <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8}}>
         {kpiCards.map((s,i)=>(
           <button key={i} onClick={()=>setPage(s.page)} className="kpi-card"
-            style={{ border: s.alert ? '1px solid rgba(255,77,26,.3)' : undefined,
-              background: s.alert ? 'rgba(255,77,26,.05)' : undefined,
+            style={{ border: s.alert ? '1px solid rgba(255,106,0,.3)' : undefined,
+              background: s.alert ? 'rgba(255,106,0,.05)' : undefined,
               padding:'10px 8px' }}>
             <div style={{display:'flex',justifyContent:'center',marginBottom:6}}>
-              <div style={{width:26,height:26,borderRadius:8,background:s.alert?'rgba(255,77,26,.1)':'rgba(255,255,255,.05)',display:'flex',alignItems:'center',justifyContent:'center'}}>
+              <div style={{width:26,height:26,borderRadius:8,background:s.alert?'rgba(255,106,0,.1)':'rgba(255,255,255,.05)',display:'flex',alignItems:'center',justifyContent:'center'}}>
                 <s.icon size={13} style={{color:s.alert?'var(--ember)':'var(--ink3)'}}/>
               </div>
             </div>
@@ -198,7 +198,7 @@ export default function DashboardPage() {
               {s.value}
             </div>
             <div style={{fontSize:10,color:'var(--ink3)',textAlign:'center'}}>{s.label}</div>
-            {s.sub && <div style={{fontSize:9,color:s.alert?'rgba(255,77,26,.6)':'var(--ink3)',textAlign:'center',marginTop:2}}>{s.sub}</div>}
+            {s.sub && <div style={{fontSize:9,color:s.alert?'rgba(255,106,0,.6)':'var(--ink3)',textAlign:'center',marginTop:2}}>{s.sub}</div>}
           </button>
         ))}
       </div>

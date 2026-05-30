@@ -30,13 +30,6 @@ const TABS: { id: Tab; icon: typeof Settings; label: string }[] = [
   { id: 'logs',       icon: Settings,  label: 'السجلات' },
 ];
 
-const PREDEFINED_PROVIDERS = [
-  { id: 'amana',     name: 'أمانة',     logo: '🚚', mode: 'api'     as const },
-  { id: 'jibli',    name: 'جيبلي',     logo: '📦', mode: 'browser' as const },
-  { id: 'maystro',  name: 'مايسترو',   logo: '🏎️', mode: 'api'     as const },
-  { id: 'colissimo',name: 'Colissimo', logo: '📮', mode: 'api'     as const },
-];
-
 const SEASONAL_THEMES = [
   { id: 'auto',        label: 'تلقائي (حسب التاريخ)' },
   { id: 'default',     label: 'افتراضي' },
@@ -110,7 +103,7 @@ function ChangePasswordForm({ notify }: { notify: (type: string, msg: string) =>
 
 export default function SettingsPage() {
   const {
-    settings, updateSettings, notify, logout, isOnline,
+    settings, updateSettings, notify, logout, isOnline, setPage,
     refreshData, addTemplate, updateTemplate, deleteTemplate,
     auditLogs, exportData, importData, resetToDemo,
   } = useStore();
@@ -183,36 +176,6 @@ export default function SettingsPage() {
     updateSettings('team', [...s.team, newMember]);
     notify('success', '✅ تمت إضافة العضو');
     closeMemberForm();
-  };
-
-  // ── Delivery provider form ────────────────────────────────────────────────────
-  const blankProvider = { name: '', mode: 'api' as 'api' | 'browser', username: '', password: '', apiKey: '', apiEndpoint: '' };
-  const [provForm, setProvForm]         = useState(blankProvider);
-  const [provFormOpen, setProvFormOpen] = useState(false);
-
-  const openAddProvider = (preset?: typeof blankProvider & { name?: string; mode?: 'api' | 'browser' }) => {
-    setProvForm(preset ? { ...blankProvider, ...preset } : blankProvider);
-    setProvFormOpen(true);
-  };
-  const closeProvForm = () => { setProvFormOpen(false); setProvForm(blankProvider); };
-
-  const saveProvider = () => {
-    if (!provForm.name.trim()) { notify('error', 'اسم الشركة مطلوب'); return; }
-    const logo = PREDEFINED_PROVIDERS.find(p => p.name === provForm.name)?.logo || '🚚';
-    const newProv = {
-      id: `prov_${Date.now()}`,
-      name: provForm.name.trim(),
-      logo,
-      mode: provForm.mode,
-      username: provForm.username.trim(),
-      password: provForm.password,
-      apiKey: provForm.apiKey,
-      apiEndpoint: provForm.apiEndpoint.trim(),
-      enabled: true,
-    };
-    updateSettings('delivery', { ...s.delivery, providers: [...s.delivery.providers, newProv] });
-    notify('success', '✅ تمت إضافة الشركة');
-    closeProvForm();
   };
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -587,7 +550,7 @@ export default function SettingsPage() {
       )}
 
       {/* ══════════════════════════════════════════════════════════════════
-          Delivery Tab  — full provider management UI
+          Delivery Tab  — behavior toggles only; provider mgmt → DeliveryPage
       ══════════════════════════════════════════════════════════════════ */}
       {tab === 'delivery' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -613,113 +576,27 @@ export default function SettingsPage() {
             </Field>
           </Section>
 
-          {/* Provider list */}
-          <Section title="شركات التوصيل">
-            {s.delivery.providers.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--txt-3)', fontSize: 13 }}>
-                <p style={{ marginBottom: 8 }}>لا توجد شركات توصيل مُضافة</p>
-              </div>
-            ) : (
-              s.delivery.providers.map((p, i) => (
-                <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 12, background: 'rgba(255,255,255,0.04)', border: '1px solid var(--clr-border)' }}>
-                  <span style={{ fontSize: 22, flexShrink: 0 }}>{p.logo}</span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: 14, fontWeight: 800, color: 'var(--txt-1)' }}>{p.name}</p>
-                    <p style={{ fontSize: 11.5, color: 'var(--txt-3)' }}>
-                      {p.mode === 'api' ? 'API' : 'متصفح'}
-                      {p.username ? ` · ${p.username}` : ''}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => updateSettings('delivery', { ...s.delivery, providers: s.delivery.providers.map((x, j) => j === i ? { ...x, enabled: !x.enabled } : x) })}
-                    className={`toggle ${p.enabled ? 'on' : ''}`}
-                  />
-                  <button
-                    onClick={() => updateSettings('delivery', { ...s.delivery, providers: s.delivery.providers.filter(x => x.id !== p.id) })}
-                    className="btn btn-danger btn-sm"
-                    style={{ paddingInline: 10 }}
-                  ><Trash2 size={13} /></button>
-                </div>
-              ))
-            )}
-
-            {/* Add provider form */}
-            {provFormOpen && (
-              <div style={{ marginTop: 8, padding: '18px', borderRadius: 14, background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.2)', display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
-                  <p style={{ fontSize: 14, fontWeight: 800, color: 'var(--txt-1)' }}>إضافة شركة توصيل</p>
-                  <button onClick={closeProvForm} style={{ background: 'none', border: 'none', color: 'var(--txt-3)', cursor: 'pointer' }}><X size={16} /></button>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                  <Field label="اسم الشركة">
-                    <input className="input" placeholder="أمانة، جيبلي..." value={provForm.name} onChange={e => setProvForm(f => ({ ...f, name: e.target.value }))} />
-                  </Field>
-                  <Field label="نوع الاتصال">
-                    <select className="select" value={provForm.mode} onChange={e => setProvForm(f => ({ ...f, mode: e.target.value as 'api' | 'browser' }))}>
-                      <option value="api">API</option>
-                      <option value="browser">متصفح (Browser)</option>
-                    </select>
-                  </Field>
-                  <Field label="اسم المستخدم">
-                    <input className="input" dir="ltr" value={provForm.username} onChange={e => setProvForm(f => ({ ...f, username: e.target.value }))} />
-                  </Field>
-                  <Field label="كلمة المرور">
-                    <input className="input" type="password" dir="ltr" value={provForm.password} onChange={e => setProvForm(f => ({ ...f, password: e.target.value }))} />
-                  </Field>
-                  {provForm.mode === 'api' && (
-                    <>
-                      <Field label="API Key">
-                        <input className="input" dir="ltr" style={{ fontFamily: 'monospace' }} value={provForm.apiKey} onChange={e => setProvForm(f => ({ ...f, apiKey: e.target.value }))} />
-                      </Field>
-                      <Field label="API Endpoint">
-                        <input className="input" dir="ltr" placeholder="https://api.example.com" value={provForm.apiEndpoint} onChange={e => setProvForm(f => ({ ...f, apiEndpoint: e.target.value }))} />
-                      </Field>
-                    </>
-                  )}
-                </div>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button onClick={saveProvider} className="btn btn-primary" style={{ flex: 1 }}><Save size={14} /> حفظ الشركة</button>
-                  <button onClick={closeProvForm} className="btn btn-ghost">إلغاء</button>
-                </div>
-              </div>
-            )}
-
-            {!provFormOpen && (
-              <button onClick={() => openAddProvider()} className="btn btn-primary btn-sm" style={{ width: 'fit-content', marginTop: 4 }}>
-                <Plus size={14} /> إضافة شركة
-              </button>
-            )}
-          </Section>
-
-          {/* Quick add from predefined providers */}
-          <Section title="شركات معروفة (إضافة سريعة)">
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              {PREDEFINED_PROVIDERS.map(prov => {
-                const alreadyAdded = s.delivery.providers.some(p => p.name === prov.name);
-                return (
-                  <button
-                    key={prov.id}
-                    disabled={alreadyAdded}
-                    onClick={() => openAddProvider({ name: prov.name, mode: prov.mode, username: '', password: '', apiKey: '', apiEndpoint: '' })}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 10,
-                      padding: '12px 14px', borderRadius: 12, cursor: alreadyAdded ? 'not-allowed' : 'pointer',
-                      border: `1px solid ${alreadyAdded ? 'rgba(16,185,129,0.3)' : 'var(--clr-border)'}`,
-                      background: alreadyAdded ? 'rgba(16,185,129,0.07)' : 'rgba(255,255,255,0.04)',
-                      opacity: alreadyAdded ? 0.7 : 1, transition: 'all .18s',
-                    }}
-                  >
-                    <span style={{ fontSize: 22 }}>{prov.logo}</span>
-                    <div style={{ textAlign: 'right' }}>
-                      <p style={{ fontSize: 13.5, fontWeight: 800, color: 'var(--txt-1)' }}>{prov.name}</p>
-                      <p style={{ fontSize: 11.5, color: 'var(--txt-3)' }}>{prov.mode === 'api' ? 'API' : 'متصفح'}</p>
-                    </div>
-                    {alreadyAdded && <span style={{ marginRight: 'auto', fontSize: 12, color: '#34d399' }}>✓ مُضاف</span>}
-                  </button>
-                );
-              })}
+          {/* Redirect to DeliveryPage for full provider management */}
+          <button
+            onClick={() => setPage('delivery')}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '16px 20px', borderRadius: 14, border: '1px solid var(--border2)',
+              background: 'var(--panel2)', cursor: 'pointer', textAlign: 'right', width: '100%',
+            }}
+          >
+            <div>
+              <p style={{ fontSize: 14, fontWeight: 800, color: 'var(--ink1)', marginBottom: 3 }}>🚚 إدارة شركات التوصيل</p>
+              <p style={{ fontSize: 12, color: 'var(--ink3)' }}>
+                {s.delivery.providers.length > 0
+                  ? `${s.delivery.providers.length} شركة مُضافة — انقر لإدارتها وربط API`
+                  : 'لا توجد شركات بعد — انقر للإضافة'}
+              </p>
             </div>
-          </Section>
+            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ember)', padding: '6px 14px', borderRadius: 8, background: 'rgba(255,106,0,0.1)', flexShrink: 0 }}>
+              فتح صفحة التوصيل ←
+            </span>
+          </button>
         </div>
       )}
 

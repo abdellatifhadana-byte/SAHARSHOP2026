@@ -1,10 +1,10 @@
-import React, { useState, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { useStore } from '../store';
 import {
   Plus, Search, Edit3, Trash2, X, ChevronRight, ChevronLeft,
   Sparkles, Share2, Camera, Image, Download, Palette, Eye,
 } from 'lucide-react';
-import type { Product, ProductStatus } from '../types';
+import type { Product, ProductStatus, CustomFieldDef, CustomFieldType } from '../types';
 
 // ── Category config ───────────────────────────────────────────
 
@@ -106,6 +106,11 @@ const CAT_CFG: Record<string, {
 type SizeStock = { name: string; stock: number };
 type ColorVariant = { id: string; color: string; hex: string; images: string[]; sizes: SizeStock[] };
 
+// ── Custom field helpers ──────────────────────────────────────
+const FIELD_TYPE_LABELS: Record<CustomFieldType, string> = {
+  text: '📝 نص', number: '🔢 رقم', select: '📋 قائمة', boolean: '✅ نعم/لا', color: '🎨 لون',
+};
+
 // ── Wizard state ──────────────────────────────────────────────
 
 type WizardData = {
@@ -122,6 +127,7 @@ type WizardData = {
   imageUrl: string;
   status: ProductStatus;
   variants: ColorVariant[];
+  customFields: CustomFieldDef[];
   designOpts: {
     showName: boolean;
     showPrice: boolean;
@@ -136,7 +142,7 @@ const initData = (): WizardData => ({
   category: '', type: 'product', name: '', description: '',
   price: '', cost: '', stock: '', duration: '', workArea: '',
   images: [], imageUrl: '', status: 'draft',
-  variants: [],
+  variants: [], customFields: [],
   designOpts: { showName: false, showPrice: false, watermark: false, textColor: '#ffffff' },
   processedImages: [],
 });
@@ -181,7 +187,7 @@ const applyDesign = (
       if (opts.showPrice && opts.price) {
         const r = Math.round(W * .1);
         const bx = W - r - 16, by = r + 16;
-        ctx.fillStyle = '#FF4D1A';
+        ctx.fillStyle = '#FF6A00';
         ctx.beginPath(); ctx.arc(bx, by, r, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = opts.textColor || '#fff';
         ctx.font = `bold ${Math.round(W * .06)}px Arial`;
@@ -262,6 +268,33 @@ export default function ProductsPage() {
   const [customColorName, setCustomColorName] = useState('');
   const [customColorHex,  setCustomColorHex]  = useState('#000000');
 
+  // Custom field builder
+  const [showAddField, setShowAddField] = useState(false);
+  const [newField, setNewField] = useState<{ label: string; type: CustomFieldType; options: string }>({
+    label: '', type: 'text', options: '',
+  });
+
+  const resetNewField = () => { setNewField({ label: '', type: 'text', options: '' }); setShowAddField(false); };
+
+  const confirmAddField = () => {
+    if (!newField.label.trim()) return;
+    const options = newField.type === 'select'
+      ? newField.options.split(/[,،]/).map(o => o.trim()).filter(Boolean)
+      : [];
+    const defaultValue = newField.type === 'boolean' ? 'false' : newField.type === 'color' ? '#000000' : '';
+    setData(d => ({
+      ...d,
+      customFields: [...d.customFields, { id: uid(), label: newField.label.trim(), type: newField.type, options, value: defaultValue }],
+    }));
+    resetNewField();
+  };
+
+  const updateCustomFieldValue = (id: string, value: string) =>
+    setData(d => ({ ...d, customFields: d.customFields.map(f => f.id === id ? { ...f, value } : f) }));
+
+  const removeCustomField = (id: string) =>
+    setData(d => ({ ...d, customFields: d.customFields.filter(f => f.id !== id) }));
+
   // Listen for FAB quick-add action from mobile nav
   React.useEffect(() => {
     try {
@@ -320,6 +353,7 @@ export default function ProductsPage() {
   const openAdd = () => {
     setData(initData()); setStep(1); setEditProd(null); setShowWizard(true);
     setCustomColorName(''); setCustomColorHex('#000000');
+    setShowAddField(false); setNewField({ label: '', type: 'text', options: '' });
   };
 
   const openEdit = (p: Product) => {
@@ -332,6 +366,7 @@ export default function ProductsPage() {
       imageUrl: p.imageUrl || '',
       status: p.status,
       variants: (p as any).variants || [],
+      customFields: (p as any).customFields || [],
     });
     setStep(2); setEditProd(p); setShowWizard(true);
   };
@@ -351,14 +386,19 @@ export default function ProductsPage() {
     setAiLoading(true);
     try {
       const cat = CATS.find(c => c.id === data.category);
-      const prompt = `اكتب وصفاً تسويقياً قصيراً (2-3 جمل) بالدارجة المغربية لمنتج: "${data.name}" من فئة "${cat?.label || 'ملابس'}". الوصف يكون جذاباً للشراء ومع ميزات المنتج.`;
-      const r = await fetch('/api/ai/reply', {
+      const r = await fetch('/api/ai/generate-description', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ message: prompt }),
+        body: JSON.stringify({
+          name: data.name,
+          category: cat?.label || data.category,
+          price: data.price,
+          sizes: data.sizes,
+          colors: data.colors,
+        }),
       });
       const j = await r.json();
-      setData(d => ({ ...d, description: j.reply || j.message || d.description }));
+      if (j.description) setData(d => ({ ...d, description: j.description }));
     } catch { /* silent */ }
     setAiLoading(false);
   };
@@ -498,6 +538,7 @@ export default function ProductsPage() {
         isForChildren: data.category === 'kids',
         ageRange: data.ageRange || '',
         variants: data.variants,
+        customFields: data.customFields,
       };
 
       if (editProd) {
@@ -868,6 +909,113 @@ export default function ProductsPage() {
                       </select>
                     </div>
                   ))}
+
+                  {/* ── Custom fields ────────────────────────────── */}
+                  <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink2)' }}>حقول مخصصة</span>
+                      {!showAddField && (
+                        <button onClick={() => setShowAddField(true)} className="btn btn-ghost btn-xs" style={{ gap: 4, fontSize: 11 }}>
+                          <Plus size={11} /> إضافة حقل
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Existing custom fields */}
+                    {data.customFields.map(field => (
+                      <div key={field.id} style={{ marginBottom: 10 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                          <label className="label" style={{ margin: 0, fontSize: 11, color: 'var(--ink3)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                            {field.label}
+                            <span style={{ fontSize: 9, background: 'var(--panel2)', padding: '1px 6px', borderRadius: 4, border: '1px solid var(--border)' }}>
+                              {FIELD_TYPE_LABELS[field.type]}
+                            </span>
+                          </label>
+                          <button onClick={() => removeCustomField(field.id)} style={{ background: 'none', border: 'none', color: 'var(--ember)', cursor: 'pointer', fontSize: 18, padding: '0 4px', lineHeight: 1 }}>×</button>
+                        </div>
+                        {field.type === 'text' && (
+                          <input className="input" value={field.value} placeholder={`أدخل ${field.label}...`}
+                            onChange={e => updateCustomFieldValue(field.id, e.target.value)} />
+                        )}
+                        {field.type === 'number' && (
+                          <input className="input" type="number" value={field.value} placeholder="0"
+                            onChange={e => updateCustomFieldValue(field.id, e.target.value)} />
+                        )}
+                        {field.type === 'select' && (
+                          <select className="select" value={field.value}
+                            onChange={e => updateCustomFieldValue(field.id, e.target.value)}>
+                            <option value="">اختر...</option>
+                            {field.options.map(o => <option key={o} value={o}>{o}</option>)}
+                          </select>
+                        )}
+                        {field.type === 'boolean' && (
+                          <label style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '8px 14px', background: 'var(--panel2)', borderRadius: 8, cursor: 'pointer' }}>
+                            <input type="checkbox" checked={field.value === 'true'}
+                              onChange={e => updateCustomFieldValue(field.id, String(e.target.checked))}
+                              style={{ width: 18, height: 18 }} />
+                            <span style={{ fontSize: 13, color: 'var(--ink2)' }}>{field.value === 'true' ? 'نعم' : 'لا'}</span>
+                          </label>
+                        )}
+                        {field.type === 'color' && (
+                          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                            <input type="color" value={field.value || '#000000'}
+                              onChange={e => updateCustomFieldValue(field.id, e.target.value)}
+                              style={{ width: 44, height: 44, borderRadius: 8, border: '1px solid var(--border)', cursor: 'pointer', padding: 2 }} />
+                            <span style={{ fontSize: 12, color: 'var(--ink3)', fontFamily: 'monospace' }}>{field.value || '#000000'}</span>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+
+                    {/* Add field form */}
+                    {showAddField && (
+                      <div style={{ border: '1.5px dashed var(--border)', borderRadius: 12, padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        <div>
+                          <label className="label">اسم الحقل *</label>
+                          <input className="input" autoFocus placeholder="مثال: نوع الياقة، مقاومة الماء..."
+                            value={newField.label}
+                            onChange={e => setNewField(f => ({ ...f, label: e.target.value }))}
+                            onKeyDown={e => { if (e.key === 'Enter') confirmAddField(); if (e.key === 'Escape') resetNewField(); }} />
+                        </div>
+                        <div>
+                          <label className="label">نوع الحقل</label>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+                            {(Object.keys(FIELD_TYPE_LABELS) as CustomFieldType[]).map(type => (
+                              <button key={type} onClick={() => setNewField(f => ({ ...f, type }))}
+                                className={`chip ${newField.type === type ? 'active' : ''}`}
+                                style={{ fontSize: 11, justifyContent: 'center' }}>
+                                {FIELD_TYPE_LABELS[type]}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        {newField.type === 'select' && (
+                          <div>
+                            <label className="label">الخيارات (افصل بفاصلة)</label>
+                            <textarea className="textarea" rows={2}
+                              placeholder="مثال: خيار 1، خيار 2، خيار 3"
+                              value={newField.options}
+                              onChange={e => setNewField(f => ({ ...f, options: e.target.value }))}
+                              style={{ resize: 'none', fontSize: 12 }} />
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <button className="btn btn-primary btn-sm" style={{ flex: 1 }}
+                            disabled={!newField.label.trim()}
+                            onClick={confirmAddField}>
+                            تأكيد
+                          </button>
+                          <button className="btn btn-ghost btn-sm" onClick={resetNewField}>إلغاء</button>
+                        </div>
+                      </div>
+                    )}
+
+                    {data.customFields.length === 0 && !showAddField && (
+                      <p style={{ fontSize: 11, color: 'var(--ink3)', textAlign: 'center', padding: '8px 0' }}>
+                        أضف حقولاً خاصة بمنتجك مثل "نوع الياقة" أو "مقاومة الماء"
+                      </p>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -1162,8 +1310,8 @@ export default function ProductsPage() {
                   {data.price && data.cost && Number(data.price) > 0 && (
                     <div style={{
                       padding: '14px 16px', borderRadius: 12,
-                      background: margin >= 30 ? 'rgba(0,210,179,.08)' : margin >= 10 ? 'rgba(246,196,83,.08)' : 'rgba(255,77,26,.08)',
-                      border: `1px solid ${margin >= 30 ? 'rgba(0,210,179,.25)' : margin >= 10 ? 'rgba(246,196,83,.25)' : 'rgba(255,77,26,.25)'}`,
+                      background: margin >= 30 ? 'rgba(0,210,179,.08)' : margin >= 10 ? 'rgba(246,196,83,.08)' : 'rgba(255,106,0,.08)',
+                      border: `1px solid ${margin >= 30 ? 'rgba(0,210,179,.25)' : margin >= 10 ? 'rgba(246,196,83,.25)' : 'rgba(255,106,0,.25)'}`,
                       display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                     }}>
                       <span style={{ fontSize: 13, color: 'var(--ink2)' }}>هامش الربح</span>
@@ -1326,6 +1474,26 @@ export default function ProductsPage() {
                         </div>
                       )}
 
+                      {/* Custom fields preview */}
+                      {data.customFields.length > 0 && (
+                        <div style={{ marginBottom: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          {data.customFields.map(f => (
+                            <div key={f.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--ink3)' }}>
+                              <span>{f.label}</span>
+                              <span style={{ color: 'var(--ink2)', fontWeight: 600 }}>
+                                {f.type === 'boolean' ? (f.value === 'true' ? 'نعم' : 'لا')
+                                  : f.type === 'color' ? (
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                      <span style={{ width: 12, height: 12, borderRadius: '50%', background: f.value, display: 'inline-block', border: '1px solid rgba(255,255,255,.3)' }} />
+                                      {f.value}
+                                    </span>
+                                  ) : f.value || '—'}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
                       {/* Summary row */}
                       <div style={{ display: 'flex', gap: 12, fontSize: 11, color: 'var(--ink3)', borderTop: '1px solid var(--border)', paddingTop: 8, marginTop: 4 }}>
                         <span>🖼️ {(data.processedImages.length ? data.processedImages : data.images).length} صورة</span>
@@ -1333,6 +1501,9 @@ export default function ProductsPage() {
                         <span>📦 {data.variants.length > 0 ? totalVariantStock : (Number(data.stock) || 0)} قطعة</span>
                         {data.variants.length > 0 && (
                           <span>📐 {[...new Set(data.variants.flatMap(v => v.sizes.map(s => s.name)))].length} مقاس</span>
+                        )}
+                        {data.customFields.length > 0 && (
+                          <span>🔧 {data.customFields.length} حقل</span>
                         )}
                       </div>
                     </div>

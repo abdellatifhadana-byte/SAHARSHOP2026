@@ -186,7 +186,7 @@ export default function MessagesPage() {
             )}
             {filtered.map(c => (
               <button key={c.id} onClick={() => { setActive(c.id); updateConversation(c.id, { unread: 0 }); }}
-                style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '11px 13px', borderRadius: 14, textAlign: 'right', cursor: 'pointer', transition: 'all .18s', background: active === c.id ? 'rgba(255,77,26,0.1)' : 'rgba(255,255,255,0.03)', border: `1.5px solid ${active === c.id ? 'rgba(255,77,26,0.3)' : 'var(--border)'}` }}>
+                style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '11px 13px', borderRadius: 14, textAlign: 'right', cursor: 'pointer', transition: 'all .18s', background: active === c.id ? 'rgba(255,106,0,0.1)' : 'rgba(255,255,255,0.03)', border: `1.5px solid ${active === c.id ? 'rgba(255,106,0,0.3)' : 'var(--border)'}` }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                   <span style={{ fontSize: 15 }}>{SRC_ICN[c.source] || '💬'}</span>
                   <span style={{ flex: 1, fontSize: 13, fontWeight: 800, color: 'var(--ink1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.customerName}</span>

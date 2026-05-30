@@ -124,10 +124,85 @@ router.post('/verify-connection', auth, async (req, res) => {
       return res.json({ ok: false, error: data.error?.message || 'Invalid token' });
     }
 
+    if (service === 'cloudinary') {
+      const { cloudName, apiKey: cldKey, apiSecret } = req.body;
+      if (!cloudName || !cldKey || !apiSecret) return res.json({ ok: false, error: 'Missing credentials' });
+      const auth64 = Buffer.from(`${cldKey}:${apiSecret}`).toString('base64');
+      const r = await httpsGet('api.cloudinary.com', `/v1_1/${cloudName}/usage`, { 'Authorization': `Basic ${auth64}` });
+      const data = JSON.parse(r.body);
+      if (r.status === 200 && !data.error) return res.json({ ok: true, info: data.credits ? `${data.credits.usage} credits` : 'متصل' });
+      return res.json({ ok: false, error: data.error?.message || 'Invalid credentials' });
+    }
+
     res.json({ ok: false, error: 'Unknown service' });
   } catch (e) {
     res.json({ ok: false, error: e.message });
   }
+});
+
+// POST /api/settings/verify-all — batch test all configured connections
+router.post('/verify-all', auth, async (req, res) => {
+  const settings = db.getSettings(req.user.id) || {};
+  const results  = {};
+  const https2   = require('https');
+
+  function httpsGet2(hostname, path, headers) {
+    return new Promise((resolve) => {
+      const r = https2.request({ hostname, path, headers: { 'Content-Type': 'application/json', ...headers }, method: 'GET' }, resp => {
+        let data = ''; resp.on('data', c => data += c); resp.on('end', () => resolve({ status: resp.statusCode, body: data }));
+      });
+      r.on('error', () => resolve({ status: 0, body: '{}' }));
+      r.setTimeout(7000, () => { r.destroy(); resolve({ status: 0, body: '{}' }); });
+      r.end();
+    });
+  }
+
+  const checks = [];
+
+  // OpenAI
+  if (settings.ai?.apiKey) {
+    checks.push(httpsGet2('api.openai.com', '/v1/models', { 'Authorization': `Bearer ${settings.ai.apiKey}` }).then(r => {
+      try { const d = JSON.parse(r.body); results.openai = { ok: r.status === 200 && !!d.data, info: d.data ? `${d.data.length} نموذج` : d.error?.message }; } catch { results.openai = { ok: false }; }
+    }));
+  }
+
+  // Gemini
+  if (settings.ai?.geminiKey) {
+    checks.push(httpsGet2('generativelanguage.googleapis.com', `/v1/models?key=${settings.ai.geminiKey}`, {}).then(r => {
+      try { const d = JSON.parse(r.body); results.gemini = { ok: r.status === 200 && !!d.models, info: d.models ? `${d.models.length} نموذج` : d.error?.message }; } catch { results.gemini = { ok: false }; }
+    }));
+  }
+
+  // Meta platforms (WhatsApp, Facebook, Instagram)
+  for (const platform of ['whatsapp', 'facebook', 'instagram']) {
+    const s = settings.social?.[platform];
+    if (s?.accessToken) {
+      checks.push(httpsGet2('graph.facebook.com', `/v19.0/me?access_token=${s.accessToken}`, {}).then(r => {
+        try { const d = JSON.parse(r.body); results[platform] = { ok: !d.error && !!d.id, info: d.name || d.error?.message }; } catch { results[platform] = { ok: false }; }
+      }));
+    }
+  }
+
+  // Supabase
+  if (settings.supabaseUrl && settings.supabaseKey) {
+    try {
+      const u = new URL(settings.supabaseUrl);
+      checks.push(httpsGet2(u.hostname, '/rest/v1/', { 'apikey': settings.supabaseKey }).then(r => {
+        results.supabase = { ok: r.status < 400 };
+      }));
+    } catch {}
+  }
+
+  // Cloudinary
+  if (settings.cloudinaryCloudName && settings.cloudinaryApiKey && settings.cloudinaryApiSecret) {
+    const auth64 = Buffer.from(`${settings.cloudinaryApiKey}:${settings.cloudinaryApiSecret}`).toString('base64');
+    checks.push(httpsGet2('api.cloudinary.com', `/v1_1/${settings.cloudinaryCloudName}/usage`, { 'Authorization': `Basic ${auth64}` }).then(r => {
+      try { const d = JSON.parse(r.body); results.cloudinary = { ok: r.status === 200 && !d.error, info: d.credits ? `${d.credits.usage} credits` : undefined }; } catch { results.cloudinary = { ok: false }; }
+    }));
+  }
+
+  await Promise.all(checks);
+  res.json(results);
 });
 
 // GET /api/settings/backups — list available backups

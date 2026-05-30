@@ -166,23 +166,30 @@ function smartReply(msg, history, products, settings) {
 
 // POST /api/ai/reply — main AI endpoint
 router.post('/reply', auth, async (req, res) => {
-  const { message, history, products, settings, systemPrompt } = req.body;
-  const openaiKey = settings?.ai?.apiKey || process.env.OPENAI_API_KEY;
-  const geminiKey = settings?.ai?.geminiKey || process.env.GEMINI_API_KEY;
-  const sysPrompt = systemPrompt || settings?.ai?.systemPrompt || 'أنت مساعد بيع ذكي لمتجر مغربي. تتحدث بالدارجة المغربية بأسلوب ودود واحترافي.';
+  const { message, history, products, settings: reqSettings, systemPrompt } = req.body;
 
-  // Try OpenAI
-  if (openaiKey && settings?.ai?.provider !== 'gemini') {
+  // Always merge DB settings as fallback so keys saved via ConnectionsPage work everywhere
+  const dbSettings  = db.getSettings(req.user.id) || {};
+  const openaiKey   = reqSettings?.ai?.apiKey   || dbSettings.ai?.apiKey   || process.env.OPENAI_API_KEY;
+  const geminiKey   = reqSettings?.ai?.geminiKey || dbSettings.ai?.geminiKey || process.env.GEMINI_API_KEY;
+  const provider    = reqSettings?.ai?.provider  || dbSettings.ai?.provider  || 'openai';
+  const sysPrompt   = systemPrompt || reqSettings?.ai?.systemPrompt || dbSettings.ai?.systemPrompt || 'أنت مساعد بيع ذكي لمتجر مغربي. تتحدث بالدارجة المغربية بأسلوب ودود واحترافي.';
+
+  const temperature = reqSettings?.ai?.temperature || dbSettings.ai?.temperature || 0.7;
+  const model       = reqSettings?.ai?.model       || dbSettings.ai?.model       || 'gpt-4o-mini';
+
+  // Try OpenAI (skip when provider is explicitly 'gemini')
+  if (openaiKey && provider !== 'gemini') {
     try {
       const body = JSON.stringify({
-        model: settings?.ai?.model || 'gpt-4o-mini',
+        model,
         messages: [
           { role: 'system', content: sysPrompt },
           ...(history || []).slice(-10).map(m => ({ role: m.role === 'ai' ? 'assistant' : 'user', content: m.content })),
           { role: 'user', content: message },
         ],
         max_tokens: 400,
-        temperature: settings?.ai?.temperature || 0.7,
+        temperature,
       });
       const reply = await _https('api.openai.com', '/v1/chat/completions',
         { 'Authorization': `Bearer ${openaiKey}` }, body);
@@ -191,18 +198,27 @@ router.post('/reply', auth, async (req, res) => {
     } catch (e) { console.warn('[AI] OpenAI:', e.message); }
   }
 
-  // Try Gemini
+  // Try Gemini — ensure history alternates user/model (Gemini API requirement)
   if (geminiKey) {
     try {
+      const rawHistory = (history || []).slice(-8).map(m => ({
+        role: m.role === 'ai' ? 'model' : 'user',
+        parts: [{ text: m.content || '...' }],
+      }));
+      // Deduplicate consecutive same-role turns
+      const altHistory = [];
+      for (const turn of rawHistory) {
+        if (altHistory.length === 0 || altHistory[altHistory.length - 1].role !== turn.role) {
+          altHistory.push(turn);
+        }
+      }
+      // Ensure last history turn is not 'user' (we'll add the user message below)
+      while (altHistory.length > 0 && altHistory[altHistory.length - 1].role === 'user') {
+        altHistory.pop();
+      }
       const body = JSON.stringify({
-        contents: [
-          ...(history || []).slice(-8).map(m => ({
-            role: m.role === 'ai' ? 'model' : 'user',
-            parts: [{ text: m.content }],
-          })),
-          { role: 'user', parts: [{ text: message }] },
-        ],
-        generationConfig: { maxOutputTokens: 400, temperature: 0.7 },
+        contents: [...altHistory, { role: 'user', parts: [{ text: message }] }],
+        generationConfig: { maxOutputTokens: 400, temperature },
         systemInstruction: { parts: [{ text: sysPrompt }] },
       });
       const reply = await _https('generativelanguage.googleapis.com',
@@ -213,9 +229,54 @@ router.post('/reply', auth, async (req, res) => {
   }
 
   // Local fallback
-  const allProducts = products || (req.user?.id ? db.getProducts(req.user.id) : []);
-  const allSettings = settings || (req.user?.id ? db.getSettings(req.user.id) : {});
+  const allProducts = products || db.getProducts(req.user.id);
+  const allSettings = reqSettings || dbSettings;
   res.json({ reply: smartReply(message, history, allProducts, allSettings), model: 'local' });
+});
+
+// POST /api/ai/generate-description — dedicated product description generator
+router.post('/generate-description', auth, async (req, res) => {
+  const { name, category, price, sizes, colors } = req.body;
+  if (!name) return res.status(400).json({ error: 'name required' });
+
+  const dbSettings = db.getSettings(req.user.id) || {};
+  const openaiKey  = dbSettings.ai?.apiKey   || process.env.OPENAI_API_KEY;
+  const geminiKey  = dbSettings.ai?.geminiKey || process.env.GEMINI_API_KEY;
+  const provider   = dbSettings.ai?.provider  || 'openai';
+
+  const prompt = `اكتب وصفاً تسويقياً قصيراً (جملتين إلى ثلاث جمل) بالدارجة المغربية لمنتج: "${name}" من فئة "${category || 'ملابس'}".${price ? ` السعر: ${price} درهم.` : ''}${sizes?.length ? ` المقاسات: ${sizes.join('، ')}.` : ''}${colors?.length ? ` الألوان: ${colors.join('، ')}.` : ''} الوصف يكون جذاباً، يبرز الجودة ويشجع على الشراء. أعطِ الوصف مباشرة بدون مقدمات.`;
+
+  const sysPrompt = 'أنت خبير كتابة إعلانية لمتجر مغربي. اكتب وصفاً جذاباً مباشراً فقط.';
+
+  if (openaiKey && provider !== 'gemini') {
+    try {
+      const body = JSON.stringify({
+        model: dbSettings.ai?.model || 'gpt-4o-mini',
+        messages: [{ role: 'system', content: sysPrompt }, { role: 'user', content: prompt }],
+        max_tokens: 200, temperature: 0.8,
+      });
+      const r = await _https('api.openai.com', '/v1/chat/completions', { 'Authorization': `Bearer ${openaiKey}` }, body);
+      const text = JSON.parse(r).choices?.[0]?.message?.content;
+      if (text) return res.json({ description: text.trim(), model: 'openai' });
+    } catch (e) { console.warn('[desc] OpenAI:', e.message); }
+  }
+
+  if (geminiKey) {
+    try {
+      const body = JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: { maxOutputTokens: 200, temperature: 0.8 },
+        systemInstruction: { parts: [{ text: sysPrompt }] },
+      });
+      const r = await _https('generativelanguage.googleapis.com', `/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`, {}, body);
+      const text = JSON.parse(r).candidates?.[0]?.content?.parts?.[0]?.text;
+      if (text) return res.json({ description: text.trim(), model: 'gemini' });
+    } catch (e) { console.warn('[desc] Gemini:', e.message); }
+  }
+
+  // Local fallback
+  const desc = `${name} — منتج مميز من فئة ${category || 'الملابس'} بجودة عالية. ${sizes?.length ? `متوفر بمقاسات ${sizes.join('، ')}.` : ''} سارع بالطلب قبل نفاد الكمية! 🛒`;
+  res.json({ description: desc, model: 'local' });
 });
 
 // POST /api/ai/product-search — search product by name/sku/description

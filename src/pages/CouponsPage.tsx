@@ -232,7 +232,7 @@ export default function CouponsPage() {
 
       {/* ── Error ── */}
       {error && (
-        <div style={{ padding: '10px 14px', borderRadius: 'var(--r)', background: 'var(--ember-soft)', border: '1px solid rgba(255,77,26,.25)', color: 'var(--ember)', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ padding: '10px 14px', borderRadius: 'var(--r)', background: 'var(--ember-soft)', border: '1px solid rgba(255,106,0,.25)', color: 'var(--ember)', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
           <span>⚠️</span> {error}
           <button onClick={fetchCoupons} style={{ marginRight: 'auto', background: 'none', border: 'none', color: 'var(--ember)', cursor: 'pointer', padding: '2px 6px', fontSize: 12 }}>إعادة المحاولة</button>
         </div>
@@ -280,9 +280,9 @@ export default function CouponsPage() {
                 {/* Status pill */}
                 <div style={{ position: 'absolute', top: 12, left: 14 }}>
                   {usageFull ? (
-                    <span style={{ fontSize: 10.5, fontWeight: 700, padding: '2px 8px', borderRadius: 99, background: 'rgba(255,77,26,0.1)', color: 'var(--ember)', border: '1px solid rgba(255,77,26,0.2)' }}>نفدت</span>
+                    <span style={{ fontSize: 10.5, fontWeight: 700, padding: '2px 8px', borderRadius: 99, background: 'rgba(255,106,0,0.1)', color: 'var(--ember)', border: '1px solid rgba(255,106,0,0.2)' }}>نفدت</span>
                   ) : expired ? (
-                    <span style={{ fontSize: 10.5, fontWeight: 700, padding: '2px 8px', borderRadius: 99, background: 'rgba(255,77,26,0.1)', color: 'var(--ember)', border: '1px solid rgba(255,77,26,0.2)' }}>منتهي</span>
+                    <span style={{ fontSize: 10.5, fontWeight: 700, padding: '2px 8px', borderRadius: 99, background: 'rgba(255,106,0,0.1)', color: 'var(--ember)', border: '1px solid rgba(255,106,0,0.2)' }}>منتهي</span>
                   ) : statusActive ? (
                     <span style={{ fontSize: 10.5, fontWeight: 700, padding: '2px 8px', borderRadius: 99, background: 'rgba(0,210,179,0.1)', color: 'var(--mint)', border: '1px solid rgba(0,210,179,0.2)' }}>نشط</span>
                   ) : (
@@ -520,7 +520,7 @@ export default function CouponsPage() {
 
               {/* Form error */}
               {formError && (
-                <div style={{ padding: '8px 12px', borderRadius: 8, background: 'var(--ember-soft)', border: '1px solid rgba(255,77,26,0.2)', color: 'var(--ember)', fontSize: 12.5 }}>
+                <div style={{ padding: '8px 12px', borderRadius: 8, background: 'var(--ember-soft)', border: '1px solid rgba(255,106,0,0.2)', color: 'var(--ember)', fontSize: 12.5 }}>
                   ⚠️ {formError}
                 </div>
               )}

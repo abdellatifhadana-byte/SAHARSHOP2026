@@ -393,6 +393,80 @@ export function BgCyberpunk(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+// ══════════════════════════════════════════════════════════════
+// Custom Navigation Icons — Deep Navy (#1E2A44) + Orange (#FF6A00)
+// Support lucide-style `size` prop + currentColor main strokes
+// ══════════════════════════════════════════════════════════════
+
+interface NavIconProps extends SVGProps<SVGSVGElement> { size?: number; }
+
+const navBase = ({ size, width, height, strokeWidth, ...props }: NavIconProps) => ({
+  viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor',
+  strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const,
+  width: width ?? size ?? 24, height: height ?? size ?? 24,
+  strokeWidth: strokeWidth ?? 1.8,
+  ...props,
+});
+
+export function NavIconCart(props: NavIconProps) {
+  return (
+    <svg {...navBase(props)}>
+      <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z" />
+      <line x1="3" y1="6" x2="21" y2="6" />
+      <path d="M16 10a4 4 0 01-8 0" stroke="#FF6A00" strokeWidth="2" />
+      <circle cx="9" cy="20" r="1.2" fill="#FF6A00" stroke="none" />
+      <circle cx="15" cy="20" r="1.2" fill="#FF6A00" stroke="none" />
+    </svg>
+  );
+}
+
+export function NavIconTruck(props: NavIconProps) {
+  return (
+    <svg {...navBase(props)}>
+      <rect x="1" y="5" width="14" height="11" rx="1.5" />
+      <path d="M15 9h4l3 4v3h-7V9z" />
+      <circle cx="5.5" cy="18.5" r="2" stroke="#FF6A00" strokeWidth="1.6" />
+      <circle cx="18.5" cy="18.5" r="2" stroke="#FF6A00" strokeWidth="1.6" />
+      <path d="M15 12h3.5" stroke="#FF6A00" strokeWidth="1.4" />
+      <rect x="4" y="8" width="5" height="4" rx="0.8" fill="rgba(255,106,0,.18)" stroke="none" />
+    </svg>
+  );
+}
+
+export function NavIconBrain(props: NavIconProps) {
+  return (
+    <svg {...navBase(props)}>
+      <path d="M9.5 2C6 2 4 5 4 8c0 1.5.5 2.8 1.5 3.8C4.6 12.8 4 14.2 4 16c0 3 2.2 5.5 5.5 5.8V22M14.5 2C18 2 20 5 20 8c0 1.5-.5 2.8-1.5 3.8.9 1 1.5 2.4 1.5 4.2 0 3-2.2 5.5-5.5 5.8V22" />
+      <path d="M9.5 22h5" stroke="#FF6A00" strokeWidth="1.5" />
+      <circle cx="9" cy="9" r="1.3" fill="#FF6A00" stroke="none" />
+      <circle cx="15" cy="9" r="1.3" fill="#FF6A00" stroke="none" />
+      <path d="M9 13q3 2.5 6 0" stroke="#FF6A00" strokeWidth="1.4" />
+    </svg>
+  );
+}
+
+export function NavIconPackage(props: NavIconProps) {
+  return (
+    <svg {...navBase(props)}>
+      <path d="M12 2L2 7v10l10 5 10-5V7L12 2z" />
+      <path d="M12 2v15M2 7l10 5 10-5" />
+      <path d="M7 4.5l10 5" stroke="#FF6A00" strokeWidth="1.4" />
+      <path d="M12 12v5" stroke="#FF6A00" strokeWidth="1.4" />
+    </svg>
+  );
+}
+
+export function NavIconMessage(props: NavIconProps) {
+  return (
+    <svg {...navBase(props)}>
+      <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+      <circle cx="8.5" cy="11" r="1.1" fill="#FF6A00" stroke="none" />
+      <circle cx="12" cy="11" r="1.1" fill="#FF6A00" stroke="none" />
+      <circle cx="15.5" cy="11" r="1.1" fill="#FF6A00" stroke="none" />
+    </svg>
+  );
+}
+
 // ── Export all ────────────────────────────────────────────────
 export const Icons = {
   WhatsApp: IconWhatsApp,
@@ -419,4 +493,9 @@ export const Icons = {
   RobotMascot,
   AppIcon,
   BgCyberpunk,
+  NavIconCart,
+  NavIconTruck,
+  NavIconBrain,
+  NavIconPackage,
+  NavIconMessage,
 };

@@ -109,7 +109,7 @@ export default function GlobalSearch({ onClose }: { onClose: () => void }) {
   const go = (r: Result) => { r.action?.(); setPage(r.page); onClose(); };
 
   const TYPE_ICON: Record<string,any> = { product:Package, order:ShoppingCart, customer:Users, conversation:MessageCircle, page:Zap };
-  const TYPE_COLOR: Record<string,string> = { product:'#a78bfa', order:'#60a5fa', customer:'#34d399', conversation:'#fbbf24', page:'#FF4D1A' };
+  const TYPE_COLOR: Record<string,string> = { product:'#a78bfa', order:'#60a5fa', customer:'#34d399', conversation:'#fbbf24', page:'#FF6A00' };
   const TYPE_LABEL: Record<string,string> = { product:'منتج', order:'طلب', customer:'زبون', conversation:'رسالة', page:'صفحة' };
 
   return (

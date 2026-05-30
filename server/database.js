@@ -28,6 +28,8 @@ try { sqlite.exec("ALTER TABLE products ADD COLUMN type TEXT DEFAULT 'product'")
 try { sqlite.exec("ALTER TABLE products ADD COLUMN duration TEXT DEFAULT ''"); } catch {}
 try { sqlite.exec("ALTER TABLE products ADD COLUMN workArea TEXT DEFAULT ''"); } catch {}
 try { sqlite.exec("ALTER TABLE products ADD COLUMN portfolio TEXT DEFAULT '[]'"); } catch {}
+// Migration: dynamic custom fields per product
+try { sqlite.exec("ALTER TABLE products ADD COLUMN custom_fields TEXT DEFAULT '[]'"); } catch {}
 
 // ── Schema ────────────────────────────────────────────────────
 sqlite.exec(`
@@ -257,13 +259,18 @@ const db = {
   },
   createProduct(p) {
     const id = p.id || uid();
-    const product = { id, userId: p.userId, name: p.name, description: p.description||'', price: +p.price||0, cost: +(p.cost||0), stock: +(p.stock||0), category: p.category||'', sizes: JSON.stringify(p.sizes||[]), colors: JSON.stringify(p.colors||[]), status: p.status||'draft', emoji: p.emoji||'📦', imageUrl: p.imageUrl||'', images: JSON.stringify(p.images||[]), isForChildren: p.isForChildren?1:0, ageRange: p.ageRange||'', views: 0, sales: 0, sku: p.sku||id.slice(0,8).toUpperCase(), colorImages: JSON.stringify(p.colorImages||{}), sizeType: p.sizeType||'adult', type: p.type||'product', duration: p.duration||'', workArea: p.workArea||'', portfolio: JSON.stringify(p.portfolio||[]), createdAt: p.createdAt||now() };
-    sqlite.prepare(`INSERT INTO products (id,userId,name,description,price,cost,stock,category,sizes,colors,status,emoji,imageUrl,images,isForChildren,ageRange,views,sales,sku,colorImages,sizeType,type,duration,workArea,portfolio,createdAt) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(product.id,product.userId,product.name,product.description,product.price,product.cost,product.stock,product.category,product.sizes,product.colors,product.status,product.emoji,product.imageUrl,product.images,product.isForChildren,product.ageRange,product.views,product.sales,product.sku,product.colorImages,product.sizeType,product.type,product.duration,product.workArea,product.portfolio,product.createdAt);
+    const product = { id, userId: p.userId, name: p.name, description: p.description||'', price: +p.price||0, cost: +(p.cost||0), stock: +(p.stock||0), category: p.category||'', sizes: JSON.stringify(p.sizes||[]), colors: JSON.stringify(p.colors||[]), status: p.status||'draft', emoji: p.emoji||'📦', imageUrl: p.imageUrl||'', images: JSON.stringify(p.images||[]), isForChildren: p.isForChildren?1:0, ageRange: p.ageRange||'', views: 0, sales: 0, sku: p.sku||id.slice(0,8).toUpperCase(), colorImages: JSON.stringify(p.colorImages||{}), sizeType: p.sizeType||'adult', type: p.type||'product', duration: p.duration||'', workArea: p.workArea||'', portfolio: JSON.stringify(p.portfolio||[]), custom_fields: JSON.stringify(p.customFields||[]), createdAt: p.createdAt||now() };
+    sqlite.prepare(`INSERT INTO products (id,userId,name,description,price,cost,stock,category,sizes,colors,status,emoji,imageUrl,images,isForChildren,ageRange,views,sales,sku,colorImages,sizeType,type,duration,workArea,portfolio,custom_fields,createdAt) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(product.id,product.userId,product.name,product.description,product.price,product.cost,product.stock,product.category,product.sizes,product.colors,product.status,product.emoji,product.imageUrl,product.images,product.isForChildren,product.ageRange,product.views,product.sales,product.sku,product.colorImages,product.sizeType,product.type,product.duration,product.workArea,product.portfolio,product.custom_fields,product.createdAt);
     return _parseProduct(product);
   },
   updateProduct(id, u) {
-    const allowed = ['name','description','price','cost','stock','category','sizes','colors','status','emoji','imageUrl','images','isForChildren','ageRange','views','sales','sku','colorImages','sizeType','type','duration','workArea','portfolio'];
-    _update('products', id, u, allowed);
+    const updates = { ...u };
+    if (updates.customFields !== undefined) {
+      updates.custom_fields = updates.customFields;
+      delete updates.customFields;
+    }
+    const allowed = ['name','description','price','cost','stock','category','sizes','colors','status','emoji','imageUrl','images','isForChildren','ageRange','views','sales','sku','colorImages','sizeType','type','duration','workArea','portfolio','custom_fields'];
+    _update('products', id, updates, allowed);
     return this.getProduct(id);
   },
   deleteProduct(id) {
@@ -435,7 +442,7 @@ function _update(table, id, u, allowed) {
 }
 
 function _parseProduct(p) {
-  return { ...p, sizes: _json(p.sizes, []), colors: _json(p.colors, []), images: _json(p.images, []), colorImages: _json(p.colorImages, {}), portfolio: _json(p.portfolio, []), isForChildren: !!p.isForChildren, sizeType: p.sizeType||'adult', type: p.type||'product', duration: p.duration||'', workArea: p.workArea||'' };
+  return { ...p, sizes: _json(p.sizes, []), colors: _json(p.colors, []), images: _json(p.images, []), colorImages: _json(p.colorImages, {}), portfolio: _json(p.portfolio, []), isForChildren: !!p.isForChildren, sizeType: p.sizeType||'adult', type: p.type||'product', duration: p.duration||'', workArea: p.workArea||'', customFields: _json(p.custom_fields, []) };
 }
 function _parseCustomer(c) { return { ...c, vip: !!c.vip }; }
 function _parseOrder(o) { return { ...o, items: _json(o.items, []), needsReview: !!o.needsReview }; }

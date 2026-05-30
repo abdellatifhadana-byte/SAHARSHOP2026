@@ -41,6 +41,16 @@ export interface Product {
   duration?: string; // for services: "ساعتين" / "نصف يوم"
   workArea?: string; // for services: "الدار البيضاء، الرباط"
   portfolio?: string[]; // service portfolio images
+  customFields?: CustomFieldDef[];
+}
+
+export type CustomFieldType = 'text' | 'select' | 'number' | 'boolean' | 'color';
+export interface CustomFieldDef {
+  id: string;
+  label: string;
+  type: CustomFieldType;
+  options: string[];
+  value: string;
 }
 
 export interface Customer {
@@ -290,6 +300,9 @@ export interface AppSettings {
   cloudEnabled: boolean;
   supabaseUrl: string;
   supabaseKey: string;
+  cloudinaryCloudName: string;
+  cloudinaryApiKey: string;
+  cloudinaryApiSecret: string;
   onboardingDone: boolean;
 }
 
@@ -351,6 +364,7 @@ export const defaultSettings: AppSettings = {
   team: [{ id: 'u1', name: 'المدير', email: 'admin@mystore.ma', role: 'admin', active: true }],
   goals: { daily: 1000, monthly: 30000 },
   cloudEnabled: false, supabaseUrl: '', supabaseKey: '',
+  cloudinaryCloudName: '', cloudinaryApiKey: '', cloudinaryApiSecret: '',
   onboardingDone: false,
 };
 
