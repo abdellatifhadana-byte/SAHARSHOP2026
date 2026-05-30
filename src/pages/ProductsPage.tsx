@@ -262,6 +262,22 @@ export default function ProductsPage() {
   const [customColorName, setCustomColorName] = useState('');
   const [customColorHex,  setCustomColorHex]  = useState('#000000');
 
+  // Listen for FAB quick-add action from mobile nav
+  React.useEffect(() => {
+    try {
+      const pending = localStorage.getItem('pendingFab');
+      if (pending === 'addProduct' || pending === 'addService') {
+        localStorage.removeItem('pendingFab');
+        // Pre-select type if service
+        if (pending === 'addService') {
+          setData(d => ({ ...d, category: 'service', type: 'service' }));
+          setStep(2); // skip category selection
+        }
+        setShowWizard(true);
+      }
+    } catch {}
+  }, []); // run once on mount
+
   const cfg    = CAT_CFG[data.category] || CAT_CFG.other;
   const margin = data.price && data.cost
     ? Math.round(((Number(data.price) - Number(data.cost)) / Number(data.price)) * 100)

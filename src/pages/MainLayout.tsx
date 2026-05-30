@@ -31,6 +31,7 @@ const SettingsPage      = lazy(() => import('./SettingsPage'));
 const BannerStudioPage  = lazy(() => import('./BannerStudioPage'));
 const ImageEditorPage   = lazy(() => import('./ImageEditorPage'));
 const ChatImportPage    = lazy(() => import('./ChatImportPage'));
+const CouponsPage       = lazy(() => import('./CouponsPage'));
 
 function PageContent() {
   const { currentPage } = useStore();
@@ -48,6 +49,7 @@ function PageContent() {
     case 'banner':        return <BannerStudioPage />;
     case 'editor':        return <ImageEditorPage />;
     case 'import':        return <ChatImportPage />;
+    case 'coupons':       return <CouponsPage />;
     case 'insights':      return <AnalyticsPage />;
     default:              return <DashboardPage />;
   }

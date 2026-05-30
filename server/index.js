@@ -99,6 +99,7 @@ app.use('/api/media',         require('./routes/media'));
 app.use('/api/loyalty', require('./routes/loyalty'));
 app.use('/api/coupons',       require('./routes/coupons'));
 app.use('/api/ai',            require('./routes/ai'));
+app.use('/api/delivery-auto', require('./routes/delivery-auto'));
 
 // ── Health ───────────────────────────────────────────────────
 app.get('/api/health', (req, res) => {

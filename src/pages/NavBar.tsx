@@ -2,8 +2,8 @@ import { useStore } from '../store';
 import type { Page } from '../types';
 import {
   LayoutDashboard, Package, ShoppingBag,
-  BarChart3, Settings, MessageSquare,
-  Search, LogOut, ExternalLink, Sun, Moon
+  BarChart3, Settings, MessageSquare, Tag, Truck,
+  Search, LogOut, ExternalLink, Sun, Moon, Plus
 } from 'lucide-react';
 import React from 'react';
 import GlobalSearch from '../components/GlobalSearch';
@@ -24,6 +24,7 @@ export default function NavBar() {
   } = useStore();
 
   const [showSearch, setShowSearch] = React.useState(false);
+  const [fabOpen, setFabOpen] = React.useState(false);
 
   React.useEffect(() => {
     const h = (e: KeyboardEvent) => {
@@ -43,6 +44,12 @@ export default function NavBar() {
     p === 'orders' ? pending : p === 'conversations' ? unreadMsg : p === 'notifications' ? unreadN : 0;
 
   const go = (p: Page) => { setPage(p); setSidebarOpen(false); };
+
+  const doFabAction = (action: string, page: Page) => {
+    try { localStorage.setItem('pendingFab', action); } catch {}
+    go(page);
+    setFabOpen(false);
+  };
 
   const userId = user?.id || (() => {
     try { const u = localStorage.getItem('ai_commerce_user'); return u ? JSON.parse(u)?.id : null; } catch { return null; }
@@ -185,7 +192,11 @@ export default function NavBar() {
               </a>
             )}
             <nav style={{ flex: 1, overflowY: 'auto', padding: '6px 0' }}>
-              {[...MAIN_NAV, { page: 'conversations' as Page, icon: MessageSquare, label: 'الرسائل' }].map(item => {
+              {[...MAIN_NAV,
+                { page: 'conversations' as Page, icon: MessageSquare, label: 'الرسائل' },
+                { page: 'delivery' as Page, icon: Truck, label: 'التوصيل' },
+                { page: 'coupons' as Page, icon: Tag, label: 'الكوبونات' },
+              ].map(item => {
                 const active = currentPage === item.page || (item.page === 'insights' && currentPage === 'analytics');
                 const b = badge(item.page);
                 return (
@@ -215,12 +226,122 @@ export default function NavBar() {
       )}
 
       {/* ══ MOBILE BOTTOM NAV ══ */}
-      <nav className="mobile-bottom-nav">
-        {MAIN_NAV.map(item => {
-          const active = currentPage === item.page || (item.page === 'insights' && currentPage === 'analytics');
+
+      {/* FAB action sheet backdrop */}
+      {fabOpen && (
+        <div
+          onClick={() => setFabOpen(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 999,
+            background: 'rgba(0,0,0,0.55)',
+            backdropFilter: 'blur(2px)',
+          }}
+        />
+      )}
+
+      {/* FAB action sheet */}
+      <div style={{
+        position: 'fixed', left: 0, right: 0, bottom: 70, zIndex: 1000,
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
+        transform: fabOpen ? 'translateY(0)' : 'translateY(20px)',
+        opacity: fabOpen ? 1 : 0,
+        pointerEvents: fabOpen ? 'auto' : 'none',
+        transition: 'transform 0.22s cubic-bezier(.4,0,.2,1), opacity 0.18s ease',
+        padding: '0 24px 8px',
+      }}>
+        {[
+          { emoji: '📦', label: 'إضافة منتج',  action: 'addProduct',  page: 'products'  as Page },
+          { emoji: '🔧', label: 'إضافة خدمة',  action: 'addService',  page: 'products'  as Page },
+          { emoji: '👤', label: 'إضافة زبون',  action: 'addCustomer', page: 'customers' as Page },
+        ].map((item, i) => (
+          <button
+            key={item.action}
+            onClick={() => doFabAction(item.action, item.page)}
+            style={{
+              width: '100%', maxWidth: 260,
+              padding: '12px 20px',
+              borderRadius: 14,
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              color: 'var(--ink)',
+              fontSize: 15,
+              fontWeight: 700,
+              fontFamily: 'inherit',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+              boxShadow: '0 4px 20px rgba(0,0,0,0.25)',
+              transform: fabOpen ? 'translateY(0)' : 'translateY(10px)',
+              opacity: fabOpen ? 1 : 0,
+              transition: `transform 0.2s cubic-bezier(.4,0,.2,1) ${i * 0.04}s, opacity 0.16s ease ${i * 0.04}s`,
+            }}
+          >
+            <span style={{ fontSize: 20 }}>{item.emoji}</span>
+            <span>{item.label}</span>
+          </button>
+        ))}
+      </div>
+
+      <nav className="mobile-bottom-nav" style={{ display: 'flex', alignItems: 'center' }}>
+        {/* Left 2: الرئيسية + المنتجات */}
+        {[
+          { page: 'dashboard' as Page, icon: LayoutDashboard, label: 'الرئيسية' },
+          { page: 'products'  as Page, icon: Package,         label: 'المنتجات' },
+        ].map(item => {
+          const active = currentPage === item.page;
           const b = badge(item.page);
           return (
-            <button key={item.page} className={`mob-nav-btn${active ? ' active' : ''}`} onClick={() => go(item.page)}>
+            <button key={item.page} className={`mob-nav-btn${active ? ' active' : ''}`} onClick={() => go(item.page)}
+              style={{ flex: 1 }}>
+              <div style={{ position: 'relative' }}>
+                <item.icon size={20} strokeWidth={active ? 2.4 : 1.8} />
+                {b > 0 && (
+                  <span style={{ position: 'absolute', top: -4, right: -4, width: 14, height: 14, background: 'var(--ember)', borderRadius: '50%', fontSize: 8, fontWeight: 900, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 8px rgba(255,77,26,.5)' }}>
+                    {b > 9 ? '9' : b}
+                  </span>
+                )}
+              </div>
+              <span>{item.label}</span>
+            </button>
+          );
+        })}
+
+        {/* Central FAB */}
+        <div style={{ flex: '0 0 72px', display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative' }}>
+          <button
+            onClick={() => setFabOpen(v => !v)}
+            style={{
+              width: 54, height: 54,
+              borderRadius: '50%',
+              background: 'var(--ember)',
+              border: 'none',
+              color: '#fff',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer',
+              position: 'absolute',
+              bottom: 10,
+              boxShadow: '0 4px 18px rgba(255,77,26,.55), 0 2px 8px rgba(0,0,0,.3)',
+              transform: fabOpen ? 'rotate(45deg)' : 'rotate(0deg)',
+              transition: 'transform 0.22s cubic-bezier(.4,0,.2,1), box-shadow 0.15s ease',
+              zIndex: 10,
+            }}
+            aria-label="قائمة الإجراءات"
+          >
+            <Plus size={26} strokeWidth={2.5} />
+          </button>
+        </div>
+
+        {/* Right 2: الطلبات + الرسائل */}
+        {[
+          { page: 'orders'        as Page, icon: ShoppingBag,  label: 'الطلبات' },
+          { page: 'conversations' as Page, icon: MessageSquare, label: 'الرسائل' },
+        ].map(item => {
+          const active = currentPage === item.page;
+          const b = badge(item.page);
+          return (
+            <button key={item.page} className={`mob-nav-btn${active ? ' active' : ''}`} onClick={() => go(item.page)}
+              style={{ flex: 1 }}>
               <div style={{ position: 'relative' }}>
                 <item.icon size={20} strokeWidth={active ? 2.4 : 1.8} />
                 {b > 0 && (
