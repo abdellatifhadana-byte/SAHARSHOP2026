@@ -3,7 +3,7 @@ nixPkgs = ["nodejs_20", "python3", "gcc", "gnumake", "pkg-config"]
 
 [phases.install]
 cmds = [
-  "npm install --legacy-peer-deps",
+  "npm install --legacy-peer-deps --include=dev",
   "cd server && npm install"
 ]
 
