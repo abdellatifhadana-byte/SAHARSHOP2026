@@ -67,6 +67,8 @@ export interface Customer {
   vip: boolean;
   trustScore: number; // 0-100 (Delivery Trust)
   buyerScore: number; // 0-100 (Likelihood to buy)
+  loyaltyPoints?: number;
+  createdAt?: string;
 }
 
 export interface OrderItem {

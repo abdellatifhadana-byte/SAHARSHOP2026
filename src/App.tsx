@@ -98,7 +98,7 @@ function AppShell() {
         {/* ── PROTECTED: Merchant dashboard ── */}
         {['/dashboard','/products','/orders','/messages','/customers',
           '/analytics','/insights','/connections','/delivery','/notifications',
-          '/settings','/studio','/editor','/import'].map(path => (
+          '/settings','/studio','/editor','/import','/coupons'].map(path => (
           <Route key={path} path={path}
             element={isAuthed ? <MainLayout /> : <Navigate to="/login" replace />} />
         ))}

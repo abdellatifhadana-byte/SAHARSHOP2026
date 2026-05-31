@@ -2,7 +2,8 @@ import { useStore } from '../store';
 import type { Page } from '../types';
 import {
   LayoutDashboard, BarChart3, Settings, Tag,
-  Search, LogOut, ExternalLink, Sun, Moon, Plus
+  Search, LogOut, ExternalLink, Sun, Moon, Plus,
+  Users, MoreHorizontal, X,
 } from 'lucide-react';
 import { NavIconCart, NavIconTruck, NavIconBrain, NavIconPackage, NavIconMessage } from '../components/icons';
 import React from 'react';
@@ -26,6 +27,7 @@ export default function NavBar() {
 
   const [showSearch, setShowSearch] = React.useState(false);
   const [fabOpen, setFabOpen] = React.useState(false);
+  const [moreOpen, setMoreOpen] = React.useState(false);
 
   React.useEffect(() => {
     const h = (e: KeyboardEvent) => {
@@ -333,10 +335,9 @@ export default function NavBar() {
           </button>
         </div>
 
-        {/* Right 2: الطلبات + الرسائل */}
+        {/* Right 2: الطلبات + المزيد */}
         {[
-          { page: 'orders'        as Page, icon: NavIconCart,    label: 'الطلبات' },
-          { page: 'conversations' as Page, icon: NavIconMessage, label: 'الرسائل' },
+          { page: 'orders' as Page, icon: NavIconCart, label: 'الطلبات' },
         ].map(item => {
           const active = currentPage === item.page;
           const b = badge(item.page);
@@ -355,7 +356,75 @@ export default function NavBar() {
             </button>
           );
         })}
+
+        {/* المزيد — opens bottom sheet */}
+        <button className={`mob-nav-btn${moreOpen ? ' active' : ''}`} onClick={() => setMoreOpen(v => !v)} style={{ flex: 1 }}>
+          <div style={{ position: 'relative' }}>
+            <MoreHorizontal size={20} strokeWidth={moreOpen ? 2.4 : 1.8} />
+            {totalAlerts > 0 && !pending && unreadMsg > 0 && (
+              <span style={{ position: 'absolute', top: -4, right: -4, width: 14, height: 14, background: 'var(--ember)', borderRadius: '50%', fontSize: 8, fontWeight: 900, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{unreadMsg > 9 ? '9' : unreadMsg}</span>
+            )}
+          </div>
+          <span>المزيد</span>
+        </button>
       </nav>
+
+      {/* ══ MOBILE "المزيد" BOTTOM SHEET ══ */}
+      {moreOpen && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 998, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(2px)' }}
+          onClick={() => setMoreOpen(false)} />
+      )}
+      <div style={{
+        position: 'fixed', left: 0, right: 0, bottom: moreOpen ? 64 : -300, zIndex: 999,
+        background: 'var(--panel2)', borderRadius: '20px 20px 0 0',
+        border: '1px solid var(--border)', borderBottom: 'none',
+        padding: '16px 16px 20px',
+        transition: 'bottom 0.28s cubic-bezier(.4,0,.2,1)',
+        boxShadow: '0 -8px 32px rgba(0,0,0,.3)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink2)' }}>قائمة التنقل</span>
+          <button onClick={() => setMoreOpen(false)}
+            style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(255,255,255,.06)', border: '1px solid var(--border)', color: 'var(--ink3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <X size={14} />
+          </button>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+          {[
+            { page: 'conversations' as Page, icon: NavIconMessage, label: 'الرسائل',   badge: unreadMsg },
+            { page: 'customers'     as Page, icon: Users,          label: 'الزبائن',   badge: 0 },
+            { page: 'analytics'     as Page, icon: BarChart3,      label: 'التحليلات', badge: 0 },
+            { page: 'delivery'      as Page, icon: NavIconTruck,   label: 'التوصيل',   badge: 0 },
+            { page: 'coupons'       as Page, icon: Tag,            label: 'الكوبونات', badge: 0 },
+            { page: 'connections'   as Page, icon: NavIconBrain,   label: 'الاتصالات', badge: 0 },
+            { page: 'notifications' as Page, icon: null,           label: 'الإشعارات', badge: unreadN },
+            { page: 'settings'      as Page, icon: Settings,       label: 'الإعدادات', badge: 0 },
+          ].map(item => {
+            const isActive = currentPage === item.page;
+            const IconComp = item.icon;
+            return (
+              <button key={item.page}
+                onClick={() => { go(item.page); setMoreOpen(false); }}
+                style={{
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5,
+                  padding: '10px 4px', borderRadius: 12,
+                  background: isActive ? 'var(--ember-soft)' : 'rgba(255,255,255,.04)',
+                  border: `1px solid ${isActive ? 'rgba(255,106,0,.3)' : 'var(--border)'}`,
+                  color: isActive ? 'var(--ember)' : 'var(--ink2)',
+                  cursor: 'pointer', position: 'relative', fontFamily: 'inherit',
+                }}>
+                {item.badge > 0 && (
+                  <span style={{ position: 'absolute', top: 6, right: 6, width: 14, height: 14, background: 'var(--ember)', borderRadius: '50%', fontSize: 8, fontWeight: 900, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {item.badge > 9 ? '9+' : item.badge}
+                  </span>
+                )}
+                {IconComp ? <IconComp size={18} strokeWidth={isActive ? 2.3 : 1.8} /> : <span style={{ fontSize: 18 }}>🔔</span>}
+                <span style={{ fontSize: 10, fontWeight: 700 }}>{item.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
     </>
   );
 }

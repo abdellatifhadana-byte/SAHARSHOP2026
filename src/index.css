@@ -1067,3 +1067,43 @@ button, a, [role="button"] { -webkit-tap-highlight-color: transparent; touch-act
    21. TOASTS & NOTIFICATION SYSTEM (compat)
    ═══════════════════════════════════════════════════ */
 .notif-enter { animation: slideUp var(--duration-normal) var(--ease-spring); }
+
+/* ═══════════════════════════════════════════════════
+   22. MOBILE ENHANCEMENTS v3.3
+   ═══════════════════════════════════════════════════ */
+
+/* Prevent horizontal scroll */
+body, #root { overflow-x: hidden; max-width: 100vw; }
+
+/* Minimum touch targets */
+.btn:not(.btn-icon), button.mob-nav-btn { min-height: 40px; }
+[aria-label="إغلاق"], [aria-label="close"] { min-width: 44px !important; min-height: 44px !important; }
+
+/* Bottom sheet modals on mobile */
+@media (max-width: 480px) {
+  .modal {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 85dvh;
+    border-radius: 20px 20px 0 0 !important;
+    margin: 0 !important;
+  }
+  .modal-overlay {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+
+  /* Full-width action buttons in modals */
+  .modal-footer { flex-direction: column !important; }
+  .modal-footer .btn { width: 100% !important; justify-content: center !important; }
+
+  /* Larger card text for readability */
+  .card-title { font-size: 14px; }
+
+  /* Ensure no content bleeds off screen */
+  .card, .kpi-card { max-width: 100%; }
+
+  /* Chips row horizontal scroll */
+  .chips-row { -webkit-overflow-scrolling: touch; }
+  .nav-links  { -webkit-overflow-scrolling: touch; }
+}

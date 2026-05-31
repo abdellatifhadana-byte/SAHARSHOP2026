@@ -1,9 +1,8 @@
 import React from 'react';
 import { useStore } from '../store';
 import {
-  TrendingUp, ShoppingBag, MessageCircle, Users,
+  ShoppingBag, MessageCircle, Users,
   ChevronRight, AlertTriangle, ChevronDown, ChevronUp,
-  Bell, CheckCircle,
 } from 'lucide-react';
 
 const STATUS_AR: Record<string,string> = {
@@ -11,14 +10,6 @@ const STATUS_AR: Record<string,string> = {
   shipped:'شُحن',delivered:'وُصّل',cancelled:'ملغي',
 };
 
-function last7(orders:any[],field:'total'|'count'='count') {
-  return Array.from({length:7},(_,i)=>{
-    const d=new Date(); d.setDate(d.getDate()-(6-i));
-    const ds=d.toISOString().split('T')[0];
-    const f=orders.filter(o=>o.status!=='cancelled'&&o.createdAt?.startsWith(ds));
-    return field==='total'?f.reduce((s:number,o:any)=>s+o.total,0):f.length;
-  });
-}
 
 function AIGreeting() {
   const { settings, orders, conversations } = useStore();
@@ -67,7 +58,7 @@ function DashboardSkeleton() {
 }
 
 export default function DashboardPage() {
-  const { settings, products, orders, customers, conversations, setPage, user, isLoading } = useStore();
+  const { settings, products, orders, customers, conversations, setPage, isLoading } = useStore();
   const [showDetails, setShowDetails] = React.useState(false);
 
   if (isLoading) return <DashboardSkeleton />;
@@ -119,8 +110,27 @@ export default function DashboardPage() {
     .sort((a,b)=>new Date(b.createdAt).getTime()-new Date(a.createdAt).getTime())
     .slice(0,3);
 
+  const lowStockProducts = products.filter(p => p.stock >= 0 && p.stock <= settings.products.lowStockAlert);
+
   return (
     <div style={{display:'flex',flexDirection:'column',gap:16}}>
+
+      {/* Empty state — new merchant with no data yet */}
+      {products.length === 0 && orders.length === 0 && !isLoading && (
+        <div className="card" style={{ padding: 'var(--sp-6,24px)', textAlign: 'center' }}>
+          <div style={{ fontSize: 48, marginBottom: 10 }}>🚀</div>
+          <h2 className="page-title" style={{ marginBottom: 6, fontSize: 18 }}>مرحباً في SAHAR shop!</h2>
+          <p className="page-sub" style={{ marginBottom: 18 }}>ابدأ بإضافة أول منتج وافتح متجرك للزبائن</p>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button onClick={() => setPage('products')} className="btn btn-primary">
+              <span>📦</span> أضف أول منتج
+            </button>
+            <button onClick={() => setPage('settings')} className="btn btn-ghost">
+              <span>⚙️</span> إعداد متجرك
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Quick Actions */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
@@ -318,22 +328,28 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Low stock alert — only if low > 0 */}
-      {low > 0 && (
-        <div style={{background:'rgba(245,158,11,.08)',border:'1px solid rgba(245,158,11,.2)',
-          borderRadius:'var(--r)',padding:'14px 16px',display:'flex',alignItems:'center',gap:12}}>
-          <AlertTriangle size={18} style={{color:'#F59E0B',flexShrink:0}} />
-          <div style={{flex:1}}>
-            <div style={{fontSize:13,fontWeight:700,color:'#F59E0B'}}>
-              {low} منتج بمخزون منخفض
-            </div>
-            <div style={{fontSize:12,color:'var(--ink3)',marginTop:2}}>
-              يُنصح بتجديد المخزون قبل نفاده
-            </div>
+      {/* Low stock alert — detailed card */}
+      {lowStockProducts.length > 0 && (
+        <div className="card" style={{ padding: '12px 16px', background: 'rgba(246,196,83,.06)', border: '1px solid rgba(246,196,83,.2)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+            <AlertTriangle size={15} style={{ color: '#F59E0B', flexShrink: 0 }} />
+            <span style={{ fontWeight: 700, color: '#F59E0B', fontSize: 13 }}>
+              {lowStockProducts.length} منتج مخزونه منخفض
+            </span>
           </div>
-          <button onClick={()=>setPage('products')}
-            className="btn btn-ghost btn-sm" style={{flexShrink:0,color:'#F59E0B',borderColor:'rgba(245,158,11,.3)'}}>
-            تحديث
+          {lowStockProducts.slice(0, 3).map(p => (
+            <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, padding: '3px 0', color: 'var(--ink2)', borderBottom: '1px solid rgba(255,255,255,.04)' }}>
+              <span>{p.emoji} {p.name}</span>
+              <span style={{ color: p.stock === 0 ? 'var(--ember)' : '#F59E0B', fontWeight: 700 }}>
+                {p.stock === 0 ? 'نفد' : `${p.stock} قطعة`}
+              </span>
+            </div>
+          ))}
+          {lowStockProducts.length > 3 && (
+            <p style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 4 }}>+{lowStockProducts.length - 3} منتج آخر</p>
+          )}
+          <button onClick={() => setPage('products')} className="btn btn-sm btn-ghost" style={{ marginTop: 8, width: '100%', justifyContent: 'center', color: '#F59E0B', borderColor: 'rgba(246,196,83,.3)' }}>
+            إدارة المخزون →
           </button>
         </div>
       )}
