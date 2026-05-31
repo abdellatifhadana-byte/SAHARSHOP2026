@@ -429,7 +429,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Local AI fallback
+  // Local AI fallback — answers as if the merchant is talking
   const _localAIReply = (convId: string, userMsg: string) => {
     const conv = state.conversations.find(c => c.id === convId);
     if (!conv) return;
@@ -437,32 +437,64 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const lo = userMsg.toLowerCase();
     const products = state.products.filter(p => p.status === 'published' && p.stock > 0);
     const cur = state.settings.brand.currency || 'MAD';
+    const storeName = state.settings.brand.name || 'متجرنا';
+    const deliveryCost = state.settings.delivery?.defaultCost || '20-40';
+    const deliveryTime = '24-48 ساعة';
     let reply = '';
 
     // Product search in message
     const found = products.filter(p =>
-      p.name.toLowerCase().includes(lo) || (p as any).sku?.toLowerCase().includes(lo)
+      p.name.toLowerCase().includes(lo) ||
+      (p.description||'').toLowerCase().includes(lo) ||
+      (p.category||'').toLowerCase().includes(lo) ||
+      (p as any).sku?.toLowerCase().includes(lo)
     );
-    if (found.length > 0 && /(عندكم|كاين|بغيت|سعر|ثمن|بكام|هاد)/i.test(lo)) {
+
+    if (found.length > 0 && /(عندكم|كاين|بغيت|سعر|ثمن|بكام|هاد|فين|وين)/i.test(lo)) {
       const p = found[0];
-      reply = `وجدت المنتج! 🎉\n\n${p.emoji} **${p.name}**\n💰 السعر: ${p.price} ${cur}\n📏 المقاسات: ${(p.sizes||[]).join(' · ')||'S M L XL'}\n🎨 الألوان: ${(p.colors||[]).join(' · ')||'—'}\n📦 المخزون: ${p.stock} قطعة\n\nواش بغيت هاد المنتج؟`;
-    } else if (/(سلام|مرحبا|hello|هاي)/i.test(lo)) {
-      reply = `مرحباً! 👋 كيداير؟ عندنا ${products.length} منتج متوفر دابا.\nواش بغيتي تشوف شي محدد؟`;
-    } else if (/(ثمن|سعر|بكام|شحال)/i.test(lo) && products.length) {
-      const p = products[Math.floor(Math.random() * products.length)];
-      reply = `${p.emoji} **${p.name}** — ${p.price} ${cur} 💎\nواش بغيتيه؟`;
-    } else if (/(توصيل|livraison|delivery)/i.test(lo)) {
-      reply = `التوصيل لجميع مدن المغرب 🇲🇦\n⏱️ 24-48 ساعة\n💰 20-40 MAD حسب المدينة\nواش بغيتي تطلب؟`;
-    } else if (/(طلب|نطلب|بغيت)/i.test(lo)) {
-      reply = `ممتاز! 🎉 باش نكملو الطلب محتاجين:\n1️⃣ الاسم الكامل\n2️⃣ رقم الهاتف 📱\n3️⃣ المدينة والعنوان 🏠\n4️⃣ المقاس واللون\n\nأبدأ بالاسم الكامل 😊`;
-    } else if (/(غالي|خصم|discount)/i.test(lo)) {
+      const sizes = (p.sizes||[]).join(' · ') || '—';
+      const colors = (p.colors||[]).join(' · ') || '—';
+      reply = `آه كاين! 😊\n\n${p.emoji} *${p.name}*\n💰 ${p.price} ${cur}\n📏 المقاسات: ${sizes}\n🎨 الألوان: ${colors}\n📦 المخزون: ${p.stock} قطعة متوفرة\n\n${p.description ? p.description + '\n\n' : ''}واش بغيتيه؟ اعطيني اسمك وهاتفك نكمّلو الطلب! 👌`;
+    } else if (found.length > 0) {
+      const p = found[0];
+      reply = `عندنا ${p.emoji} *${p.name}* بـ ${p.price} ${cur}. واش هاد اللي كتقلب عليه؟`;
+    } else if (/(سلام|صباح|مساء|مرحبا|hello|هاي|آلو|labas|lbas)/i.test(lo)) {
+      const hour = new Date().getHours();
+      const greet = hour < 12 ? 'صباح النور' : hour < 18 ? 'مرحباً' : 'مساء النور';
+      reply = `${greet}! 👋 أهلاً بك في ${storeName} 🏪\nعندنا ${products.length} منتج متوفر. واش بغيتي تشوف شي محدد؟`;
+    } else if (/(ثمن|سعر|بكام|شحال|أسعار|prix|combien)/i.test(lo)) {
+      if (products.length > 0) {
+        const sample = products.slice(0, 3);
+        const list = sample.map(p => `${p.emoji} ${p.name}: ${p.price} ${cur}`).join('\n');
+        reply = `هاهي بعض الأسعار ديالنا:\n\n${list}\n\nواش بغيتي تعرف أكثر على منتج محدد؟`;
+      } else {
+        reply = `الأسعار ديالنا مناسبة جداً! راسلنا وغادي نعطيك كل التفاصيل 😊`;
+      }
+    } else if (/(توصيل|livraison|delivery|وين توصلو|كيفاش توصلو)/i.test(lo)) {
+      reply = `التوصيل لجميع مدن المغرب 🇲🇦\n⏱️ ${deliveryTime}\n💰 ${deliveryCost} ${cur} حسب المدينة\nنبداو منذ تأكيد الطلب مباشرة 🚚\n\nواش بغيتي تطلب شي؟`;
+    } else if (/(طلب|نطلب|بغيت نشري|شرا|commande|acheter)/i.test(lo)) {
+      reply = `ممتاز! 🎉 باش نكملو الطلب محتاجين:\n1️⃣ الاسم الكامل\n2️⃣ رقم الهاتف 📱\n3️⃣ المدينة والعنوان 🏠\n4️⃣ المقاس واللون (إذا كاين)\n\nأبدأ بالاسم الكامل 😊`;
+    } else if (/(غالي|خصم|discount|promo|cher|réduction|تخفيض)/i.test(lo)) {
       const max = state.settings.ai.maxDiscount || 15;
       const d = Math.round(max * 0.7);
       reply = state.settings.ai.autoDiscount
-        ? `فاهمك! 😊 نقدر نعطيك خصم **${d}%** إذا طلبت أكثر من قطعة 🎁`
-        : `الثمن مناسب جداً للجودة 💎 وعندنا ضمان كامل!`;
+        ? `فاهمك! 😊 نقدر نعطيك خصم *${d}%* إذا طلبت أكثر من قطعة 🎁\nواش كاين شي منتج بغيتيه؟`
+        : `الأثمان ديالنا مناسبة مقارنة بالجودة 💎 كلشي أصلي ومضمون!\nواش بغيتي تشوف شي محدد؟`;
+    } else if (/(ضمان|مضمون|أصلي|garantie|original)/i.test(lo)) {
+      reply = `آه، كلشي في ${storeName} مضمون 100% ✅\nعندنا ضمان على جميع المنتجات وإذا كان فيه مشكل نحلّو مع بعض 💪`;
+    } else if (/(مخزون|متوفر|كاين|stock|disponible)/i.test(lo)) {
+      const avail = products.length;
+      reply = avail > 0
+        ? `عندنا ${avail} منتج متوفر دابا! 📦\nواش بغيتي تشوف قائمة كاملة؟`
+        : `ماعندناش منتجات متوفرة دابا، ولكن قريباً غادي يجيو. تابعنا! 🔜`;
+    } else if (/(شكرا|merci|مرسي|بارك الله)/i.test(lo)) {
+      reply = `وفيك البركة! 🙏 يسعدنا نخدمك في ${storeName}. واش كاين حاجة أخرى؟`;
     } else {
-      const generics = ['فاهمت! 😊 واش عندك سؤال آخر؟', 'أكيد! عندنا أحسن المنتجات 🔥', 'دابا نشوف ليك! 😊'];
+      const generics = [
+        `فاهمت! 😊 واش عندك سؤال آخر على منتجاتنا أو التوصيل؟`,
+        `أكيد! كيف نقدر نعاونك؟ 🤝`,
+        `شكراً على تواصلك مع ${storeName}! واش بغيتي تشوف منتجاتنا؟ 🛍️`,
+      ];
       reply = generics[Math.floor(Math.random() * generics.length)];
     }
 

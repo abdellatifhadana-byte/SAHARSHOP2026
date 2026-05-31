@@ -112,8 +112,37 @@ export default function DashboardPage() {
 
   const lowStockProducts = products.filter(p => p.stock >= 0 && p.stock <= settings.products.lowStockAlert);
 
+  const isCloudConfigured = !!(settings as any).supabaseUrl || !!(settings as any).cloudinaryCloudName;
+  const isDemo = false; // real users always see the cloud banner
+
   return (
     <div style={{display:'flex',flexDirection:'column',gap:16}}>
+
+      {/* ☁️ Cloud setup banner — shown until Supabase or Cloudinary is configured */}
+      {!isCloudConfigured && !isLoading && (
+        <div style={{
+          background: 'linear-gradient(135deg,rgba(62,207,142,.08),rgba(26,122,76,.05))',
+          border: '1px solid rgba(62,207,142,.25)',
+          borderRadius: 'var(--r,12px)',
+          padding: '14px 16px',
+          display: 'flex', alignItems: 'flex-start', gap: 12,
+        }}>
+          <span style={{ fontSize: 24, flexShrink: 0, marginTop: 2 }}>☁️</span>
+          <div style={{ flex: 1 }}>
+            <p style={{ fontSize: 13, fontWeight: 800, color: '#3ecf8e', marginBottom: 3 }}>
+              ربط السحابة — احفظ بياناتك بأمان
+            </p>
+            <p style={{ fontSize: 12, color: 'var(--ink3)', marginBottom: 10, lineHeight: 1.6 }}>
+              بدون Supabase أو Cloudinary، صورك وبياناتك ستضيع عند كل نشر جديد.
+              ربطها مجاني ويأخذ دقيقتين فقط.
+            </p>
+            <button onClick={() => setPage('connections')}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 8, background: 'rgba(62,207,142,.15)', border: '1px solid rgba(62,207,142,.35)', color: '#3ecf8e', fontSize: 12, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>
+              ⚡ ربط السحابة الآن
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Empty state — new merchant with no data yet */}
       {products.length === 0 && orders.length === 0 && !isLoading && (
