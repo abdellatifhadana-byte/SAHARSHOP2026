@@ -79,6 +79,18 @@ router.get('/qr', auth, (req, res) => {
   res.json({ url: catalogUrl, userId: req.user.id });
 });
 
+// GET /api/settings/server-config — tells frontend which services are active at env/server level
+// Returns booleans only — NEVER exposes secrets
+router.get('/server-config', auth, (req, res) => {
+  res.json({
+    cloudinary: !!(process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY),
+    supabase:   !!(process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY),
+    openai:     !!(process.env.OPENAI_API_KEY),
+    gemini:     !!(process.env.GEMINI_API_KEY),
+    whatsapp:   !!(process.env.META_VERIFY_TOKEN),
+  });
+});
+
 // POST /api/settings/verify-connection — proxy for connection verification (avoid CORS)
 router.post('/verify-connection', auth, async (req, res) => {
   const { service, token, pageId, apiKey } = req.body;

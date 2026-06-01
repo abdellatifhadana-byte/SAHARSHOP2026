@@ -4,6 +4,9 @@ const router = require('express').Router();
 const auth   = require('../middleware/auth');
 const crypto = require('crypto');
 const { db } = require('../database');
+const sync   = require('../sync');
+let pushNotify;
+try { pushNotify = require('../routes/push').notifyUser; } catch { pushNotify = () => Promise.resolve(); }
 
 router.get('/', auth, (req, res) => res.json(db.getOrders(req.user.id)));
 
@@ -11,6 +14,8 @@ router.post('/', auth, sanitizeBody, (req, res) => {
   const order = db.createOrder({ ...req.body, userId: req.user.id, status: 'pending' });
   db.addLog({ userId: req.user.id, user: 'AI', action: `New order: ${order.id}`, details: order.customerName, type: 'order', severity: 'info' });
   db.addNotification({ userId: req.user.id, type: 'info', message: `🛒 طلب جديد من ${order.customerName}` });
+  sync.syncOrder(req.user.id, order).catch(() => {});
+  pushNotify(req.user.id, '🛒 طلب جديد!', `${order.customerName} — ${order.total || 0} ${db.getSettings(req.user.id)?.brand?.currency || 'MAD'}`, { url: '/orders' }).catch(() => {});
   req.app.get('broadcast')?.(req.user.id, { event: 'order_created', data: order });
   res.status(201).json(order);
 });
@@ -123,6 +128,7 @@ router.put('/:id/approve', auth, (req, res) => {
       db.updateOrder(order.id, { notes: (refreshedOrder?.notes||'') + '\n[WA_URL]https://wa.me/' + waPhone + '?text=' + encodeURIComponent(invoice) });
     }
   }
+  sync.syncOrder(req.user.id, db.getOrder(order.id)).catch(() => {});
   req.app.get('broadcast')?.(req.user.id, { event: 'order_updated', data: db.getOrder(order.id) });
   res.json(db.getOrder(order.id));
 });

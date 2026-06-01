@@ -2,6 +2,7 @@
 const router = require('express').Router();
 const auth   = require('../middleware/auth');
 const { db } = require('../database');
+const sync   = require('../sync');
 
 // GET /api/customers?limit=50&offset=0&q=
 // Paginated — default page size 50, max 200
@@ -31,6 +32,7 @@ router.get('/', auth, (req, res) => {
 router.post('/', auth, (req, res) => {
   const c = db.createCustomer({ ...req.body, userId: req.user.id });
   db.addLog({ userId: req.user.id, user: 'Manager', action: `Customer added: ${c.name}`, details: c.phone, type: 'customer', severity: 'info' });
+  sync.syncCustomer(req.user.id, c).catch(() => {});
   res.status(201).json(c);
 });
 

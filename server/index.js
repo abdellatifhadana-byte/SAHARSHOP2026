@@ -8,6 +8,24 @@ const fs   = require('fs');
 // Load .env FIRST before anything else
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
+// ── Parse combined CLOUDINARY_URL → individual SDK vars ──────
+// Format: cloudinary://API_KEY:API_SECRET@CLOUD_NAME
+if (process.env.CLOUDINARY_URL && !process.env.CLOUDINARY_CLOUD_NAME) {
+  try {
+    const m = process.env.CLOUDINARY_URL.match(/^cloudinary:\/\/([^:]+):([^@]+)@(.+)$/);
+    if (m) {
+      process.env.CLOUDINARY_API_KEY    = m[1];
+      process.env.CLOUDINARY_API_SECRET = m[2];
+      process.env.CLOUDINARY_CLOUD_NAME = m[3];
+      console.log(`[Cloudinary] Parsed CLOUDINARY_URL → cloud: ${m[3]}`);
+    }
+  } catch (e) { console.warn('[Cloudinary] Could not parse CLOUDINARY_URL:', e.message); }
+}
+
+// ── Map Next.js-prefixed Supabase vars → server-side names ───
+if (!process.env.SUPABASE_URL)      process.env.SUPABASE_URL      = process.env.NEXT_PUBLIC_SUPABASE_URL                 || '';
+if (!process.env.SUPABASE_ANON_KEY) process.env.SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY     || '';
+
 const express     = require('express');
 const cors        = require('cors');
 const helmet      = require('helmet');
@@ -100,6 +118,7 @@ app.use('/api/loyalty', require('./routes/loyalty'));
 app.use('/api/coupons',       require('./routes/coupons'));
 app.use('/api/ai',            require('./routes/ai'));
 app.use('/api/delivery-auto', require('./routes/delivery-auto'));
+app.use('/api/push',          require('./routes/push'));
 
 // ── Health ───────────────────────────────────────────────────
 app.get('/api/health', (req, res) => {
@@ -183,6 +202,9 @@ app.set('broadcast', (userId, event) => {
   const msg = JSON.stringify(event);
   sockets.forEach(ws => { try { if (ws.readyState === 1) ws.send(msg); } catch {} });
 });
+
+// ── Init Supabase sync ───────────────────────────────────────
+require('./sync').ensureTable().catch(() => {});
 
 // ── Auto-create admin ─────────────────────────────────────────
 function ensureAdmin() {

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useStore } from '../store';
 import { Wifi, CheckCircle, Loader2, Eye, EyeOff, AlertTriangle, ExternalLink, RefreshCw, Zap } from 'lucide-react';
 import { IconWhatsApp, IconFacebook, IconInstagram, IconTikTok } from '../components/icons';
@@ -108,6 +108,15 @@ export default function ConnectionsPage() {
   const [loading, setLoading] = useState<Record<string, boolean>>({});
   const [testResults, setTestResults] = useState<Record<string, { ok: boolean; info?: string } | null>>({});
   const [testingAll, setTestingAll] = useState(false);
+  const [serverConfig, setServerConfig] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    const token = localStorage.getItem('ai_commerce_token') || '';
+    fetch('/api/settings/server-config', { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then(d => setServerConfig(d))
+      .catch(() => {});
+  }, []);
 
   const stored = (id: string, key: string): string => {
     if (id === 'openai') return settings.ai.apiKey || '';
@@ -122,11 +131,21 @@ export default function ConnectionsPage() {
   const setVal = (id: string, k: string, v: string) => setValues(p => ({ ...p, [id]: { ...(p[id] || {}), [k]: v } }));
 
   const isConnected = (id: string) => {
-    if (id === 'openai') return !!settings.ai.apiKey;
-    if (id === 'gemini') return !!settings.ai.geminiKey;
-    if (id === 'supabase') return !!(settings as any).supabaseUrl && !!(settings as any).supabaseKey;
-    if (id === 'cloudinary') return !!(settings as any).cloudinaryCloudName && !!(settings as any).cloudinaryApiKey;
+    if (id === 'openai') return !!settings.ai.apiKey || !!serverConfig.openai;
+    if (id === 'gemini') return !!settings.ai.geminiKey || !!serverConfig.gemini;
+    if (id === 'supabase') return (!!(settings as any).supabaseUrl && !!(settings as any).supabaseKey) || !!serverConfig.supabase;
+    if (id === 'cloudinary') return (!!(settings as any).cloudinaryCloudName && !!(settings as any).cloudinaryApiKey) || !!serverConfig.cloudinary;
+    if (id === 'whatsapp') return (settings.social?.whatsapp?.connected) || !!serverConfig.whatsapp;
     return settings.social[id as keyof typeof settings.social]?.connected || false;
+  };
+
+  const isServerManaged = (id: string) => {
+    if (id === 'openai') return !!serverConfig.openai && !settings.ai.apiKey;
+    if (id === 'gemini') return !!serverConfig.gemini && !settings.ai.geminiKey;
+    if (id === 'supabase') return !!serverConfig.supabase && !(settings as any).supabaseUrl;
+    if (id === 'cloudinary') return !!serverConfig.cloudinary && !(settings as any).cloudinaryCloudName;
+    if (id === 'whatsapp') return !!serverConfig.whatsapp && !settings.social?.whatsapp?.connected;
+    return false;
   };
 
   const getToken = () => localStorage.getItem('ai_commerce_token') || '';
@@ -288,6 +307,11 @@ export default function ConnectionsPage() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <p style={{ fontSize: 15, fontWeight: 900, color: 'var(--txt-1)' }}>{svc.name}</p>
                     {conn && <CheckCircle size={15} color="#34d399" />}
+                    {isServerManaged(svc.id) && (
+                      <span style={{ fontSize: 10, fontWeight: 800, padding: '1px 7px', borderRadius: 99, background: 'rgba(99,102,241,.15)', color: '#a78bfa', border: '1px solid rgba(99,102,241,.25)' }}>
+                        🔒 Railway Env
+                      </span>
+                    )}
                     {testResult && (
                       <span style={{ fontSize: 10, fontWeight: 800, padding: '1px 7px', borderRadius: 99, background: testResult.ok ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)', color: testResult.ok ? '#34d399' : '#f87171' }}>
                         {testResult.ok ? `✅ يعمل${testResult.info ? ` · ${testResult.info}` : ''}` : '❌ لا يعمل'}
@@ -316,7 +340,7 @@ export default function ConnectionsPage() {
                   )}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  {conn && <button onClick={e => { e.stopPropagation(); disconnect(svc); }} className="btn btn-danger btn-sm" style={{ fontSize: 12 }}>قطع</button>}
+                  {conn && !isServerManaged(svc.id) && <button onClick={e => { e.stopPropagation(); disconnect(svc); }} className="btn btn-danger btn-sm" style={{ fontSize: 12 }}>قطع</button>}
                   {loading[svc.id] ? <Loader2 size={16} className="spin" style={{ color: 'var(--clr-pri-h)' }} /> : conn ? <CheckCircle size={16} color="#34d399" /> : <Wifi size={16} color="var(--txt-3)" />}
                 </div>
               </div>
@@ -324,6 +348,15 @@ export default function ConnectionsPage() {
               {/* Body */}
               {open && (
                 <div className="anim-fade-in" style={{ borderTop: '1px solid var(--clr-border)', padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  {/* Server-managed badge */}
+                  {isServerManaged(svc.id) && (
+                    <div style={{ padding:'10px 14px', borderRadius:10, background:'rgba(99,102,241,.07)', border:'1px solid rgba(99,102,241,.2)', display:'flex', alignItems:'center', gap:8 }}>
+                      <span style={{ fontSize:16 }}>🔒</span>
+                      <p style={{ fontSize:12, color:'#c4b5fd' }}>
+                        هذه الخدمة مُفعَّلة عبر متغيرات بيئة Railway — لا حاجة لإدخال البيانات يدوياً.
+                      </p>
+                    </div>
+                  )}
                   {/* What this enables — shown at top of expanded body when not connected */}
                   {!conn && ENABLES[svc.id] && (
                     <div style={{ padding:'12px 14px', borderRadius:10, background:'rgba(255,106,0,.06)', border:'1px solid rgba(255,106,0,.18)' }}>

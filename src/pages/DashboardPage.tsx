@@ -2,8 +2,9 @@ import React from 'react';
 import { useStore } from '../store';
 import {
   ShoppingBag, MessageCircle, Users,
-  ChevronRight, AlertTriangle, ChevronDown, ChevronUp,
+  ChevronRight, AlertTriangle, ChevronDown, ChevronUp, Bell,
 } from 'lucide-react';
+import { isPushSupported, getPushPermission, subscribeToPush } from '../lib/pushNotifications';
 
 const STATUS_AR: Record<string,string> = {
   pending:'بانتظار',approved:'موافقة',processing:'جارٍ',
@@ -58,8 +59,25 @@ function DashboardSkeleton() {
 }
 
 export default function DashboardPage() {
-  const { settings, products, orders, customers, conversations, setPage, isLoading } = useStore();
+  const { settings, products, orders, customers, conversations, setPage, isLoading, token } = useStore();
   const [showDetails, setShowDetails] = React.useState(false);
+  const [pushSupported, setPushSupported] = React.useState(false);
+  const [pushPerm, setPushPerm] = React.useState<NotificationPermission>('default');
+  const [pushLoading, setPushLoading] = React.useState(false);
+
+  React.useEffect(() => {
+    isPushSupported().then(s => {
+      setPushSupported(s);
+      if (s) setPushPerm(getPushPermission());
+    });
+  }, []);
+
+  const handleEnablePush = async () => {
+    setPushLoading(true);
+    const ok = await subscribeToPush(token || '');
+    setPushLoading(false);
+    if (ok) setPushPerm('granted');
+  };
 
   if (isLoading) return <DashboardSkeleton />;
 
@@ -141,6 +159,33 @@ export default function DashboardPage() {
               ⚡ ربط السحابة الآن
             </button>
           </div>
+        </div>
+      )}
+
+      {/* 🔔 Push notification opt-in banner */}
+      {pushSupported && pushPerm === 'default' && (
+        <div style={{
+          background: 'linear-gradient(135deg,rgba(255,106,0,.08),rgba(255,106,0,.03))',
+          border: '1px solid rgba(255,106,0,.25)',
+          borderRadius: 'var(--r,12px)',
+          padding: '12px 16px',
+          display: 'flex', alignItems: 'center', gap: 12,
+        }}>
+          <Bell size={22} color="var(--ember)" style={{ flexShrink: 0 }} />
+          <div style={{ flex: 1 }}>
+            <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--ember)', marginBottom: 2 }}>
+              تلقّ إشعارات الطلبات الجديدة
+            </p>
+            <p style={{ fontSize: 11, color: 'var(--ink3)', lineHeight: 1.5 }}>
+              احصل على إشعار فوري على هاتفك عند كل طلب جديد — حتى عندما يكون التطبيق مغلقاً.
+            </p>
+          </div>
+          <button
+            onClick={handleEnablePush}
+            disabled={pushLoading}
+            style={{ padding: '7px 14px', borderRadius: 8, background: 'var(--ember)', border: 'none', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', opacity: pushLoading ? .6 : 1 }}>
+            {pushLoading ? '...' : 'تفعيل'}
+          </button>
         </div>
       )}
 
