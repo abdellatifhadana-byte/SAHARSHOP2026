@@ -1,40 +1,176 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useStore } from '../store';
-import { Send, Bot, Plus, Sparkles, X, Pin, ShoppingCart } from 'lucide-react';
+import { Send, Bot, Plus, Sparkles, X, Pin, ArrowRight, Phone, Zap } from 'lucide-react';
 import * as api from '../services/api';
 
+// ─── Animations ──────────────────────────────────────────────────────────────
+const ANIM_STYLES = `
+@keyframes blink {
+  0%, 80%, 100% { opacity: .2; transform: scale(.85); }
+  40%            { opacity: 1;  transform: scale(1); }
+}
+@keyframes msgIn {
+  from { opacity: 0; transform: translateY(8px) scale(.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+`;
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+const SRC_CLR: Record<string, string> = {
+  WhatsApp: '#25d366',
+  Instagram: '#e1306c',
+  Messenger: '#0084ff',
+  TikTok: '#ffffff',
+};
+const SRC_ICN: Record<string, string> = {
+  WhatsApp: '💬',
+  Instagram: '📸',
+  Messenger: '💙',
+  TikTok: '🎵',
+  مباشر: '👤',
+};
+const LBL_CLR: Record<string, string> = {
+  urgent: '#f87171',
+  followup: '#fbbf24',
+  done: '#34d399',
+};
+const LABEL_LABEL: Record<string, string> = {
+  urgent: 'مهم',
+  followup: 'متابعة',
+  done: 'مكتمل',
+};
+const MOOD_EMOJI: Record<string, string> = {
+  neutral: '😐',
+  interested: '🔥',
+  hesitant: '🤔',
+  angry: '😠',
+  urgent: '⚡',
+};
+
+// ─── Typing Dots ──────────────────────────────────────────────────────────────
 function TypingDots() {
   return (
     <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
-      <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--ember)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Bot size={14} color="#fff" /></div>
-      <div className="bubble-ai" style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '10px 16px' }}>
-        {[0,1,2].map(i => <span key={i} style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--ink3)', display: 'inline-block', animation: `blink 1.4s ${i*0.2}s infinite` }} />)}
+      <div style={{
+        width: 30, height: 30, borderRadius: 10,
+        background: 'var(--ember)',
+        boxShadow: '0 0 12px rgba(255,106,0,.45)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+      }}>
+        <Bot size={14} color="#fff" />
+      </div>
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 5,
+        padding: '10px 16px',
+        background: 'rgba(255,106,0,.08)',
+        border: '1px solid rgba(255,106,0,.18)',
+        borderRadius: '18px 18px 18px 4px',
+      }}>
+        {[0, 1, 2].map(i => (
+          <span key={i} style={{
+            width: 7, height: 7, borderRadius: '50%',
+            background: 'var(--ember)',
+            display: 'inline-block',
+            animation: `blink 1.4s ${i * 0.22}s infinite`,
+          }} />
+        ))}
       </div>
     </div>
   );
 }
 
-const SRC_CLR: Record<string,string> = { WhatsApp:'#25d366', Instagram:'#e1306c', Messenger:'#0084ff', TikTok:'#fff' };
-const SRC_ICN: Record<string,string> = { WhatsApp:'💬', Instagram:'📸', Messenger:'💙', TikTok:'🎵' };
-const LBL_CLR: Record<string,string> = { urgent:'#f87171', followup:'#fbbf24', done:'#34d399' };
-const LABEL_LABEL: Record<string,string> = { urgent:'مهم', followup:'متابعة', done:'مكتمل' };
-const MOOD_EMOJI: Record<string,string> = { neutral:'😐', interested:'🔥', hesitant:'🤔', angry:'😠', urgent:'⚡' };
+// ─── Message Bubble ───────────────────────────────────────────────────────────
+function Bubble({ msg }: { msg: any }) {
+  const isCustomer = msg.role === 'customer';
+  const isAI       = msg.role === 'ai';
 
+  const bubbleStyle: React.CSSProperties = isCustomer
+    ? {
+        background: 'rgba(0,200,150,.12)',
+        border: '1px solid rgba(0,200,150,.22)',
+        borderRadius: '18px 18px 4px 18px',
+        color: 'var(--ink1)',
+      }
+    : isAI
+    ? {
+        background: 'rgba(255,106,0,.10)',
+        border: '1px solid rgba(255,106,0,.20)',
+        borderRadius: '18px 18px 18px 4px',
+        color: 'var(--ink1)',
+      }
+    : {
+        background: 'rgba(255,255,255,.06)',
+        border: '1px solid var(--border)',
+        borderRadius: '18px 18px 18px 4px',
+        color: 'var(--ink2)',
+      };
+
+  return (
+    <div style={{
+      display: 'flex', gap: 8, alignItems: 'flex-end',
+      flexDirection: isCustomer ? 'row-reverse' : 'row',
+      animation: 'msgIn .22s ease-out both',
+    }}>
+      {!isCustomer && (
+        <div style={{
+          width: 30, height: 30, borderRadius: 10, flexShrink: 0,
+          background: isAI ? 'var(--ember)' : 'rgba(255,255,255,.08)',
+          border: isAI ? 'none' : '1px solid var(--border)',
+          boxShadow: isAI ? '0 0 12px rgba(255,106,0,.4)' : 'none',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          {isAI ? <Bot size={14} color="#fff" /> : <span style={{ fontSize: 12 }}>👤</span>}
+        </div>
+      )}
+      <div style={{
+        maxWidth: '72%', display: 'flex', flexDirection: 'column', gap: 4,
+        alignItems: isCustomer ? 'flex-end' : 'flex-start',
+      }}>
+        <div style={{ ...bubbleStyle, padding: '10px 14px', fontSize: 13, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+          {msg.content}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ fontSize: 10, color: 'var(--ink3)' }}>{msg.timestamp}</span>
+          {isAI && (
+            <span style={{
+              fontSize: 9, fontWeight: 700,
+              color: 'var(--mint)',
+              background: 'rgba(0,200,150,.1)',
+              borderRadius: 4, padding: '1px 5px',
+            }}>AI</span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 export default function MessagesPage() {
   const { conversations, sendMessage, addConversation, updateConversation, settings, products, isOnline, notify } = useStore();
-  const [active,    setActive]    = useState<string|null>(conversations[0]?.id ?? null);
-  const [input,     setInput]     = useState('');
-  const [typing,    setTyping]    = useState(false);
-  const [showTpl,   setShowTpl]   = useState(false);
-  const [srcFilter, setSrcFilter] = useState('all');
-  const [aiThinking,setAiThinking]= useState(false);
+
+  const isMobile = window.innerWidth < 640;
+
+  const [active,      setActive]      = useState<string | null>(conversations[0]?.id ?? null);
+  const [mobileView,  setMobileView]  = useState<'list' | 'chat'>('list');
+  const [input,       setInput]       = useState('');
+  const [typing,      setTyping]      = useState(false);
+  const [showTpl,     setShowTpl]     = useState(false);
+  const [srcFilter,   setSrcFilter]   = useState('all');
+  const [aiThinking,  setAiThinking]  = useState(false);
+  const [showNewConv, setShowNewConv] = useState(false);
+  const [newConvForm, setNewConvForm] = useState({ name: '', phone: '', source: 'WhatsApp' as const });
+
   const msgEnd = useRef<HTMLDivElement>(null);
+  const conv   = conversations.find(c => c.id === active);
 
-  const conv = conversations.find(c => c.id === active);
+  const hasRealAI = !!(settings.ai?.apiKey || settings.ai?.geminiKey);
+  const aiProvider = settings.ai?.geminiKey ? 'Gemini' : settings.ai?.apiKey ? 'OpenAI' : null;
 
-  useEffect(() => { msgEnd.current?.scrollIntoView({ behavior: 'smooth' }); }, [conv?.messages?.length, typing]);
+  useEffect(() => {
+    msgEnd.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [conv?.messages?.length, typing]);
 
-  // Show typing indicator when customer sends
   useEffect(() => {
     if (!conv || !conv.messages?.length) return;
     const last = conv.messages[conv.messages.length - 1];
@@ -45,6 +181,12 @@ export default function MessagesPage() {
     }
   }, [conv?.messages?.length]);
 
+  const selectConversation = (id: string) => {
+    setActive(id);
+    updateConversation(id, { unread: 0 });
+    if (isMobile) setMobileView('chat');
+  };
+
   const send = async () => {
     if (!input.trim() || !active) return;
     const msg = input.trim();
@@ -52,27 +194,21 @@ export default function MessagesPage() {
     await sendMessage(active, msg, 'customer');
   };
 
-  // Send AI reply manually (agent triggers AI)
   const triggerAI = async () => {
     if (!conv || !active) return;
-    const lastMsg = conv.messages?.filter(m => m.role === 'customer').pop();
+    const lastMsg = conv.messages?.filter((m: any) => m.role === 'customer').pop();
     if (!lastMsg) { notify('info', 'لا توجد رسالة من الزبون للرد عليها'); return; }
-
     setAiThinking(true);
     try {
       if (isOnline && api.getToken()) {
-        // Try backend AI
         const data = await api.aiAPI.reply({
           message: lastMsg.content,
-          history: (conv.messages || []).slice(-10).map(m => ({ role: m.role, content: m.content })),
-          products: products.filter(p => p.status === 'published'),
+          history: (conv.messages || []).slice(-10).map((m: any) => ({ role: m.role, content: m.content })),
+          products: products.filter((p: any) => p.status === 'published'),
           settings: settings,
         });
-        if (data.reply) {
-          await sendMessage(active, data.reply, 'ai');
-        }
+        if (data.reply) await sendMessage(active, data.reply, 'ai');
       } else {
-        // Fallback: sendMessage handles local AI
         await sendMessage(active, lastMsg.content, 'customer');
       }
     } catch (e: any) {
@@ -80,11 +216,6 @@ export default function MessagesPage() {
     }
     setAiThinking(false);
   };
-
-  const [showNewConv, setShowNewConv] = React.useState(false);
-  const [newConvForm, setNewConvForm] = React.useState({ name:'', phone:'', source:'WhatsApp' as const });
-
-  const newConv = () => setShowNewConv(true);
 
   const createConv = async () => {
     if (!newConvForm.name.trim()) { notify('error', 'أدخل اسم الزبون'); return; }
@@ -98,159 +229,318 @@ export default function MessagesPage() {
     });
     setActive(id);
     setShowNewConv(false);
-    setNewConvForm({ name:'', phone:'', source:'WhatsApp' });
+    setNewConvForm({ name: '', phone: '', source: 'WhatsApp' });
+    if (isMobile) setMobileView('chat');
   };
 
   const filtered = conversations
     .filter(c => srcFilter === 'all' || c.source === srcFilter)
-    .sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || (b.unread||0) - (a.unread||0));
+    .sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || (b.unread || 0) - (a.unread || 0));
 
+  const totalUnread = conversations.reduce((s, c) => s + (c.unread || 0), 0);
+
+  // ── Styles ──────────────────────────────────────────────────────────────────
+  const containerStyle: React.CSSProperties = isMobile
+    ? { position: 'relative', height: 'calc(100dvh - 64px)', overflow: 'hidden' }
+    : { display: 'flex', gap: 0, height: 'calc(100vh - 80px)', minHeight: 520, borderRadius: 20, overflow: 'hidden', border: '1px solid var(--border)' };
+
+  const sidebarStyle: React.CSSProperties = isMobile
+    ? { position: 'absolute', inset: 0, display: mobileView === 'list' ? 'flex' : 'none', flexDirection: 'column', background: 'var(--void)' }
+    : { width: 280, flexShrink: 0, display: 'flex', flexDirection: 'column', background: 'var(--panel)', borderRight: '1px solid var(--border)' };
+
+  const chatStyle: React.CSSProperties = isMobile
+    ? { position: 'absolute', inset: 0, display: mobileView === 'chat' ? 'flex' : 'none', flexDirection: 'column', background: 'var(--panel)' }
+    : { flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--panel)' };
+
+  // ── Render ──────────────────────────────────────────────────────────────────
   return (
-    <div className="page-enter" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <style>{`@keyframes blink{0%,80%,100%{opacity:.2}40%{opacity:1}}`}</style>
+    <div className="page-enter" style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? 0 : 16 }}>
+      <style>{ANIM_STYLES}</style>
 
-      {/* ── New Conversation Modal ── */}
-      {showNewConv && (
-        <div onClick={() => setShowNewConv(false)} style={{ position:'fixed',inset:0,background:'rgba(0,0,0,.65)',backdropFilter:'blur(8px)',zIndex:500,display:'flex',alignItems:'center',justifyContent:'center',padding:16 }}>
-          <div onClick={e=>e.stopPropagation()} style={{ width:'100%',maxWidth:400,background:'var(--panel)',border:'1px solid var(--border2)',borderRadius:24,padding:24,boxShadow:'0 20px 60px rgba(0,0,0,.5)' }}>
-            <div style={{ display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20 }}>
-              <h3 style={{ fontSize:16,fontWeight:900,color:'var(--ink1)' }}>💬 محادثة جديدة</h3>
-              <button onClick={()=>setShowNewConv(false)} style={{ width:28,height:28,borderRadius:8,background:'rgba(255,255,255,.06)',border:'1px solid var(--border)',color:'var(--ink3)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:14 }}>×</button>
+      {/* ── Page header (desktop only) ── */}
+      {!isMobile && (
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+          <div>
+            <h1 className="page-title">الرسائل</h1>
+            <p className="page-sub">AI يرد تلقائياً بالدارجة {isOnline ? '· متصل' : '· offline'}</p>
+          </div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '6px 12px', borderRadius: 20, fontSize: 12.5, fontWeight: 700,
+              background: hasRealAI ? 'rgba(0,200,150,.1)' : 'rgba(255,106,0,.08)',
+              border: `1px solid ${hasRealAI ? 'rgba(0,200,150,.3)' : 'rgba(255,106,0,.2)'}`,
+              color: hasRealAI ? 'var(--mint)' : 'var(--ember)',
+            }}>
+              <Zap size={12} />
+              {hasRealAI ? `🟢 AI حقيقي · ${aiProvider}` : '🔵 AI محلي'}
             </div>
-            <div style={{ display:'flex',flexDirection:'column',gap:12 }}>
-              <div>
-                <label className="label" style={{ marginBottom:5,display:'block' }}>اسم الزبون *</label>
-                <input className="input" placeholder="مثال: محمد العلوي" value={newConvForm.name}
-                  onChange={e=>setNewConvForm(f=>({...f,name:e.target.value}))}
-                  onKeyDown={e=>e.key==='Enter'&&createConv()} autoFocus/>
-              </div>
-              <div>
-                <label className="label" style={{ marginBottom:5,display:'block' }}>رقم الهاتف</label>
-                <input className="input" placeholder="06XXXXXXXX" value={newConvForm.phone}
-                  onChange={e=>setNewConvForm(f=>({...f,phone:e.target.value}))} dir="ltr"/>
-              </div>
-              <div>
-                <label className="label" style={{ marginBottom:5,display:'block' }}>المصدر</label>
-                <div style={{ display:'flex',gap:6 }}>
-                  {(['WhatsApp','Instagram','Messenger','مباشر'] as const).map(src=>(
-                    <button key={src} onClick={()=>setNewConvForm(f=>({...f,source:src as any}))}
-                      style={{ flex:1,padding:'8px 6px',borderRadius:9,fontSize:11,fontWeight:700,cursor:'pointer',border:`1.5px solid ${newConvForm.source===src?'var(--ember)':'var(--border)'}`,background:newConvForm.source===src?'var(--ember-soft)':'transparent',color:newConvForm.source===src?'var(--ember)':'var(--ink3)' }}>
-                      {src==='WhatsApp'?'💬':src==='Instagram'?'📸':src==='Messenger'?'🔵':'👤'} {src}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div style={{ display:'flex',gap:8,marginTop:4 }}>
-                <button onClick={()=>setShowNewConv(false)} className="btn btn-ghost" style={{ flex:1 }}>إلغاء</button>
-                <button onClick={createConv} className="btn btn-primary" style={{ flex:2,justifyContent:'center' }}>
-                  إنشاء المحادثة
-                </button>
-              </div>
-            </div>
+            <button onClick={() => setShowNewConv(true)} className="btn btn-ghost btn-sm">
+              <Plus size={15} /> محادثة
+            </button>
           </div>
         </div>
       )}
 
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-        <div>
-          <h1 className="page-title">الرسائل</h1>
-          <p className="page-sub">AI يرد تلقائياً بالدارجة {isOnline ? '· متصل' : '· offline'}</p>
-        </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 20, fontSize: 12.5, fontWeight: 700, background: settings.ai.humanSimulation ? 'rgba(0,200,150,0.1)' : 'rgba(255,255,255,0.05)', border: `1px solid ${settings.ai.humanSimulation ? 'rgba(0,200,150,0.3)' : 'var(--border)'}`, color: settings.ai.humanSimulation ? 'var(--mint)' : 'var(--ink3)' }}>
-            <Sparkles size={13} />
-            AI {settings.ai.humanSimulation ? `نشط · ${settings.ai.replyDelay}s` : 'معطّل'}
-          </div>
-          <button onClick={newConv} className="btn btn-ghost btn-sm"><Plus size={15} /> محادثة</button>
-        </div>
-      </div>
+      {/* ── Main layout ── */}
+      <div style={containerStyle}>
 
-      <div style={{ display: 'flex', gap: 14, height: 'calc(100vh - 220px)', minHeight: 500 }}>
-        {/* Sidebar */}
-        <div style={{ width: 260, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div className="tabs" style={{ gap: 4 }}>
-            {['all','WhatsApp','Instagram','Messenger'].map(s => (
-              <button key={s} onClick={() => setSrcFilter(s)} className={`tab-btn ${srcFilter === s ? 'active' : ''}`} style={{ padding: '5px 10px', fontSize: 12 }}>
-                {s === 'all' ? 'الكل' : SRC_ICN[s]}
-              </button>
-            ))}
-          </div>
+        {/* ══════════════ SIDEBAR ══════════════ */}
+        <div style={sidebarStyle}>
 
-          <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
-            {filtered.length === 0 && (
-              <div style={{ textAlign: 'center', padding: '32px 16px', color: 'var(--ink3)' }}>
-                <Bot size={36} style={{ marginBottom: 8, opacity: .3 }} />
-                <p style={{ fontSize: 13 }}>لا محادثات</p>
-                <button onClick={newConv} className="btn btn-ghost btn-sm" style={{ marginTop: 12 }}>ابدأ محادثة جديدة</button>
-              </div>
+          {/* Sidebar header */}
+          <div style={{ padding: '14px 14px 10px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10 }}>
+            {isMobile && (
+              <h2 style={{ fontSize: 17, fontWeight: 900, color: 'var(--ink1)', flex: 1 }}>
+                الرسائل
+                {totalUnread > 0 && (
+                  <span style={{ marginRight: 8, fontSize: 11, fontWeight: 700, background: 'var(--ember)', color: '#fff', borderRadius: 99, padding: '1px 7px' }}>
+                    {totalUnread}
+                  </span>
+                )}
+              </h2>
             )}
-            {filtered.map(c => (
-              <button key={c.id} onClick={() => { setActive(c.id); updateConversation(c.id, { unread: 0 }); }}
-                style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '11px 13px', borderRadius: 14, textAlign: 'right', cursor: 'pointer', transition: 'all .18s', background: active === c.id ? 'rgba(255,106,0,0.1)' : 'rgba(255,255,255,0.03)', border: `1.5px solid ${active === c.id ? 'rgba(255,106,0,0.3)' : 'var(--border)'}` }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                  <span style={{ fontSize: 15 }}>{SRC_ICN[c.source] || '💬'}</span>
-                  <span style={{ flex: 1, fontSize: 13, fontWeight: 800, color: 'var(--ink1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.customerName}</span>
-                  {c.pinned && <Pin size={11} color="var(--gold)" />}
-                  {(c.unread||0) > 0 && <span style={{ minWidth: 18, height: 18, borderRadius: 99, background: 'var(--ember)', color: '#fff', fontSize: 10, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px' }}>{c.unread}</span>}
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 4, background: `${SRC_CLR[c.source] || '#fff'}22`, color: SRC_CLR[c.source] || 'var(--ink3)' }}>{c.source}</span>
-                  {c.label && <span style={{ fontSize: 10, fontWeight: 700, color: LBL_CLR[c.label] || 'var(--ink3)' }}>{LABEL_LABEL[c.label]}</span>}
-                  {c.mood && c.mood !== 'neutral' && <span style={{ fontSize: 12 }}>{MOOD_EMOJI[c.mood]}</span>}
-                </div>
-                <p style={{ fontSize: 12, color: 'var(--ink3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right' }}>{c.lastMessage || 'ابدأ المحادثة...'}</p>
+            {!isMobile && <span style={{ flex: 1 }} />}
+
+            {/* AI status pill */}
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 5,
+              padding: '4px 9px', borderRadius: 99, fontSize: 11, fontWeight: 700,
+              background: hasRealAI ? 'rgba(0,200,150,.1)' : 'rgba(255,106,0,.08)',
+              border: `1px solid ${hasRealAI ? 'rgba(0,200,150,.25)' : 'rgba(255,106,0,.2)'}`,
+              color: hasRealAI ? 'var(--mint)' : 'var(--ember)',
+              whiteSpace: 'nowrap',
+            }}>
+              {hasRealAI ? '🟢 AI حقيقي' : '🔵 AI محلي'}
+            </div>
+
+            {/* New conversation button */}
+            <button
+              onClick={() => setShowNewConv(true)}
+              style={{
+                width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
+                background: 'var(--ember)', border: 'none', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: '0 0 10px rgba(255,106,0,.4)',
+              }}
+            >
+              <Plus size={16} color="#fff" />
+            </button>
+          </div>
+
+          {/* Source filter pills */}
+          <div style={{ padding: '10px 12px 8px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none' }}>
+            {[
+              { key: 'all', label: 'الكل' },
+              { key: 'WhatsApp', label: '💬' },
+              { key: 'Instagram', label: '📸' },
+              { key: 'Messenger', label: '💙' },
+              { key: 'مباشر', label: '👤' },
+            ].map(f => (
+              <button
+                key={f.key}
+                onClick={() => setSrcFilter(f.key)}
+                style={{
+                  padding: '5px 12px', borderRadius: 99, fontSize: 12, fontWeight: 700,
+                  cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all .15s',
+                  border: `1.5px solid ${srcFilter === f.key ? 'var(--ember)' : 'var(--border)'}`,
+                  background: srcFilter === f.key ? 'rgba(255,106,0,.12)' : 'transparent',
+                  color: srcFilter === f.key ? 'var(--ember)' : 'var(--ink3)',
+                }}
+              >
+                {f.label}
               </button>
             ))}
           </div>
+
+          {/* Conversation list */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '8px 8px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {filtered.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px 16px', color: 'var(--ink3)' }}>
+                <Bot size={40} style={{ margin: '0 auto 10px', opacity: .25, display: 'block' }} />
+                <p style={{ fontSize: 13, marginBottom: 14 }}>لا توجد محادثات</p>
+                <button onClick={() => setShowNewConv(true)} className="btn btn-ghost btn-sm">ابدأ محادثة جديدة</button>
+              </div>
+            ) : filtered.map(c => {
+              const isActive = active === c.id;
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => selectConversation(c.id)}
+                  style={{
+                    display: 'flex', flexDirection: 'column', gap: 5,
+                    padding: '11px 12px', borderRadius: 14, textAlign: 'right', cursor: 'pointer',
+                    transition: 'all .16s',
+                    background: isActive ? 'rgba(255,106,0,.10)' : 'rgba(255,255,255,.03)',
+                    border: `1.5px solid ${isActive ? 'rgba(255,106,0,.35)' : 'var(--border)'}`,
+                  }}
+                >
+                  {/* Top row: avatar, name, pin, unread */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ position: 'relative', flexShrink: 0 }}>
+                      <div style={{
+                        width: 34, height: 34, borderRadius: 10,
+                        background: `${SRC_CLR[c.source] || 'var(--ember)'}22`,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16,
+                        border: `1px solid ${SRC_CLR[c.source] || 'var(--border)'}33`,
+                      }}>
+                        {SRC_ICN[c.source] || '💬'}
+                      </div>
+                      {(c.unread || 0) > 0 && (
+                        <span style={{
+                          position: 'absolute', top: -4, right: -4,
+                          minWidth: 17, height: 17, borderRadius: 99,
+                          background: 'var(--ember)', color: '#fff',
+                          fontSize: 9, fontWeight: 900,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          padding: '0 4px',
+                        }}>
+                          {c.unread}
+                        </span>
+                      )}
+                    </div>
+                    <span style={{ flex: 1, fontSize: 13, fontWeight: 800, color: 'var(--ink1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {c.customerName}
+                    </span>
+                    {c.pinned && <Pin size={11} color="var(--gold, #c9954c)" />}
+                  </div>
+
+                  {/* Badges row */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <span style={{
+                      fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 5,
+                      background: `${SRC_CLR[c.source] || '#fff'}22`,
+                      color: SRC_CLR[c.source] || 'var(--ink3)',
+                    }}>
+                      {c.source}
+                    </span>
+                    {c.label && (
+                      <span style={{ fontSize: 10, fontWeight: 700, color: LBL_CLR[c.label] || 'var(--ink3)' }}>
+                        {LABEL_LABEL[c.label]}
+                      </span>
+                    )}
+                    {c.mood && c.mood !== 'neutral' && (
+                      <span style={{ fontSize: 12 }}>{MOOD_EMOJI[c.mood]}</span>
+                    )}
+                  </div>
+
+                  {/* Last message */}
+                  <p style={{ fontSize: 11.5, color: 'var(--ink3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right' }}>
+                    {c.lastMessage || 'ابدأ المحادثة...'}
+                  </p>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        {/* Chat window */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--panel)', borderRadius: 20, border: '1px solid var(--border)', overflow: 'hidden' }}>
+        {/* ══════════════ CHAT WINDOW ══════════════ */}
+        <div style={chatStyle}>
           {!conv ? (
-            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12, color: 'var(--ink3)' }}>
-              <Bot size={48} style={{ opacity: .2 }} />
-              <p style={{ fontSize: 14 }}>اختر محادثة من القائمة</p>
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 14, color: 'var(--ink3)' }}>
+              <div style={{ width: 64, height: 64, borderRadius: 20, background: 'rgba(255,106,0,.08)', border: '1px solid rgba(255,106,0,.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Bot size={28} style={{ opacity: .4 }} color="var(--ember)" />
+              </div>
+              <p style={{ fontSize: 14, textAlign: 'center' }}>اختر محادثة من القائمة<br /><span style={{ fontSize: 12, opacity: .6 }}>أو أنشئ محادثة جديدة</span></p>
             </div>
           ) : (
             <>
               {/* Chat header */}
-              <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ width: 38, height: 38, borderRadius: 11, background: `${SRC_CLR[conv.source]||'var(--ember)'}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>{SRC_ICN[conv.source]||'💬'}</div>
-                <div style={{ flex: 1 }}>
-                  <p style={{ fontSize: 14, fontWeight: 900, color: 'var(--ink1)' }}>{conv.customerName}</p>
-                  <p style={{ fontSize: 11.5, color: 'var(--ink3)' }}>{conv.customerPhone || 'غير محدد'} · {conv.source}</p>
+              <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10, background: 'var(--panel)' }}>
+                {/* Back button (mobile) */}
+                {isMobile && (
+                  <button
+                    onClick={() => setMobileView('list')}
+                    style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(255,255,255,.06)', border: '1px solid var(--border)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: 'var(--ink2)' }}
+                  >
+                    <ArrowRight size={16} />
+                  </button>
+                )}
+
+                {/* Source avatar */}
+                <div style={{
+                  width: 38, height: 38, borderRadius: 11, flexShrink: 0,
+                  background: `${SRC_CLR[conv.source] || 'var(--ember)'}22`,
+                  border: `1.5px solid ${SRC_CLR[conv.source] || 'var(--border)'}44`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18,
+                }}>
+                  {SRC_ICN[conv.source] || '💬'}
                 </div>
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <button onClick={() => updateConversation(conv.id, { pinned: !conv.pinned })} style={{ width: 30, height: 30, borderRadius: 8, background: conv.pinned ? 'rgba(201,149,76,.15)' : 'rgba(255,255,255,.05)', border: '1px solid var(--border)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: conv.pinned ? 'var(--gold)' : 'var(--ink3)' }}>
+
+                {/* Name & info */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 14, fontWeight: 900, color: 'var(--ink1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {conv.customerName}
+                  </p>
+                  <p style={{ fontSize: 11, color: 'var(--ink3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {conv.customerPhone || 'غير محدد'} · {conv.source}
+                  </p>
+                </div>
+
+                {/* Actions */}
+                <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                  {conv.customerPhone && (
+                    <a
+                      href={`https://wa.me/${conv.customerPhone.replace(/\D/g, '')}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        width: 32, height: 32, borderRadius: 9,
+                        background: 'rgba(37,211,102,.12)',
+                        border: '1px solid rgba(37,211,102,.25)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        color: '#25d366', textDecoration: 'none',
+                      }}
+                      title="فتح WhatsApp"
+                    >
+                      <Phone size={13} />
+                    </a>
+                  )}
+                  <button
+                    onClick={() => updateConversation(conv.id, { pinned: !conv.pinned })}
+                    style={{
+                      width: 32, height: 32, borderRadius: 9, cursor: 'pointer',
+                      background: conv.pinned ? 'rgba(201,149,76,.15)' : 'rgba(255,255,255,.05)',
+                      border: `1px solid ${conv.pinned ? 'rgba(201,149,76,.4)' : 'var(--border)'}`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      color: conv.pinned ? '#c9954c' : 'var(--ink3)',
+                    }}
+                    title={conv.pinned ? 'إلغاء التثبيت' : 'تثبيت'}
+                  >
                     <Pin size={13} />
                   </button>
                 </div>
               </div>
 
-              {/* Messages */}
-              <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {/* AI status bar */}
+              <div style={{
+                padding: '6px 16px', borderBottom: '1px solid var(--border)',
+                display: 'flex', alignItems: 'center', gap: 7, fontSize: 11.5, fontWeight: 600,
+                background: hasRealAI ? 'rgba(0,200,150,.05)' : 'rgba(255,106,0,.05)',
+                color: hasRealAI ? 'var(--mint)' : 'var(--ember)',
+              }}>
+                <Zap size={11} />
+                {hasRealAI
+                  ? `AI متصل · ${aiProvider} · يرد تلقائياً`
+                  : 'AI محلي · استجابات أساسية'}
+                <span style={{ marginRight: 'auto', fontSize: 10, opacity: .7 }}>
+                  {settings.ai.humanSimulation ? `تأخير ${settings.ai.replyDelay}s` : 'تأخير معطّل'}
+                </span>
+              </div>
+
+              {/* Messages area */}
+              <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {(!conv.messages || conv.messages.length === 0) && (
-                  <div style={{ textAlign: 'center', color: 'var(--ink3)', fontSize: 13, padding: '30px 0' }}>
-                    ابدأ بكتابة رسالة كالزبون أو انتظر رسالة حقيقية من WhatsApp
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, color: 'var(--ink3)', padding: '40px 0' }}>
+                    <Bot size={36} style={{ opacity: .2 }} />
+                    <p style={{ fontSize: 13, textAlign: 'center' }}>
+                      ابدأ بكتابة رسالة كالزبون لاختبار AI<br />
+                      <span style={{ fontSize: 11, opacity: .6 }}>أو انتظر رسالة حقيقية من {conv.source}</span>
+                    </p>
                   </div>
                 )}
-                {(conv.messages||[]).map((msg: any) => (
-                  <div key={msg.id} style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexDirection: msg.role === 'customer' ? 'row-reverse' : 'row' }}>
-                    {msg.role !== 'customer' && (
-                      <div style={{ width: 28, height: 28, borderRadius: 8, background: msg.role === 'ai' ? 'var(--ember)' : 'var(--panel2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        {msg.role === 'ai' ? <Bot size={14} color="#fff" /> : <span style={{ fontSize: 11 }}>👤</span>}
-                      </div>
-                    )}
-                    <div style={{ maxWidth: '75%', display: 'flex', flexDirection: 'column', gap: 3, alignItems: msg.role === 'customer' ? 'flex-end' : 'flex-start' }}>
-                      <div className={msg.role === 'customer' ? 'bubble-out' : msg.role === 'ai' ? 'bubble-ai' : 'bubble-in'} style={{ whiteSpace: 'pre-wrap', fontSize: 13, lineHeight: 1.55 }}>
-                        {msg.content}
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span style={{ fontSize: 10, color: 'var(--ink3)' }}>{msg.timestamp}</span>
-                        {msg.role === 'ai' && <span style={{ fontSize: 9, color: 'var(--mint)', background: 'rgba(0,200,150,.1)', borderRadius: 4, padding: '1px 5px', fontWeight: 700 }}>AI</span>}
-                      </div>
-                    </div>
-                  </div>
+                {(conv.messages || []).map((msg: any) => (
+                  <Bubble key={msg.id} msg={msg} />
                 ))}
                 {typing && <TypingDots />}
                 <div ref={msgEnd} />
@@ -258,25 +548,80 @@ export default function MessagesPage() {
 
               {/* Templates quick panel */}
               {showTpl && settings.templates?.length > 0 && (
-                <div style={{ padding: '10px 14px', borderTop: '1px solid var(--border)', maxHeight: 140, overflowY: 'auto' }}>
+                <div style={{ borderTop: '1px solid var(--border)', maxHeight: 150, overflowY: 'auto', padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <p style={{ fontSize: 11, color: 'var(--ink3)', fontWeight: 700, marginBottom: 2 }}>قوالب الردود</p>
                   {settings.templates.map((t: any) => (
-                    <button key={t.id} onClick={() => { setInput(t.content); setShowTpl(false); }} style={{ display: 'block', width: '100%', padding: '8px 12px', borderRadius: 10, background: 'rgba(255,255,255,.04)', border: '1px solid var(--border)', color: 'var(--ink2)', fontSize: 12.5, cursor: 'pointer', textAlign: 'right', marginBottom: 5, transition: 'background .15s' }}>
-                      <strong style={{ color: 'var(--ember)' }}>{t.name}</strong> — {t.content.slice(0, 60)}...
+                    <button
+                      key={t.id}
+                      onClick={() => { setInput(t.content); setShowTpl(false); }}
+                      style={{
+                        display: 'block', width: '100%', padding: '8px 12px', borderRadius: 10,
+                        background: 'rgba(255,255,255,.04)', border: '1px solid var(--border)',
+                        color: 'var(--ink2)', fontSize: 12, cursor: 'pointer', textAlign: 'right',
+                        transition: 'background .15s',
+                      }}
+                    >
+                      <strong style={{ color: 'var(--ember)' }}>{t.name}</strong>
+                      {' — '}
+                      {t.content.slice(0, 55)}{t.content.length > 55 ? '...' : ''}
                     </button>
                   ))}
                 </div>
               )}
 
               {/* Input bar */}
-              <div style={{ padding: '12px 14px', borderTop: '1px solid var(--border)', display: 'flex', gap: 8, alignItems: 'center' }}>
-                <button onClick={() => setShowTpl(v => !v)} title="قوالب الردود" style={{ width: 34, height: 34, borderRadius: 9, background: showTpl ? 'var(--ember)' : 'rgba(255,255,255,.05)', border: '1px solid var(--border)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: showTpl ? '#fff' : 'var(--ink3)' }}>
+              <div style={{ padding: '10px 12px', borderTop: '1px solid var(--border)', display: 'flex', gap: 7, alignItems: 'center', background: 'var(--panel)' }}>
+                <button
+                  onClick={() => setShowTpl(v => !v)}
+                  title="قوالب الردود"
+                  style={{
+                    width: 36, height: 36, borderRadius: 10, flexShrink: 0, cursor: 'pointer',
+                    background: showTpl ? 'var(--ember)' : 'rgba(255,255,255,.05)',
+                    border: `1px solid ${showTpl ? 'var(--ember)' : 'var(--border)'}`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: showTpl ? '#fff' : 'var(--ink3)',
+                  }}
+                >
                   <Sparkles size={14} />
                 </button>
-                <input className="glass-input" style={{ flex: 1, padding: '10px 14px', fontSize: 13 }} placeholder="اكتب رسالة كالزبون لاختبار الـ AI..." value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }} />
-                <button onClick={triggerAI} disabled={aiThinking} title="رد AI مباشر" style={{ width: 34, height: 34, borderRadius: 9, background: 'rgba(0,200,150,.1)', border: '1px solid rgba(0,200,150,.25)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: 'var(--mint)', opacity: aiThinking ? .5 : 1 }}>
+
+                <textarea
+                  className="glass-input"
+                  rows={1}
+                  style={{ flex: 1, padding: '10px 14px', fontSize: 13, resize: 'none', minHeight: 36, maxHeight: 100 }}
+                  placeholder="اكتب رسالة كالزبون لاختبار الـ AI..."
+                  value={input}
+                  onChange={e => setInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
+                />
+
+                <button
+                  onClick={triggerAI}
+                  disabled={aiThinking}
+                  title="رد AI مباشر"
+                  style={{
+                    width: 36, height: 36, borderRadius: 10, flexShrink: 0, cursor: 'pointer',
+                    background: 'rgba(0,200,150,.1)',
+                    border: '1px solid rgba(0,200,150,.25)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: 'var(--mint)', opacity: aiThinking ? .45 : 1,
+                    transition: 'opacity .15s',
+                  }}
+                >
                   <Bot size={15} />
                 </button>
-                <button onClick={send} disabled={!input.trim()} style={{ width: 36, height: 36, borderRadius: 10, background: input.trim() ? 'var(--ember)' : 'var(--panel2)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, opacity: input.trim() ? 1 : .5, transition: 'all .15s' }}>
+
+                <button
+                  onClick={send}
+                  disabled={!input.trim()}
+                  style={{
+                    width: 38, height: 38, borderRadius: 11, flexShrink: 0, cursor: 'pointer', border: 'none',
+                    background: input.trim() ? 'var(--ember)' : 'rgba(255,255,255,.07)',
+                    boxShadow: input.trim() ? '0 0 12px rgba(255,106,0,.4)' : 'none',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    opacity: input.trim() ? 1 : .45, transition: 'all .15s',
+                  }}
+                >
                   <Send size={15} color="#fff" />
                 </button>
               </div>
@@ -284,6 +629,94 @@ export default function MessagesPage() {
           )}
         </div>
       </div>
+
+      {/* ══════════════ NEW CONVERSATION MODAL ══════════════ */}
+      {showNewConv && (
+        <div
+          onClick={() => setShowNewConv(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 500,
+            background: 'rgba(0,0,0,.65)', backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: isMobile ? 'flex-end' : 'center',
+            justifyContent: 'center',
+            padding: isMobile ? 0 : 16,
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              width: '100%', maxWidth: isMobile ? '100%' : 400,
+              background: 'var(--panel)',
+              border: isMobile ? 'none' : '1px solid var(--border)',
+              borderRadius: isMobile ? '24px 24px 0 0' : 24,
+              padding: 24,
+              boxShadow: '0 -8px 40px rgba(0,0,0,.4)',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <h3 style={{ fontSize: 16, fontWeight: 900, color: 'var(--ink1)' }}>💬 محادثة جديدة</h3>
+              <button
+                onClick={() => setShowNewConv(false)}
+                style={{ width: 30, height: 30, borderRadius: 8, background: 'rgba(255,255,255,.06)', border: '1px solid var(--border)', color: 'var(--ink3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              >
+                <X size={14} />
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <label className="label" style={{ marginBottom: 5, display: 'block' }}>اسم الزبون *</label>
+                <input
+                  className="input"
+                  placeholder="مثال: محمد العلوي"
+                  value={newConvForm.name}
+                  onChange={e => setNewConvForm(f => ({ ...f, name: e.target.value }))}
+                  onKeyDown={e => e.key === 'Enter' && createConv()}
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="label" style={{ marginBottom: 5, display: 'block' }}>رقم الهاتف</label>
+                <input
+                  className="input"
+                  placeholder="06XXXXXXXX"
+                  value={newConvForm.phone}
+                  onChange={e => setNewConvForm(f => ({ ...f, phone: e.target.value }))}
+                  dir="ltr"
+                />
+              </div>
+              <div>
+                <label className="label" style={{ marginBottom: 5, display: 'block' }}>المصدر</label>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  {(['WhatsApp', 'Instagram', 'Messenger', 'مباشر'] as const).map(src => (
+                    <button
+                      key={src}
+                      onClick={() => setNewConvForm(f => ({ ...f, source: src as any }))}
+                      style={{
+                        flex: 1, padding: '8px 4px', borderRadius: 10, fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                        border: `1.5px solid ${newConvForm.source === src ? 'var(--ember)' : 'var(--border)'}`,
+                        background: newConvForm.source === src ? 'rgba(255,106,0,.1)' : 'transparent',
+                        color: newConvForm.source === src ? 'var(--ember)' : 'var(--ink3)',
+                        transition: 'all .14s',
+                      }}
+                    >
+                      {SRC_ICN[src] || '👤'}<br />
+                      <span style={{ fontSize: 10 }}>{src === 'مباشر' ? 'مباشر' : src}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                <button onClick={() => setShowNewConv(false)} className="btn btn-ghost" style={{ flex: 1 }}>إلغاء</button>
+                <button onClick={createConv} className="btn btn-primary" style={{ flex: 2, justifyContent: 'center' }}>
+                  إنشاء المحادثة
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

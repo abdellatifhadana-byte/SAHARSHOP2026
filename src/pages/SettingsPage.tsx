@@ -182,13 +182,21 @@ export default function SettingsPage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+      <style>{`
+        @media (max-width: 639px) {
+          .s2col { grid-template-columns: 1fr !important; }
+          .s2col-sm { grid-template-columns: 1fr !important; }
+          .card { padding: 14px !important; }
+          .settings-tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+        }
+      `}</style>
       <div>
         <h1 className="page-title">الإعدادات</h1>
         <p className="page-sub">تخصيص كامل للنظام</p>
       </div>
 
       {/* Tabs */}
-      <div className="tabs scroll-x" style={{ gap: 4 }}>
+      <div className="tabs scroll-x settings-tabs" style={{ gap: 4 }}>
         {TABS.map(t => (
           <button
             key={t.id}
@@ -207,7 +215,7 @@ export default function SettingsPage() {
       {tab === 'general' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <Section title="معلومات المتجر">
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div className="s2col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <Field label="اسم المتجر">
                 <input className="input" value={s.brand.name} onChange={e => updateSettings('brand', { ...s.brand, name: e.target.value })} />
               </Field>
@@ -266,7 +274,7 @@ export default function SettingsPage() {
           </Section>
 
           <Section title="أهداف المبيعات">
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div className="s2col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <Field label={`هدف يومي (${s.brand.currency})`}>
                 <input className="input" type="number" value={s.goals.daily} dir="ltr" onChange={e => updateSettings('goals', { ...s.goals, daily: parseInt(e.target.value)||0 })} />
               </Field>
@@ -301,7 +309,7 @@ export default function SettingsPage() {
       {tab === 'ai' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <Section title="مزوّد الذكاء الاصطناعي">
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            <div className="s2col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
               {(['openai','gemini'] as const).map(p => (
                 <button
                   key={p}
@@ -340,7 +348,7 @@ export default function SettingsPage() {
           </Section>
 
           <Section title="الشخصية والأسلوب">
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div className="s2col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <Field label="الشخصية">
                 <select className="select" value={s.ai.personality} onChange={e => updateSettings('ai', { ...s.ai, personality: e.target.value })}>
                   {['Moroccan Seller','Professional','Friendly','Luxury','Fast Seller'].map(p => <option key={p} value={p}>{p}</option>)}
@@ -479,7 +487,7 @@ export default function SettingsPage() {
       {tab === 'products' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <Section title="إعدادات المنتجات">
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+            <div className="s2col-sm" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
               <Field label="بادئة SKU">
                 <input className="input" value={s.products.skuPrefix} dir="ltr" style={{ fontFamily: 'monospace' }} onChange={e => updateSettings('products', { ...s.products, skuPrefix: e.target.value })} />
               </Field>
@@ -623,7 +631,7 @@ export default function SettingsPage() {
                 </p>
                 <button onClick={closeTplForm} style={{ background: 'none', border: 'none', color: 'var(--txt-3)', cursor: 'pointer' }}><X size={16} /></button>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div className="s2col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 <Field label="اسم القالب">
                   <input
                     className="input"
@@ -662,7 +670,7 @@ export default function SettingsPage() {
           )}
 
           {/* Templates grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div className="s2col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             {s.templates.map(t => (
               <div key={t.id} className="card" style={{ padding: '14px 16px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
@@ -719,7 +727,7 @@ export default function SettingsPage() {
                 <p style={{ fontSize: 14, fontWeight: 800, color: 'var(--txt-1)' }}>إضافة عضو جديد</p>
                 <button onClick={closeMemberForm} style={{ background: 'none', border: 'none', color: 'var(--txt-3)', cursor: 'pointer' }}><X size={16} /></button>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+              <div className="s2col-sm" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
                 <Field label="الاسم الكامل">
                   <input
                     className="input"
@@ -877,7 +885,7 @@ export default function SettingsPage() {
           </Section>
 
           <Section title="النسخ الاحتياطي">
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div className="s2col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <button onClick={exportData} className="btn btn-ghost" style={{ justifyContent: 'center' }}><Download size={15} /> تصدير نسخة احتياطية</button>
               <button onClick={() => importRef.current?.click()} className="btn btn-ghost" style={{ justifyContent: 'center' }}><Upload size={15} /> استيراد نسخة</button>
               <input ref={importRef} type="file" accept=".json" style={{ display: 'none' }} onChange={e => { const f=e.target.files?.[0]; if(f){const r=new FileReader();r.onload=ev=>importData(ev.target?.result as string);r.readAsText(f);} }} />
@@ -924,7 +932,7 @@ export default function SettingsPage() {
           {/* Light/Dark theme */}
           <div>
             <label className="label">الثيم</label>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div className="s2col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               {(['dark','light'] as const).map(t => (
                 <button
                   key={t}
@@ -946,7 +954,7 @@ export default function SettingsPage() {
           {/* Seasonal theme */}
           <div>
             <label className="label">الثيم الموسمي</label>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+            <div className="s2col-sm" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
               {SEASONAL_THEMES.map(st => {
                 const current = (s.design as any).seasonalTheme || 'auto';
                 const active   = current === st.id;

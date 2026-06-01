@@ -3,7 +3,10 @@ const router = require('express').Router();
 const auth   = require('../middleware/auth');
 const path   = require('path');
 const fs     = require('fs');
+const crypto = require('crypto');
+const https  = require('https');
 const multer = require('multer');
+const { db } = require('../database');
 
 // ── Cloudinary adapter ────────────────────────────────────────
 // If CLOUDINARY_* env vars are set, all uploads go to Cloudinary (persistent).
@@ -57,6 +60,53 @@ function uploadToCloudinary(buffer, options = {}) {
   });
 }
 
+// ── Dynamic Cloudinary upload using user's DB credentials (no global state) ──
+async function uploadToCloudinaryDynamic(buffer, cloudName, apiKey, apiSecret) {
+  const timestamp = Math.round(Date.now() / 1000);
+  const folder = 'sahar-shop';
+  const sig = crypto.createHash('sha256')
+    .update(`folder=${folder}&timestamp=${timestamp}${apiSecret}`)
+    .digest('hex');
+
+  const boundary = 'sb' + crypto.randomBytes(8).toString('hex');
+  const CRLF = '\r\n';
+  const field = (name, val) => Buffer.from(
+    `--${boundary}${CRLF}Content-Disposition: form-data; name="${name}"${CRLF}${CRLF}${val}${CRLF}`
+  );
+
+  const body = Buffer.concat([
+    field('api_key', apiKey),
+    field('timestamp', String(timestamp)),
+    field('signature', sig),
+    field('folder', folder),
+    Buffer.from(`--${boundary}${CRLF}Content-Disposition: form-data; name="file"; filename="img.jpg"${CRLF}Content-Type: image/jpeg${CRLF}${CRLF}`),
+    buffer,
+    Buffer.from(`${CRLF}--${boundary}--${CRLF}`),
+  ]);
+
+  return new Promise((resolve, reject) => {
+    const req = https.request({
+      hostname: 'api.cloudinary.com',
+      path: `/v1_1/${cloudName}/image/upload`,
+      method: 'POST',
+      headers: { 'Content-Type': `multipart/form-data; boundary=${boundary}`, 'Content-Length': body.length },
+    }, res => {
+      let d = '';
+      res.on('data', c => d += c);
+      res.on('end', () => {
+        try {
+          const r = JSON.parse(d);
+          if (r.error) reject(new Error(r.error.message));
+          else resolve({ secure_url: r.secure_url, public_id: r.public_id, bytes: r.bytes });
+        } catch (e) { reject(e); }
+      });
+    });
+    req.on('error', reject);
+    req.write(body);
+    req.end();
+  });
+}
+
 // ── Multer config (memory storage so we can inspect + forward to Cloudinary) ─
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -78,17 +128,22 @@ router.post('/upload', auth, upload.single('image'), async (req, res) => {
 
   try {
     if (CLOUDINARY_CONFIGURED) {
-      const result = await uploadToCloudinary(req.file.buffer, {
-        public_id: `${req.user.id}-${Date.now()}`,
-      });
-      return res.json({ url: result.secure_url, filename: result.public_id, size: result.bytes });
+      const result = await uploadToCloudinary(req.file.buffer, { public_id: `${req.user.id}-${Date.now()}` });
+      return res.json({ url: result.secure_url, filename: result.public_id, size: result.bytes, provider: 'cloudinary' });
     }
 
-    // ⚠️ Local fallback: ephemeral on Railway — configure Cloudinary for persistence
+    // Fallback: check user's DB Cloudinary settings
+    const us = db.getSettings(req.user.id) || {};
+    if (us.cloudinaryCloudName && us.cloudinaryApiKey && us.cloudinaryApiSecret) {
+      const result = await uploadToCloudinaryDynamic(req.file.buffer, us.cloudinaryCloudName, us.cloudinaryApiKey, us.cloudinaryApiSecret);
+      return res.json({ url: result.secure_url, filename: result.public_id, size: result.bytes, provider: 'cloudinary' });
+    }
+
+    // ⚠️ Local fallback: ephemeral on Railway — connect Cloudinary for persistence
     const ext      = path.extname(req.file.originalname) || '.jpg';
     const filename = `${req.user.id}-${Date.now()}${ext}`;
     fs.writeFileSync(path.join(UPLOAD_DIR, filename), req.file.buffer);
-    res.json({ url: `/api/media/files/${filename}`, filename, size: req.file.size });
+    res.json({ url: `/api/media/files/${filename}`, filename, size: req.file.size, provider: 'local' });
   } catch (e) {
     console.error('[Media] upload error:', e.message);
     res.status(500).json({ error: 'Upload failed' });
@@ -121,17 +176,21 @@ router.post('/upload-base64', auth, async (req, res) => {
 
   try {
     if (CLOUDINARY_CONFIGURED) {
-      const result = await uploadToCloudinary(buffer, {
-        public_id: `${req.user.id}-${Date.now()}`,
-        format: ext,
-      });
-      return res.json({ url: result.secure_url, filename: result.public_id });
+      const result = await uploadToCloudinary(buffer, { public_id: `${req.user.id}-${Date.now()}`, format: ext });
+      return res.json({ url: result.secure_url, filename: result.public_id, provider: 'cloudinary' });
+    }
+
+    // Fallback: check user's DB Cloudinary settings
+    const us = db.getSettings(req.user.id) || {};
+    if (us.cloudinaryCloudName && us.cloudinaryApiKey && us.cloudinaryApiSecret) {
+      const result = await uploadToCloudinaryDynamic(buffer, us.cloudinaryCloudName, us.cloudinaryApiKey, us.cloudinaryApiSecret);
+      return res.json({ url: result.secure_url, filename: result.public_id, provider: 'cloudinary' });
     }
 
     // ⚠️ Local fallback: ephemeral on Railway
     const filename = `${req.user.id}-${Date.now()}.${ext}`;
     fs.writeFileSync(path.join(UPLOAD_DIR, filename), buffer);
-    res.json({ url: `/api/media/files/${filename}`, filename });
+    res.json({ url: `/api/media/files/${filename}`, filename, provider: 'local' });
   } catch (e) {
     console.error('[Media] base64 upload error:', e.message);
     res.status(500).json({ error: 'Failed to save image' });
