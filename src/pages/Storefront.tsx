@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   Search, ShoppingCart, X, MessageCircle, Phone, Share2,
   Plus, Minus, Check, Package, Truck, MapPin, ChevronRight,
@@ -720,10 +720,15 @@ function FloatingChat({ userId, storeInfo }: { userId:string; storeInfo:StoreInf
     <>
       {/* FAB */}
       <button onClick={()=>setOpen(v=>!v)} style={{
-        position:'fixed',bottom:24,left:24,width:56,height:56,borderRadius:'50%',
-        background:'var(--ember)',border:'none',color:'#fff',cursor:'pointer',zIndex:200,
-        display:'flex',alignItems:'center',justifyContent:'center',
-        boxShadow:'0 4px 20px rgba(255,106,0,.45)',transition:'all .2s',
+        width:56, height:56, borderRadius:'50%',
+        background:'var(--ember)',
+        border:'none', cursor:'pointer',
+        display:'flex', alignItems:'center', justifyContent:'center',
+        boxShadow:'0 4px 20px rgba(255,106,0,.5)',
+        animation: open ? 'none' : 'pulse-chat 2s infinite',
+        transition:'all .2s',
+        position:'fixed', bottom:24, left:24, zIndex:200,
+        color:'#fff',
       }}>
         {open ? <X size={22}/> : <Bot size={22}/>}
         {unread > 0 && !open && (
@@ -934,6 +939,7 @@ export default function Storefront() {
   const [showTrack,  setShowTrack]  = useState(false);
   const [cartAnim,   setCartAnim]   = useState(false);
   const [successOrderId,setSuccessOrderId] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('all');
 
   const handleAddToCart = (p: SProduct, size?: string, color?: string) => {
     cart.add(p, size||p.sizes?.[0]||'', color||p.colors?.[0]||'');
@@ -943,7 +949,15 @@ export default function Storefront() {
 
   const categories = ['all', ...Array.from(new Set(products.map(p=>p.category).filter(Boolean)))];
 
-  let filtered = products
+  const heroCategories = useMemo(() => {
+    const cats = [...new Set(products.map(p => p.category).filter(Boolean))];
+    return cats;
+  }, [products]);
+  const filteredProducts = selectedCategory === 'all'
+    ? products
+    : products.filter(p => p.category === selectedCategory);
+
+  let filtered = filteredProducts
     .filter(p => (activeTab==='all' || p.category===activeTab)
       && (!search || p.name.includes(search) || p.description?.includes(search) || p.sku?.includes(search) || (p.colors||[]).some(cl=>cl.includes(search)))
       && (priceMax === 0 || p.price <= priceMax));
@@ -995,6 +1009,7 @@ export default function Storefront() {
       <style>{`
         @keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
         @keyframes spin{to{transform:rotate(360deg)}}
+        @keyframes pulse-chat{0%,100%{box-shadow:0 4px 20px rgba(255,106,0,.5),0 0 0 0 rgba(255,106,0,.4)}50%{box-shadow:0 4px 20px rgba(255,106,0,.5),0 0 0 12px rgba(255,106,0,0)}}
         body{background:var(--void)!important}
         .product-hover:hover{transform:translateY(-3px)!important;border-color:var(--border2)!important}
       `}</style>
@@ -1046,22 +1061,65 @@ export default function Storefront() {
       </header>
 
       {/* ── HERO ─────────────────────────────── */}
-      <div style={{ textAlign:'center',padding:'32px 20px 20px',position:'relative',overflow:'hidden' }}>
-        <div style={{ position:'absolute',inset:0,background:'radial-gradient(ellipse 80% 60% at 50% 0%, rgba(255,106,0,.06) 0%, transparent 70%)',pointerEvents:'none' }}/>
-        <h1 style={{ fontSize:'clamp(22px,5vw,38px)',fontWeight:900,color:'var(--ink1)',letterSpacing:'-0.03em',marginBottom:8,lineHeight:1.2 }}>
-          {brand.name}
-        </h1>
-        <p style={{ fontSize:14,color:'var(--ink2)',marginBottom:20 }}>
-          {filtered.length} منتج متوفر · توصيل لجميع مدن المغرب 🇲🇦
-        </p>
-        {/* Social links */}
-        <div style={{ display:'flex',justifyContent:'center',gap:10,flexWrap:'wrap' }}>
-          {brand.phone && <a href={`https://wa.me/${brand.phone.replace(/\D/g,'')}`} target="_blank" rel="noreferrer" style={{ padding:'5px 12px',borderRadius:99,background:'rgba(37,211,102,.1)',border:'1px solid rgba(37,211,102,.2)',color:'#25D366',fontSize:12,fontWeight:700,textDecoration:'none',display:'flex',alignItems:'center',gap:5 }}><MessageCircle size={12}/>واتساب</a>}
-          {brand.instagram && <a href={`https://instagram.com/${brand.instagram}`} target="_blank" rel="noreferrer" style={{ padding:'5px 12px',borderRadius:99,background:'rgba(225,48,108,.1)',border:'1px solid rgba(225,48,108,.2)',color:'#E1306C',fontSize:12,fontWeight:700,textDecoration:'none' }}>📸 Instagram</a>}
-          {brand.facebook && <a href={`https://facebook.com/${brand.facebook}`} target="_blank" rel="noreferrer" style={{ padding:'5px 12px',borderRadius:99,background:'rgba(24,119,242,.1)',border:'1px solid rgba(24,119,242,.2)',color:'#1877F2',fontSize:12,fontWeight:700,textDecoration:'none' }}>📘 Facebook</a>}
-          <button onClick={()=>{navigator.share?.({ title:brand.name, url:window.location.href }).catch(()=>{})||navigator.clipboard?.writeText(window.location.href)}} style={{ padding:'5px 12px',borderRadius:99,background:'var(--panel)',border:'1px solid var(--border)',color:'var(--ink2)',fontSize:12,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',gap:5 }}>
-            <Share2 size={12}/> مشاركة
-          </button>
+      <div style={{ padding:'16px 16px 0' }}>
+        {/* Store Hero */}
+        <div style={{
+          background:'linear-gradient(135deg, rgba(255,106,0,.12) 0%, rgba(0,200,150,.08) 100%)',
+          border:'1px solid rgba(255,106,0,.15)',
+          borderRadius:20,
+          padding:'20px 20px 16px',
+          marginBottom:16,
+          textAlign:'center',
+        }}>
+          {brand.logo && (
+            <img src={brand.logo} alt="logo" style={{ width:64,height:64,borderRadius:16,objectFit:'cover',marginBottom:8,border:'2px solid rgba(255,106,0,.3)' }}/>
+          )}
+          <h1 style={{ fontSize:'clamp(20px,5vw,28px)',fontWeight:900,color:'var(--ember)',margin:'0 0 4px' }}>
+            {brand.name || 'المتجر'}
+          </h1>
+          {brand.description && (
+            <p style={{ fontSize:13,color:'rgba(255,255,255,.5)',marginBottom:10,lineHeight:1.5 }}>
+              {brand.description}
+            </p>
+          )}
+          {/* Social links */}
+          <div style={{ display:'flex',justifyContent:'center',gap:8,flexWrap:'wrap',marginBottom: heroCategories.length > 1 ? 0 : 4 }}>
+            {brand.phone && <a href={`https://wa.me/${brand.phone.replace(/\D/g,'')}`} target="_blank" rel="noreferrer" style={{ padding:'5px 12px',borderRadius:99,background:'rgba(37,211,102,.1)',border:'1px solid rgba(37,211,102,.2)',color:'#25D366',fontSize:12,fontWeight:700,textDecoration:'none',display:'flex',alignItems:'center',gap:5 }}><MessageCircle size={12}/>واتساب</a>}
+            {brand.instagram && <a href={`https://instagram.com/${brand.instagram}`} target="_blank" rel="noreferrer" style={{ padding:'5px 12px',borderRadius:99,background:'rgba(225,48,108,.1)',border:'1px solid rgba(225,48,108,.2)',color:'#E1306C',fontSize:12,fontWeight:700,textDecoration:'none' }}>📸 Instagram</a>}
+            {brand.facebook && <a href={`https://facebook.com/${brand.facebook}`} target="_blank" rel="noreferrer" style={{ padding:'5px 12px',borderRadius:99,background:'rgba(24,119,242,.1)',border:'1px solid rgba(24,119,242,.2)',color:'#1877F2',fontSize:12,fontWeight:700,textDecoration:'none' }}>📘 Facebook</a>}
+            <button onClick={()=>{navigator.share?.({ title:brand.name, url:window.location.href }).catch(()=>{})||navigator.clipboard?.writeText(window.location.href)}} style={{ padding:'5px 12px',borderRadius:99,background:'var(--panel)',border:'1px solid var(--border)',color:'var(--ink2)',fontSize:12,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',gap:5 }}>
+              <Share2 size={12}/> مشاركة
+            </button>
+          </div>
+          {/* Category filter pills */}
+          {heroCategories.length > 1 && (
+            <div style={{ display:'flex',gap:6,flexWrap:'wrap',justifyContent:'center',marginTop:12 }}>
+              <button
+                onClick={() => setSelectedCategory('all')}
+                style={{
+                  padding:'5px 14px',borderRadius:99,fontSize:12,fontWeight:700,cursor:'pointer',
+                  border:`1.5px solid ${selectedCategory==='all'?'var(--ember)':'rgba(255,255,255,.15)'}`,
+                  background:selectedCategory==='all' ? 'var(--ember)' : 'transparent',
+                  color:selectedCategory==='all' ? '#fff' : 'rgba(255,255,255,.5)',
+                  transition:'all .15s',
+                }}>
+                الكل ({products.length})
+              </button>
+              {heroCategories.map(cat => (
+                <button key={cat}
+                  onClick={() => setSelectedCategory(cat)}
+                  style={{
+                    padding:'5px 14px',borderRadius:99,fontSize:12,fontWeight:700,cursor:'pointer',
+                    border:`1.5px solid ${selectedCategory===cat?'var(--ember)':'rgba(255,255,255,.15)'}`,
+                    background:selectedCategory===cat ? 'var(--ember)' : 'transparent',
+                    color:selectedCategory===cat ? '#fff' : 'rgba(255,255,255,.5)',
+                    transition:'all .15s',
+                  }}>
+                  {cat}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -1119,6 +1177,10 @@ export default function Storefront() {
       </div>
 
       {/* ── PRODUCTS GRID ───────────────────── */}
+      <p style={{ fontSize:12,color:'rgba(255,255,255,.4)',marginBottom:12,textAlign:'center' }}>
+        {filtered.length} منتج متوفر
+        {selectedCategory !== 'all' && ` في "${selectedCategory}"`}
+      </p>
       {/* Featured / Most Popular — show only on 'all' tab with no search */}
       {activeTab === 'all' && !search && filtered.length > 0 && (() => {
         const popular = [...filtered].sort((a,b)=>(b.sales||0)-(a.sales||0)).slice(0,3).filter(p=>(p.sales||0)>0);

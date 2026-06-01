@@ -279,6 +279,121 @@ router.post('/generate-description', auth, async (req, res) => {
   res.json({ description: desc, model: 'local' });
 });
 
+// POST /api/ai/generate-hashtags — generate social media hashtags
+router.post('/generate-hashtags', auth, async (req, res) => {
+  const { name, category, description, storeName } = req.body;
+  if (!name) return res.status(400).json({ error: 'name required' });
+
+  const dbSettings = db.getSettings(req.user.id) || {};
+  const openaiKey  = dbSettings.ai?.apiKey   || process.env.OPENAI_API_KEY;
+  const geminiKey  = dbSettings.ai?.geminiKey || process.env.GEMINI_API_KEY;
+  const provider   = dbSettings.ai?.provider  || 'openai';
+
+  const prompt = `Generate 15 social media hashtags for a Moroccan online store product.
+Product: "${name}"${category ? `\nCategory: ${category}` : ''}${description ? `\nDescription: ${description.slice(0,100)}` : ''}${storeName ? `\nStore: ${storeName}` : ''}
+Return ONLY a valid JSON object: {"hashtags":["#tag1","#tag2",...]}
+Include: Arabic hashtags for Morocco (#تسوق_المغرب etc.), English hashtags, product-specific, and trending e-commerce tags.`;
+
+  if (openaiKey && provider !== 'gemini') {
+    try {
+      const body = JSON.stringify({
+        model: dbSettings.ai?.model || 'gpt-4o-mini',
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 250, temperature: 0.7,
+        response_format: { type: 'json_object' },
+      });
+      const r = await _https('api.openai.com', '/v1/chat/completions', { 'Authorization': `Bearer ${openaiKey}` }, body);
+      const content = JSON.parse(r).choices?.[0]?.message?.content;
+      if (content) {
+        const parsed = JSON.parse(content);
+        const tags = parsed.hashtags || parsed;
+        if (Array.isArray(tags) && tags.length) return res.json({ hashtags: tags, model: 'openai' });
+      }
+    } catch (e) { console.warn('[hashtags] OpenAI:', e.message); }
+  }
+
+  if (geminiKey) {
+    try {
+      const body = JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: { maxOutputTokens: 250, temperature: 0.7 },
+      });
+      const r = await _https('generativelanguage.googleapis.com', `/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`, {}, body);
+      const text = JSON.parse(r).candidates?.[0]?.content?.parts?.[0]?.text;
+      if (text) {
+        const match = text.match(/\{[\s\S]*\}/);
+        if (match) {
+          const parsed = JSON.parse(match[0]);
+          const tags = parsed.hashtags || parsed;
+          if (Array.isArray(tags) && tags.length) return res.json({ hashtags: tags, model: 'gemini' });
+        }
+      }
+    } catch (e) { console.warn('[hashtags] Gemini:', e.message); }
+  }
+
+  // Local fallback
+  const safeStore = (storeName || 'متجر').replace(/\s+/g, '_');
+  const safeName  = name.replace(/\s+/g, '_');
+  const localTags = [
+    '#تسوق_اونلاين', '#متجر_مغربي', '#شحن_لجميع_المدن', '#جودة_عالية',
+    '#توصيل_سريع', `#${safeName}`, `#${safeStore}`,
+    '#المغرب', '#Maroc', '#MarocShopping', '#MoroccanBusiness',
+    '#دفع_عند_الاستلام', '#COD', '#تسوق_المغرب', '#منتجات_مغربية',
+  ];
+  res.json({ hashtags: localTags, model: 'local' });
+});
+
+// POST /api/ai/design-product-image — AI product image via DALL-E 3
+router.post('/design-product-image', auth, async (req, res) => {
+  const { productName, price, storeName, description, category, colors, sizes } = req.body;
+  if (!productName) return res.status(400).json({ error: 'productName required' });
+
+  const dbSettings = db.getSettings(req.user.id) || {};
+  const openaiKey  = dbSettings.ai?.apiKey || process.env.OPENAI_API_KEY;
+
+  if (!openaiKey) {
+    return res.status(400).json({
+      error: 'يجب ربط OpenAI أولاً من صفحة الاتصالات لاستخدام توليد الصور',
+      needsKey: true,
+    });
+  }
+
+  const cur   = dbSettings.brand?.currency || 'MAD';
+  const store = storeName || dbSettings.brand?.name || 'متجر';
+  const prompt = [
+    `Professional Moroccan e-commerce product marketing photo for Instagram/Facebook.`,
+    `Product: "${productName}"`,
+    description  ? `Description: ${description.slice(0, 120)}` : '',
+    category     ? `Category: ${category}` : '',
+    colors?.length ? `Colors: ${colors.slice(0,4).join(', ')}` : '',
+    sizes?.length  ? `Sizes: ${sizes.slice(0,4).join(', ')}` : '',
+    `Price: ${price} ${cur}`,
+    `Store: ${store}`,
+    ``,
+    `Create a stunning commercial product photo:`,
+    `- Clean white or soft gradient background`,
+    `- Product displayed prominently and clearly`,
+    `- Professional studio lighting, sharp focus`,
+    `- Price tag "${price} ${cur}" tastefully shown`,
+    `- Store name "${store}" in elegant corner branding`,
+    `- Modern Moroccan aesthetic, suitable for social media marketing`,
+    `- No busy backgrounds, no clutter`,
+  ].filter(Boolean).join('\n');
+
+  try {
+    const body = JSON.stringify({ model: 'dall-e-3', prompt, n: 1, size: '1024x1024', quality: 'standard', style: 'natural' });
+    const r    = await _https('api.openai.com', '/v1/images/generations', { 'Authorization': `Bearer ${openaiKey}` }, body);
+    const data = JSON.parse(r);
+    if (data.error) return res.status(400).json({ error: data.error.message });
+    const url = data.data?.[0]?.url;
+    if (url) return res.json({ url, model: 'dall-e-3' });
+    return res.status(500).json({ error: 'لم يتم توليد الصورة' });
+  } catch (e) {
+    console.warn('[design-image]', e.message);
+    return res.status(500).json({ error: e.message || 'خطأ في توليد الصورة' });
+  }
+});
+
 // POST /api/ai/product-search — search product by name/sku/description
 router.post('/product-search', async (req, res) => {
   const { query, userId } = req.body;
@@ -313,7 +428,29 @@ router.post('/public-reply', async (req, res) => {
 
   // Try remote AI
   if (openaiKey || geminiKey) {
-    const sysPrompt = settings?.ai?.systemPrompt || `أنت مساعد بيع ذكي لمتجر "${settings?.brand?.name||'متجر'}". تتحدث بالدارجة المغربية بأسلوب ودود. لديك هذه المنتجات: ${products.slice(0,10).map(p=>`${p.name} (${p.price} MAD)`).join(', ')}. ساعد الزبون في الطلب.`;
+    const cur = settings?.brand?.currency || 'MAD';
+    const allProds = products.slice(0, 40).map(p =>
+      `- ${p.emoji||'📦'} ${p.name}: ${p.price} ${cur}${p.description ? ' — ' + p.description.slice(0, 80) : ''}${(p.sizes||[]).length ? ' (مقاسات: ' + p.sizes.join('/') + ')' : ''}${(p.colors||[]).length ? ' (ألوان: ' + p.colors.join('/') + ')' : ''} [مخزون: ${p.stock}]`
+    ).join('\n');
+    const sysPrompt = settings?.ai?.systemPrompt || `أنت ${settings?.brand?.name||'صاحب المتجر'} تبيع مباشرة للزبائن بالدارجة المغربية. أنت الشخص المسؤول عن المتجر وتتكلم معهم كأنك أنت صاحب المتجر.
+
+معلومات متجرك:
+• اسم المتجر: ${settings?.brand?.name||'متجر'}
+• الهاتف: ${settings?.brand?.phone||''}
+• التوصيل: ${settings?.delivery?.defaultCost||'20-40'} ${cur} لجميع مدن المغرب خلال 24-48 ساعة
+• الدفع: عند الاستلام (COD)
+• الوصف: ${settings?.brand?.description||''}
+
+منتجاتك المتوفرة:
+${allProds || 'لا منتجات متوفرة حالياً'}
+
+تعليمات مهمة:
+- أجب دائماً بالدارجة المغربية
+- أنت صاحب المتجر — تكلم كأنك شخصياً تبيع للزبون
+- أعطِ السعر والتفاصيل مباشرة عند السؤال عن منتج
+- إذا أراد الطلب: اطلب الاسم الكامل، رقم الهاتف، المدينة، العنوان
+- كن إيجابياً، مقنعاً، ومشجعاً على الشراء
+- إذا لم يكن المنتج متوفراً، اعتذر بأدب واقترح بديلاً`;
     try {
       if (openaiKey) {
         const body = JSON.stringify({

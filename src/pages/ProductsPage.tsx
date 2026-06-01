@@ -243,7 +243,7 @@ const uid = () => Math.random().toString(36).slice(2, 9);
 // ─────────────────────────────────────────────────────────────
 
 export default function ProductsPage() {
-  const { products, addProduct, updateProduct, deleteProduct, adjustStock, settings, token } = useStore();
+  const { products, addProduct, updateProduct, deleteProduct, adjustStock, settings, token, notify } = useStore();
 
   const [search,  setSearch]  = useState('');
   const [filter,  setFilter]  = useState<Filter>('all');
@@ -254,6 +254,10 @@ export default function ProductsPage() {
   const [step,       setStep]       = useState(1);
   const [data,       setData]       = useState<WizardData>(initData());
   const [aiLoading,  setAiLoading]  = useState(false);
+  const [aiHashLoading, setAiHashLoading] = useState(false);
+  const [hashtags, setHashtags] = useState<string[]>([]);
+  const [aiDesignLoading, setAiDesignLoading] = useState(false);
+  const [aiDesignUrl, setAiDesignUrl] = useState('');
   const [saving,     setSaving]     = useState(false);
   const [designing,  setDesigning]  = useState(false);
 
@@ -354,6 +358,7 @@ export default function ProductsPage() {
     setData(initData()); setStep(1); setEditProd(null); setShowWizard(true);
     setCustomColorName(''); setCustomColorHex('#000000');
     setShowAddField(false); setNewField({ label: '', type: 'text', options: '' });
+    setHashtags([]); setAiDesignUrl('');
   };
 
   const openEdit = (p: Product) => {
@@ -369,6 +374,7 @@ export default function ProductsPage() {
       customFields: (p as any).customFields || [],
     });
     setStep(2); setEditProd(p); setShowWizard(true);
+    setHashtags([]); setAiDesignUrl('');
   };
 
   const closeWizard = () => {
@@ -401,6 +407,60 @@ export default function ProductsPage() {
       if (j.description) setData(d => ({ ...d, description: j.description }));
     } catch { /* silent */ }
     setAiLoading(false);
+  };
+
+  const generateHashtags = async () => {
+    if (!data.name) return;
+    setAiHashLoading(true);
+    try {
+      const cat = CATS.find(c => c.id === data.category);
+      const r = await fetch('/api/ai/generate-hashtags', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          name: data.name,
+          category: cat?.label || data.category,
+          description: data.description,
+          storeName: settings.brand.name,
+        }),
+      });
+      const j = await r.json();
+      if (j.hashtags) setHashtags(j.hashtags);
+    } catch { }
+    setAiHashLoading(false);
+  };
+
+  const designWithAI = async () => {
+    if (!data.name) return notify('warning', 'أدخل اسم المنتج أولاً');
+    setAiDesignLoading(true);
+    try {
+      const cat = CATS.find(c => c.id === data.category);
+      const r = await fetch('/api/ai/design-product-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          productName: data.name,
+          price: data.price,
+          storeName: settings.brand.name,
+          description: data.description,
+          category: cat?.label || data.category,
+          colors: data.colors,
+          sizes: data.sizes,
+        }),
+      });
+      const j = await r.json();
+      if (j.url) {
+        setAiDesignUrl(j.url);
+        notify('success', '✅ تم توليد صورة المنتج بالذكاء الاصطناعي!');
+      } else if (j.needsKey) {
+        notify('error', '⚠️ يجب ربط OpenAI أولاً من صفحة الاتصالات');
+      } else if (j.error) {
+        notify('error', `❌ ${j.error}`);
+      }
+    } catch (e: any) {
+      notify('error', `❌ خطأ: ${e.message}`);
+    }
+    setAiDesignLoading(false);
   };
 
   // ── Image upload helpers ──────────────────────────────────────
@@ -876,6 +936,35 @@ export default function ProductsPage() {
                       style={{ resize: 'none' }}
                     />
                   </div>
+                  {/* Hashtag generation */}
+                  <div>
+                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
+                      <label className="label" style={{ margin:0 }}>هاشتاق للنشر</label>
+                      <button
+                        onClick={generateHashtags}
+                        disabled={!data.name || aiHashLoading}
+                        className="btn btn-ghost btn-xs"
+                        style={{ gap:5, color:'#a78bfa', borderColor:'rgba(167,139,250,.3)' }}
+                      >
+                        <Sparkles size={12}/>
+                        {aiHashLoading ? 'جارٍ التوليد...' : '#️⃣ توليد هاشتاق'}
+                      </button>
+                    </div>
+                    {hashtags.length > 0 && (
+                      <div style={{ display:'flex', flexWrap:'wrap', gap:5, padding:'10px 12px', background:'rgba(167,139,250,.06)', border:'1px solid rgba(167,139,250,.2)', borderRadius:12 }}>
+                        {hashtags.map((tag, i) => (
+                          <span key={i} onClick={() => { const text = hashtags.join(' '); navigator.clipboard?.writeText(text); notify('success', '✅ تم نسخ الهاشتاق'); }}
+                            style={{ fontSize:11.5, color:'#a78bfa', background:'rgba(167,139,250,.1)', border:'1px solid rgba(167,139,250,.2)', borderRadius:99, padding:'3px 9px', cursor:'pointer', fontWeight:600 }}>
+                            {tag}
+                          </span>
+                        ))}
+                        <button onClick={() => { const text = hashtags.join(' '); navigator.clipboard?.writeText(text); notify('success', '✅ تم نسخ الكل'); }}
+                          style={{ fontSize:11, color:'rgba(167,139,250,.7)', background:'none', border:'none', cursor:'pointer', padding:'3px 6px', fontWeight:600 }}>
+                          نسخ الكل
+                        </button>
+                      </div>
+                    )}
+                  </div>
                   {/* Service-specific fields */}
                   {data.type === 'service' && (
                     <>
@@ -1103,6 +1192,43 @@ export default function ProductsPage() {
                         }}
                       >إضافة</button>
                     </div>
+                  </div>
+
+                  {/* AI Image Design */}
+                  <div style={{ padding:'14px', background:'rgba(255,106,0,.05)', border:'1px dashed rgba(255,106,0,.25)', borderRadius:14 }}>
+                    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom: aiDesignUrl ? 12 : 0 }}>
+                      <div>
+                        <p style={{ fontSize:13, fontWeight:800, color:'var(--ember)', marginBottom:2 }}>🎨 تصميم صورة بالذكاء الاصطناعي</p>
+                        <p style={{ fontSize:11, color:'var(--ink3)' }}>يولد صورة احترافية للمنتج تلقائياً — يتطلب OpenAI</p>
+                      </div>
+                      <button
+                        onClick={designWithAI}
+                        disabled={!data.name || aiDesignLoading}
+                        className="btn btn-ghost btn-sm"
+                        style={{ color:'var(--ember)', borderColor:'rgba(255,106,0,.3)', gap:6, flexShrink:0 }}
+                      >
+                        <Sparkles size={14}/>
+                        {aiDesignLoading ? '⏳ جارٍ التصميم...' : 'تصميم AI'}
+                      </button>
+                    </div>
+                    {aiDesignUrl && (
+                      <div style={{ display:'flex', gap:10, alignItems:'flex-start', marginTop:10 }}>
+                        <img src={aiDesignUrl} alt="AI Design" style={{ width:100, height:100, borderRadius:10, objectFit:'cover', border:'1px solid rgba(255,106,0,.3)' }}/>
+                        <div style={{ flex:1, display:'flex', flexDirection:'column', gap:6 }}>
+                          <p style={{ fontSize:12, color:'var(--ink2)', fontWeight:600 }}>صورة مولّدة بالذكاء الاصطناعي</p>
+                          <div style={{ display:'flex', gap:6 }}>
+                            <button onClick={() => { addImageUrl(aiDesignUrl); setAiDesignUrl(''); notify('success', '✅ تمت إضافة الصورة'); }}
+                              className="btn btn-primary btn-xs" style={{ fontSize:11 }}>
+                              + إضافة للمنتج
+                            </button>
+                            <button onClick={() => setAiDesignUrl('')}
+                              className="btn btn-ghost btn-xs" style={{ fontSize:11 }}>
+                              تجاهل
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

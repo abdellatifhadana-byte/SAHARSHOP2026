@@ -3,6 +3,18 @@ import { useStore } from '../store';
 import { Wifi, CheckCircle, Loader2, Eye, EyeOff, AlertTriangle, ExternalLink, RefreshCw, Zap } from 'lucide-react';
 import { IconWhatsApp, IconFacebook, IconInstagram, IconTikTok } from '../components/icons';
 
+// What each connection enables throughout the app
+const ENABLES: Record<string, string[]> = {
+  whatsapp: ['إشعار تأكيد الطلب للزبون', 'إشعار الشحن تلقائياً', 'رسائل تسويقية', 'ربط المحادثات'],
+  facebook: ['نشر المنتجات على الصفحة', 'نشر العروض والمحتوى', 'متابعة التعليقات'],
+  instagram: ['نشر الصور والستوري', 'Reels تلقائي', 'رسائل Instagram Direct'],
+  openai: ['ردود AI حقيقية على الزبائن', 'توليد أوصاف المنتجات', 'هاشتاق AI', 'تصميم صور بـ DALL-E 3'],
+  gemini: ['ردود AI مجانية على الزبائن', 'توليد أوصاف المنتجات', 'هاشتاق AI', 'مجاني 15 طلب/دقيقة'],
+  tiktok: ['إعلانات TikTok', 'نشر الفيديوهات'],
+  supabase: ['نسخ احتياطي تلقائي', 'مزامنة البيانات السحابية', 'حماية ضد فقدان البيانات'],
+  cloudinary: ['رفع الصور تلقائياً', 'CDN عالمي سريع', 'لا تفقد صورك عند التحديث'],
+};
+
 const SERVICES = [
   {
     id: 'whatsapp', name: 'WhatsApp Business', Icon: IconWhatsApp, grad: 'linear-gradient(135deg,#25d366,#128C7E)', desc: 'استقبال وإرسال الرسائل تلقائياً',
@@ -283,6 +295,25 @@ export default function ConnectionsPage() {
                     )}
                   </div>
                   <p style={{ fontSize: 12.5, color: 'var(--txt-3)', marginTop: 2 }}>{svc.desc}</p>
+                  {/* What this enables */}
+                  {conn && ENABLES[svc.id] && (
+                    <div style={{ display:'flex', flexWrap:'wrap', gap:4, marginTop:4 }}>
+                      {ENABLES[svc.id].map(e => (
+                        <span key={e} style={{ fontSize:10, fontWeight:700, padding:'2px 7px', borderRadius:99, background:'rgba(16,185,129,.1)', color:'#34d399', border:'1px solid rgba(16,185,129,.2)' }}>
+                          ✓ {e}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {!conn && ENABLES[svc.id] && open && (
+                    <div style={{ display:'flex', flexWrap:'wrap', gap:4, marginTop:4 }}>
+                      {ENABLES[svc.id].map(e => (
+                        <span key={e} style={{ fontSize:10, fontWeight:600, padding:'2px 7px', borderRadius:99, background:'rgba(255,255,255,.04)', color:'var(--txt-3)', border:'1px solid var(--clr-border)' }}>
+                          {e}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   {conn && <button onClick={e => { e.stopPropagation(); disconnect(svc); }} className="btn btn-danger btn-sm" style={{ fontSize: 12 }}>قطع</button>}
@@ -293,6 +324,19 @@ export default function ConnectionsPage() {
               {/* Body */}
               {open && (
                 <div className="anim-fade-in" style={{ borderTop: '1px solid var(--clr-border)', padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  {/* What this enables — shown at top of expanded body when not connected */}
+                  {!conn && ENABLES[svc.id] && (
+                    <div style={{ padding:'12px 14px', borderRadius:10, background:'rgba(255,106,0,.06)', border:'1px solid rgba(255,106,0,.18)' }}>
+                      <p style={{ fontSize:12, fontWeight:800, color:'var(--ember)', marginBottom:8 }}>🔓 بعد الربط يمكنك:</p>
+                      <div style={{ display:'flex', flexWrap:'wrap', gap:5 }}>
+                        {ENABLES[svc.id].map(e => (
+                          <span key={e} style={{ fontSize:11, fontWeight:700, padding:'3px 9px', borderRadius:99, background:'rgba(255,106,0,.1)', color:'var(--ember)', border:'1px solid rgba(255,106,0,.2)' }}>
+                            ⚡ {e}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   {/* Guide */}
                   <div style={{ padding: '14px 16px', borderRadius: 12, background: 'rgba(99,102,241,0.07)', border: '1px solid rgba(99,102,241,0.18)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
