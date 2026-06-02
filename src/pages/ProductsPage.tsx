@@ -8,13 +8,17 @@ import type { Product, ProductStatus, CustomFieldDef, CustomFieldType } from '..
 
 // ── Category config ───────────────────────────────────────────
 
-// Image files in /public/categories/ — PNG with white bg (auto-detected)
+// Image files in /public/categories/ — PNG with transparent background preferred
 const CAT_IMG: Record<string, string> = {
   men:    '/categories/men',
   women:  '/categories/women',
   kids:   '/categories/kids',
   shoes:  '/categories/shoes',
   access: '/categories/accessories',
+  home:   '/categories/decoration',
+  service:'/categories/service',
+  digital:'/categories/digital',
+  other:  '/categories/other',
 };
 
 const CATS = [
@@ -890,54 +894,60 @@ export default function ProductsPage() {
                             setStep(2);
                           }}
                           style={{
-                            padding: '12px 8px 10px', borderRadius: 14,
-                            border: '1.5px solid var(--border)',
-                            background: 'var(--panel2)', cursor: 'pointer',
+                            padding: '14px 8px 10px', borderRadius: 18,
+                            border: '1px solid rgba(255,255,255,0.07)',
+                            background: 'rgba(255,255,255,0.03)',
+                            backdropFilter: 'blur(12px)',
+                            WebkitBackdropFilter: 'blur(12px)',
+                            cursor: 'pointer',
                             textAlign: 'center', fontFamily: 'inherit',
-                            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
-                            transition: 'border-color .15s, background .15s, transform .15s',
+                            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+                            transition: 'border-color .18s, background .18s, transform .18s, box-shadow .18s',
+                            boxShadow: '0 2px 12px rgba(0,0,0,0.2)',
                           }}
                           onMouseEnter={e => {
-                            e.currentTarget.style.borderColor = cat.color;
-                            e.currentTarget.style.background = `${cat.color}15`;
-                            e.currentTarget.style.transform = 'translateY(-2px)';
+                            e.currentTarget.style.borderColor = cat.color + '66';
+                            e.currentTarget.style.background = cat.color + '12';
+                            e.currentTarget.style.transform = 'translateY(-3px)';
+                            e.currentTarget.style.boxShadow = `0 8px 24px ${cat.color}30`;
                           }}
                           onMouseLeave={e => {
-                            e.currentTarget.style.borderColor = 'var(--border)';
-                            e.currentTarget.style.background = 'var(--panel2)';
+                            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)';
+                            e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
                             e.currentTarget.style.transform = '';
+                            e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.2)';
                           }}
                         >
-                          {/* Image or emoji fallback */}
+                          {/* Glass image card — transparent, no white bg */}
                           <div style={{
-                            width: 64, height: 64, borderRadius: 12, overflow: 'hidden',
-                            background: imgBase ? '#fff' : `${cat.color}18`,
+                            width: 68, height: 68, borderRadius: 18, overflow: 'hidden',
+                            background: 'rgba(255,255,255,0.04)',
+                            backdropFilter: 'blur(10px)',
+                            WebkitBackdropFilter: 'blur(10px)',
+                            border: '1px solid rgba(255,255,255,0.08)',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            boxShadow: '0 2px 8px rgba(0,0,0,.15)',
+                            position: 'relative',
+                            boxShadow: '0 4px 18px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.06)',
                           }}>
                             {imgBase ? (
-                              <img
-                                src={`${imgBase}.png`}
-                                onError={e => {
-                                  const t = e.currentTarget;
-                                  if (!t.dataset.tried) {
-                                    t.dataset.tried = '1';
-                                    t.src = `${imgBase}.svg`;
-                                  } else {
-                                    t.style.display = 'none';
-                                    (t.nextElementSibling as HTMLElement).style.display = 'flex';
-                                  }
-                                }}
-                                alt={cat.label}
-                                style={{ width: '100%', height: '100%', objectFit: 'contain', objectPosition: 'center', padding: 4 }}
-                              />
-                            ) : null}
-                            <span style={{
-                              fontSize: 30,
-                              display: imgBase ? 'none' : 'block',
-                            }}>{cat.icon}</span>
+                              <>
+                                <img
+                                  src={`${imgBase}.png`}
+                                  onError={e => {
+                                    const t = e.currentTarget;
+                                    if (!t.dataset.tried) { t.dataset.tried = '1'; t.src = `${imgBase}.svg`; }
+                                    else { t.style.display = 'none'; (t.nextElementSibling as HTMLElement).style.display = 'block'; }
+                                  }}
+                                  alt={cat.label}
+                                  style={{ width: '80%', height: '80%', objectFit: 'contain', display: 'block' }}
+                                />
+                                <span style={{ fontSize: 28, display: 'none' }}>{cat.icon}</span>
+                              </>
+                            ) : (
+                              <span style={{ fontSize: 28 }}>{cat.icon}</span>
+                            )}
                           </div>
-                          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink1)', lineHeight: 1.2 }}>{cat.label}</span>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink1)', lineHeight: 1.2 }}>{cat.label}</span>
                         </button>
                       );
                     })}

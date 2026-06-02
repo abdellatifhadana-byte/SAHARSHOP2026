@@ -17,6 +17,64 @@ const MAIN_NAV: { page: Page; icon: any; label: string }[] = [
   { page: 'settings',    icon: Settings,        label: 'الإعدادات'  },
 ];
 
+// Custom PNG icons — drop files in /public/icons/
+// Falls back to default icon if PNG not found
+const NAV_ICON_MAP: Record<string, string> = {
+  dashboard:     '/icons/home',
+  products:      '/icons/products',
+  orders:        '/icons/orders',
+  conversations: '/icons/messages',
+};
+const FAB_ICON = '/icons/fab';
+
+/** Renders a custom PNG icon with fallback to a Lucide component */
+function NavIcon({ page, FallbackIcon, size = 22, active = false }: {
+  page: string; FallbackIcon: any; size?: number; active?: boolean;
+}) {
+  const base = NAV_ICON_MAP[page];
+  const [useFallback, setUseFallback] = React.useState(false);
+  if (!base || useFallback) {
+    return <FallbackIcon size={size} strokeWidth={active ? 2.4 : 1.8} />;
+  }
+  return (
+    <img
+      src={`${base}.png`}
+      onError={(e) => {
+        const t = e.currentTarget;
+        if (!t.dataset.tried) { t.dataset.tried = '1'; t.src = `${base}.svg`; }
+        else setUseFallback(true);
+      }}
+      alt={page}
+      style={{ width: size, height: size, objectFit: 'contain', display: 'block',
+        filter: active ? 'none' : 'brightness(0.6)',
+        transition: 'filter .15s',
+      }}
+    />
+  );
+}
+
+function FabIcon({ open }: { open: boolean }) {
+  const [useFallback, setUseFallback] = React.useState(false);
+  if (useFallback) return <Plus size={26} strokeWidth={2.5} style={{ transform: open ? 'rotate(45deg)' : 'none', transition: 'transform .22s' }} />;
+  return (
+    <img
+      src={`${FAB_ICON}.png`}
+      onError={(e) => {
+        const t = e.currentTarget;
+        if (!t.dataset.tried) { t.dataset.tried = '1'; t.src = `${FAB_ICON}.svg`; }
+        else setUseFallback(true);
+      }}
+      alt="+"
+      style={{
+        width: 28, height: 28, objectFit: 'contain',
+        transform: open ? 'rotate(45deg)' : 'none',
+        transition: 'transform .22s cubic-bezier(.4,0,.2,1)',
+        filter: 'brightness(0) invert(1)',
+      }}
+    />
+  );
+}
+
 export default function NavBar() {
   const {
     currentPage, setPage, settings, updateSettings,
@@ -299,8 +357,8 @@ export default function NavBar() {
           return (
             <button key={item.page} className={`mob-nav-btn${active ? ' active' : ''}`} onClick={() => go(item.page)}
               style={{ flex: 1 }}>
-              <div style={{ position: 'relative' }}>
-                <item.icon size={20} strokeWidth={active ? 2.4 : 1.8} />
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <NavIcon page={item.page} FallbackIcon={item.icon} size={22} active={active} />
                 {b > 0 && (
                   <span style={{ position: 'absolute', top: -4, right: -4, width: 14, height: 14, background: 'var(--ember)', borderRadius: '50%', fontSize: 8, fontWeight: 900, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 8px rgba(255,106,0,.5)' }}>
                     {b > 9 ? '9' : b}
@@ -333,7 +391,7 @@ export default function NavBar() {
             }}
             aria-label="قائمة الإجراءات"
           >
-            <Plus size={26} strokeWidth={2.5} />
+            <FabIcon open={fabOpen} />
           </button>
         </div>
 
@@ -347,8 +405,8 @@ export default function NavBar() {
           return (
             <button key={item.page} className={`mob-nav-btn${active ? ' active' : ''}`} onClick={() => go(item.page)}
               style={{ flex: 1 }}>
-              <div style={{ position: 'relative' }}>
-                <item.icon size={20} strokeWidth={active ? 2.4 : 1.8} />
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <NavIcon page={item.page} FallbackIcon={item.icon} size={22} active={active} />
                 {b > 0 && (
                   <span style={{ position: 'absolute', top: -4, right: -4, width: 14, height: 14, background: 'var(--ember)', borderRadius: '50%', fontSize: 8, fontWeight: 900, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 8px rgba(255,106,0,.5)' }}>
                     {b > 9 ? '9' : b}
