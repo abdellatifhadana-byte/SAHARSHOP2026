@@ -55,7 +55,12 @@ function NavIcon({ page, FallbackIcon, size = 22, active = false }: {
 
 function FabIcon({ open }: { open: boolean }) {
   const [useFallback, setUseFallback] = React.useState(false);
-  if (useFallback) return <Plus size={26} strokeWidth={2.5} style={{ transform: open ? 'rotate(45deg)' : 'none', transition: 'transform .22s' }} />;
+  const rot: React.CSSProperties = {
+    transform: open ? 'rotate(45deg)' : 'rotate(0deg)',
+    transition: 'transform .22s cubic-bezier(.4,0,.2,1)',
+    display: 'block',
+  };
+  if (useFallback) return <Plus size={30} strokeWidth={2.8} style={rot} color="var(--ember)" />;
   return (
     <img
       src={`${FAB_ICON}.png`}
@@ -65,12 +70,7 @@ function FabIcon({ open }: { open: boolean }) {
         else setUseFallback(true);
       }}
       alt="+"
-      style={{
-        width: 28, height: 28, objectFit: 'contain',
-        transform: open ? 'rotate(45deg)' : 'none',
-        transition: 'transform .22s cubic-bezier(.4,0,.2,1)',
-        filter: 'brightness(0) invert(1)',
-      }}
+      style={{ width: 34, height: 34, objectFit: 'contain', ...rot }}
     />
   );
 }
@@ -347,7 +347,7 @@ export default function NavBar() {
       </div>
 
       <nav className="mobile-bottom-nav" style={{ display: 'flex', alignItems: 'center' }}>
-        {/* Left 2: الرئيسية + المنتجات */}
+        {/* Left 2: الرئيسية + المنتجات — always visible */}
         {[
           { page: 'dashboard' as Page, icon: LayoutDashboard, label: 'الرئيسية' },
           { page: 'products'  as Page, icon: NavIconPackage,  label: 'المنتجات' },
@@ -358,9 +358,9 @@ export default function NavBar() {
             <button key={item.page} className={`mob-nav-btn${active ? ' active' : ''}`} onClick={() => go(item.page)}
               style={{ flex: 1 }}>
               <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <NavIcon page={item.page} FallbackIcon={item.icon} size={22} active={active} />
+                <NavIcon page={item.page} FallbackIcon={item.icon} size={27} active={active} />
                 {b > 0 && (
-                  <span style={{ position: 'absolute', top: -4, right: -4, width: 14, height: 14, background: 'var(--ember)', borderRadius: '50%', fontSize: 8, fontWeight: 900, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 8px rgba(255,106,0,.5)' }}>
+                  <span style={{ position: 'absolute', top: -4, right: -6, width: 15, height: 15, background: 'var(--ember)', borderRadius: '50%', fontSize: 8, fontWeight: 900, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 8px rgba(255,106,0,.5)' }}>
                     {b > 9 ? '9' : b}
                   </span>
                 )}
@@ -370,45 +370,54 @@ export default function NavBar() {
           );
         })}
 
-        {/* Central FAB */}
-        <div style={{ flex: '0 0 72px', display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative' }}>
+        {/* Central FAB — icon only, ember glow, no circle */}
+        <div style={{ flex: '0 0 68px', display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative' }}>
           <button
             onClick={() => setFabOpen(v => !v)}
             style={{
-              width: 54, height: 54,
+              width: 52, height: 52,
               borderRadius: '50%',
-              background: 'var(--ember)',
+              background: 'transparent',
               border: 'none',
-              color: '#fff',
+              color: 'var(--ember)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               cursor: 'pointer',
               position: 'absolute',
-              bottom: 10,
-              boxShadow: '0 4px 18px rgba(255,106,0,.55), 0 2px 8px rgba(0,0,0,.3)',
-              transform: fabOpen ? 'rotate(45deg)' : 'rotate(0deg)',
-              transition: 'transform 0.22s cubic-bezier(.4,0,.2,1), box-shadow 0.15s ease',
+              bottom: 8,
+              filter: 'drop-shadow(0 0 10px rgba(255,106,0,0.85)) drop-shadow(0 0 4px rgba(255,106,0,0.5))',
+              transition: 'filter 0.2s ease, transform 0.22s cubic-bezier(.4,0,.2,1)',
               zIndex: 10,
             }}
+            onMouseEnter={e => e.currentTarget.style.filter = 'drop-shadow(0 0 16px rgba(255,106,0,1)) drop-shadow(0 0 6px rgba(255,106,0,0.8))'}
+            onMouseLeave={e => e.currentTarget.style.filter = 'drop-shadow(0 0 10px rgba(255,106,0,0.85)) drop-shadow(0 0 4px rgba(255,106,0,0.5))'}
             aria-label="قائمة الإجراءات"
           >
             <FabIcon open={fabOpen} />
           </button>
         </div>
 
-        {/* Right 2: الطلبات + الرسائل */}
+        {/* Right side — الطلبات + الرسائل: hidden when section is empty */}
         {[
-          { page: 'orders'         as Page, icon: NavIconCart,    label: 'الطلبات' },
-          { page: 'conversations'  as Page, icon: NavIconMessage, label: 'الرسائل' },
+          { page: 'orders'        as Page, icon: NavIconCart,    label: 'الطلبات',  show: orders.length > 0 },
+          { page: 'conversations' as Page, icon: NavIconMessage, label: 'الرسائل',  show: conversations.length > 0 },
         ].map(item => {
           const active = currentPage === item.page;
           const b = badge(item.page);
           return (
             <button key={item.page} className={`mob-nav-btn${active ? ' active' : ''}`} onClick={() => go(item.page)}
-              style={{ flex: 1 }}>
+              style={{
+                flex: 1,
+                overflow: 'hidden',
+                maxWidth: item.show ? undefined : 0,
+                padding: item.show ? undefined : 0,
+                opacity: item.show ? 1 : 0,
+                transition: 'max-width 0.3s ease, opacity 0.25s ease, padding 0.3s ease',
+                pointerEvents: item.show ? 'auto' : 'none',
+              }}>
               <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <NavIcon page={item.page} FallbackIcon={item.icon} size={22} active={active} />
+                <NavIcon page={item.page} FallbackIcon={item.icon} size={27} active={active} />
                 {b > 0 && (
-                  <span style={{ position: 'absolute', top: -4, right: -4, width: 14, height: 14, background: 'var(--ember)', borderRadius: '50%', fontSize: 8, fontWeight: 900, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 8px rgba(255,106,0,.5)' }}>
+                  <span style={{ position: 'absolute', top: -4, right: -6, width: 15, height: 15, background: 'var(--ember)', borderRadius: '50%', fontSize: 8, fontWeight: 900, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 8px rgba(255,106,0,.5)' }}>
                     {b > 9 ? '9' : b}
                   </span>
                 )}

@@ -894,60 +894,42 @@ export default function ProductsPage() {
                             setStep(2);
                           }}
                           style={{
-                            padding: '14px 8px 10px', borderRadius: 18,
-                            border: '1px solid rgba(255,255,255,0.07)',
-                            background: 'rgba(255,255,255,0.03)',
-                            backdropFilter: 'blur(12px)',
-                            WebkitBackdropFilter: 'blur(12px)',
+                            padding: '12px 6px 10px', borderRadius: 16,
+                            border: '1px solid transparent',
+                            background: 'transparent',
                             cursor: 'pointer',
                             textAlign: 'center', fontFamily: 'inherit',
-                            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
-                            transition: 'border-color .18s, background .18s, transform .18s, box-shadow .18s',
-                            boxShadow: '0 2px 12px rgba(0,0,0,0.2)',
+                            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+                            transition: 'transform .18s, border-color .18s',
                           }}
                           onMouseEnter={e => {
-                            e.currentTarget.style.borderColor = cat.color + '66';
-                            e.currentTarget.style.background = cat.color + '12';
-                            e.currentTarget.style.transform = 'translateY(-3px)';
-                            e.currentTarget.style.boxShadow = `0 8px 24px ${cat.color}30`;
+                            e.currentTarget.style.transform = 'translateY(-4px) scale(1.04)';
+                            e.currentTarget.style.borderColor = cat.color + '40';
                           }}
                           onMouseLeave={e => {
-                            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)';
-                            e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
                             e.currentTarget.style.transform = '';
-                            e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.2)';
+                            e.currentTarget.style.borderColor = 'transparent';
                           }}
                         >
-                          {/* Glass image card — transparent, no white bg */}
-                          <div style={{
-                            width: 68, height: 68, borderRadius: 18, overflow: 'hidden',
-                            background: 'rgba(255,255,255,0.04)',
-                            backdropFilter: 'blur(10px)',
-                            WebkitBackdropFilter: 'blur(10px)',
-                            border: '1px solid rgba(255,255,255,0.08)',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            position: 'relative',
-                            boxShadow: '0 4px 18px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.06)',
-                          }}>
-                            {imgBase ? (
-                              <>
-                                <img
-                                  src={`${imgBase}.png`}
-                                  onError={e => {
-                                    const t = e.currentTarget;
-                                    if (!t.dataset.tried) { t.dataset.tried = '1'; t.src = `${imgBase}.svg`; }
-                                    else { t.style.display = 'none'; (t.nextElementSibling as HTMLElement).style.display = 'block'; }
-                                  }}
-                                  alt={cat.label}
-                                  style={{ width: '80%', height: '80%', objectFit: 'contain', display: 'block' }}
-                                />
-                                <span style={{ fontSize: 28, display: 'none' }}>{cat.icon}</span>
-                              </>
-                            ) : (
-                              <span style={{ fontSize: 28 }}>{cat.icon}</span>
-                            )}
-                          </div>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink1)', lineHeight: 1.2 }}>{cat.label}</span>
+                          {/* Icon — raw image, no frame, no background */}
+                          {imgBase ? (
+                            <>
+                              <img
+                                src={`${imgBase}.png`}
+                                onError={e => {
+                                  const t = e.currentTarget;
+                                  if (!t.dataset.tried) { t.dataset.tried = '1'; t.src = `${imgBase}.svg`; }
+                                  else { t.style.display = 'none'; (t.nextElementSibling as HTMLElement).style.display = 'block'; }
+                                }}
+                                alt={cat.label}
+                                style={{ width: 80, height: 80, objectFit: 'contain', display: 'block', filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.35))' }}
+                              />
+                              <span style={{ fontSize: 38, display: 'none' }}>{cat.icon}</span>
+                            </>
+                          ) : (
+                            <span style={{ fontSize: 42 }}>{cat.icon}</span>
+                          )}
+                          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink1)', lineHeight: 1.2, marginTop: 2 }}>{cat.label}</span>
                         </button>
                       );
                     })}

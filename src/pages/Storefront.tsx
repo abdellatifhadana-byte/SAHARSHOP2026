@@ -1138,21 +1138,13 @@ export default function Storefront() {
                     width:80, flexShrink:0, background:'none', border:'none', cursor:'pointer', padding:0,
                     display:'flex', flexDirection:'column', alignItems:'center', gap:6,
                   }}>
-                  <div style={{
-                    width:80, height:80, borderRadius:22,
-                    background: selectedCategory==='all'
-                      ? 'rgba(255,106,0,0.18)'
-                      : 'rgba(255,255,255,0.04)',
-                    backdropFilter: 'blur(12px)',
-                    WebkitBackdropFilter: 'blur(12px)',
-                    border: `1.5px solid ${selectedCategory==='all' ? 'rgba(255,106,0,.6)' : 'rgba(255,255,255,.08)'}`,
-                    display:'flex', alignItems:'center', justifyContent:'center', fontSize:34,
-                    boxShadow: selectedCategory==='all'
-                      ? '0 0 24px rgba(255,106,0,.45), inset 0 1px 0 rgba(255,255,255,.1)'
-                      : '0 4px 16px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.05)',
-                  }}>
-                    🛍️
-                  </div>
+                  <span style={{
+                    fontSize:52, lineHeight:1, display:'block',
+                    filter: selectedCategory==='all'
+                      ? 'drop-shadow(0 0 12px rgba(255,106,0,0.8)) drop-shadow(0 4px 8px rgba(0,0,0,0.4))'
+                      : 'drop-shadow(0 4px 10px rgba(0,0,0,0.5))',
+                    transition:'filter .18s',
+                  }}>🛍️</span>
                   <span style={{ fontSize:11, fontWeight:700, color: selectedCategory==='all' ? 'var(--ember)' : 'rgba(255,255,255,.6)', lineHeight:1 }}>
                     الكل
                   </span>
@@ -1171,47 +1163,36 @@ export default function Storefront() {
                         width:80, flexShrink:0, background:'none', border:'none', cursor:'pointer', padding:0,
                         display:'flex', flexDirection:'column', alignItems:'center', gap:6,
                       }}>
-                      <div style={{
-                        width:80, height:80, borderRadius:22, overflow:'hidden', position:'relative',
-                        border: `1.5px solid ${active ? 'rgba(255,106,0,.6)' : 'rgba(255,255,255,.08)'}`,
-                        boxShadow: active
-                          ? '0 0 24px rgba(255,106,0,.45), inset 0 1px 0 rgba(255,255,255,.1)'
-                          : '0 4px 16px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.05)',
-                        background: 'rgba(255,255,255,0.04)',
-                        backdropFilter: 'blur(12px)',
-                        WebkitBackdropFilter: 'blur(12px)',
-                      }}>
-                        {imgBase ? (
-                          <>
-                            <img
-                              src={`${imgBase}.png`}
-                              onError={e => {
-                                const t = e.currentTarget;
-                                if (!t.dataset.tried) { t.dataset.tried = '1'; t.src = `${imgBase}.svg`; }
-                                else { t.style.display = 'none'; (t.nextElementSibling as HTMLElement).style.display = 'flex'; }
-                              }}
-                              alt={cat}
-                              style={{ width:'100%', height:'100%', objectFit:'contain', padding:10, display:'block' }}
-                            />
-                            <div style={{
-                              display:'none', position:'absolute', inset:0,
-                              alignItems:'center', justifyContent:'center', fontSize:34,
-                            }}>
-                              {cat.includes('أحذية') ? '👟' : cat.includes('نسائي')||cat.includes('فستان') ? '👗'
-                                : cat.includes('رجال') ? '🤵' : cat.includes('أطفال')||cat.includes('بيبي') ? '👶'
-                                : cat.includes('إكسسوار') ? '🎁' : '🏷️'}
-                            </div>
-                          </>
-                        ) : (
-                          <div style={{ display:'flex', position:'absolute', inset:0, alignItems:'center', justifyContent:'center', fontSize:34 }}>
-                            {cat.includes('أحذية') ? '👟' : cat.includes('نسائي')||cat.includes('فستان') ? '👗'
-                              : cat.includes('رجال') ? '🤵' : cat.includes('أطفال')||cat.includes('بيبي') ? '👶'
-                              : cat.includes('إكسسوار') ? '🎁' : '🏷️'}
-                          </div>
-                        )}
-                        {/* Ember tint when active */}
-                        {active && <div style={{ position:'absolute', inset:0, background:'rgba(255,106,0,.08)' }} />}
-                      </div>
+                      {/* Icon — raw image only, no frame, no background */}
+                      {imgBase ? (
+                        <>
+                          <img
+                            src={`${imgBase}.png`}
+                            onError={e => {
+                              const t = e.currentTarget;
+                              if (!t.dataset.tried) { t.dataset.tried = '1'; t.src = `${imgBase}.svg`; }
+                              else { t.style.display = 'none'; (t.nextElementSibling as HTMLElement).style.display = 'block'; }
+                            }}
+                            alt={cat}
+                            style={{
+                              width:88, height:88, objectFit:'contain', display:'block',
+                              filter: active
+                                ? 'drop-shadow(0 0 12px rgba(255,106,0,0.7)) drop-shadow(0 4px 8px rgba(0,0,0,0.4))'
+                                : 'drop-shadow(0 4px 10px rgba(0,0,0,0.5))',
+                              transition:'filter .18s',
+                            }}
+                          />
+                          <span style={{ fontSize:42, display:'none' }}>
+                            {cat.includes('أحذية') ? '👟' : cat.includes('نسائي') ? '👗'
+                              : cat.includes('رجال') ? '🤵' : cat.includes('أطفال') ? '👶' : '🏷️'}
+                          </span>
+                        </>
+                      ) : (
+                        <span style={{ fontSize:46 }}>
+                          {cat.includes('أحذية') ? '👟' : cat.includes('نسائي') ? '👗'
+                            : cat.includes('رجال') ? '🤵' : cat.includes('أطفال') ? '👶' : '🏷️'}
+                        </span>
+                      )}
                       <span style={{
                         fontSize:11, fontWeight:700, lineHeight:1, textAlign:'center', maxWidth:80,
                         color: active ? 'var(--ember)' : 'rgba(255,255,255,.7)',
