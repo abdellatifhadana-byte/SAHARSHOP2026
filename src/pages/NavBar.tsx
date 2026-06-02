@@ -358,9 +358,9 @@ export default function NavBar() {
             <button key={item.page} className={`mob-nav-btn${active ? ' active' : ''}`} onClick={() => go(item.page)}
               style={{ flex: 1 }}>
               <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <NavIcon page={item.page} FallbackIcon={item.icon} size={27} active={active} />
+                <NavIcon page={item.page} FallbackIcon={item.icon} size={30} active={active} />
                 {b > 0 && (
-                  <span style={{ position: 'absolute', top: -4, right: -6, width: 15, height: 15, background: 'var(--ember)', borderRadius: '50%', fontSize: 8, fontWeight: 900, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 8px rgba(255,106,0,.5)' }}>
+                  <span style={{ position: 'absolute', top: -5, right: -7, width: 16, height: 16, background: 'var(--ember)', borderRadius: '50%', fontSize: 9, fontWeight: 900, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 8px rgba(255,106,0,.6)' }}>
                     {b > 9 ? '9' : b}
                   </span>
                 )}
@@ -396,28 +396,20 @@ export default function NavBar() {
           </button>
         </div>
 
-        {/* Right side — الطلبات + الرسائل: hidden when section is empty */}
+        {/* Right side: الطلبات + الرسائل — always visible */}
         {[
-          { page: 'orders'        as Page, icon: NavIconCart,    label: 'الطلبات',  show: orders.length > 0 },
-          { page: 'conversations' as Page, icon: NavIconMessage, label: 'الرسائل',  show: conversations.length > 0 },
+          { page: 'orders'        as Page, icon: NavIconCart,    label: 'الطلبات' },
+          { page: 'conversations' as Page, icon: NavIconMessage, label: 'الرسائل' },
         ].map(item => {
           const active = currentPage === item.page;
           const b = badge(item.page);
           return (
             <button key={item.page} className={`mob-nav-btn${active ? ' active' : ''}`} onClick={() => go(item.page)}
-              style={{
-                flex: 1,
-                overflow: 'hidden',
-                maxWidth: item.show ? undefined : 0,
-                padding: item.show ? undefined : 0,
-                opacity: item.show ? 1 : 0,
-                transition: 'max-width 0.3s ease, opacity 0.25s ease, padding 0.3s ease',
-                pointerEvents: item.show ? 'auto' : 'none',
-              }}>
+              style={{ flex: 1 }}>
               <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <NavIcon page={item.page} FallbackIcon={item.icon} size={27} active={active} />
+                <NavIcon page={item.page} FallbackIcon={item.icon} size={30} active={active} />
                 {b > 0 && (
-                  <span style={{ position: 'absolute', top: -4, right: -6, width: 15, height: 15, background: 'var(--ember)', borderRadius: '50%', fontSize: 8, fontWeight: 900, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 8px rgba(255,106,0,.5)' }}>
+                  <span style={{ position: 'absolute', top: -5, right: -7, width: 16, height: 16, background: 'var(--ember)', borderRadius: '50%', fontSize: 9, fontWeight: 900, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 8px rgba(255,106,0,.6)' }}>
                     {b > 9 ? '9' : b}
                   </span>
                 )}

@@ -922,12 +922,12 @@ export default function ProductsPage() {
                                   else { t.style.display = 'none'; (t.nextElementSibling as HTMLElement).style.display = 'block'; }
                                 }}
                                 alt={cat.label}
-                                style={{ width: 80, height: 80, objectFit: 'contain', display: 'block', filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.35))' }}
+                                style={{ width: 110, height: 110, objectFit: 'contain', display: 'block', filter: 'drop-shadow(0 4px 14px rgba(0,0,0,0.4))' }}
                               />
-                              <span style={{ fontSize: 38, display: 'none' }}>{cat.icon}</span>
+                              <span style={{ fontSize: 52, display: 'none' }}>{cat.icon}</span>
                             </>
                           ) : (
-                            <span style={{ fontSize: 42 }}>{cat.icon}</span>
+                            <span style={{ fontSize: 56 }}>{cat.icon}</span>
                           )}
                           <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink1)', lineHeight: 1.2, marginTop: 2 }}>{cat.label}</span>
                         </button>

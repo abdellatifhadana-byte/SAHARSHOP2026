@@ -1139,7 +1139,7 @@ export default function Storefront() {
                     display:'flex', flexDirection:'column', alignItems:'center', gap:6,
                   }}>
                   <span style={{
-                    fontSize:52, lineHeight:1, display:'block',
+                    fontSize:60, lineHeight:1, display:'block',
                     filter: selectedCategory==='all'
                       ? 'drop-shadow(0 0 12px rgba(255,106,0,0.8)) drop-shadow(0 4px 8px rgba(0,0,0,0.4))'
                       : 'drop-shadow(0 4px 10px rgba(0,0,0,0.5))',
@@ -1175,20 +1175,20 @@ export default function Storefront() {
                             }}
                             alt={cat}
                             style={{
-                              width:88, height:88, objectFit:'contain', display:'block',
+                              width:110, height:110, objectFit:'contain', display:'block',
                               filter: active
                                 ? 'drop-shadow(0 0 12px rgba(255,106,0,0.7)) drop-shadow(0 4px 8px rgba(0,0,0,0.4))'
                                 : 'drop-shadow(0 4px 10px rgba(0,0,0,0.5))',
                               transition:'filter .18s',
                             }}
                           />
-                          <span style={{ fontSize:42, display:'none' }}>
+                          <span style={{ fontSize:56, display:'none' }}>
                             {cat.includes('أحذية') ? '👟' : cat.includes('نسائي') ? '👗'
                               : cat.includes('رجال') ? '🤵' : cat.includes('أطفال') ? '👶' : '🏷️'}
                           </span>
                         </>
                       ) : (
-                        <span style={{ fontSize:46 }}>
+                        <span style={{ fontSize:60 }}>
                           {cat.includes('أحذية') ? '👟' : cat.includes('نسائي') ? '👗'
                             : cat.includes('رجال') ? '🤵' : cat.includes('أطفال') ? '👶' : '🏷️'}
                         </span>
