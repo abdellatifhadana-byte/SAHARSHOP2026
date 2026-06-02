@@ -887,18 +887,34 @@ html.light-theme .glass-input:focus {
    ═══════════════════════════════════════════════════ */
 .empty-state {
   display: flex; flex-direction: column; align-items: center;
-  justify-content: center; padding: var(--sp-12) var(--sp-6);
+  justify-content: center; padding: 48px var(--sp-6);
   text-align: center; gap: var(--sp-3);
 }
 .empty-state-icon {
-  width: 72px; height: 72px; border-radius: var(--radius-xl);
+  width: 100px; height: 100px; border-radius: 28px;
   display: flex; align-items: center; justify-content: center;
-  font-size: 32px; margin-bottom: var(--sp-2);
-  background: rgba(255,255,255,.04); border: 1px solid var(--border);
-  box-shadow: var(--depth-shadow);
+  font-size: 44px; margin-bottom: var(--sp-3);
+  background: linear-gradient(145deg, rgba(255,106,0,.08), rgba(255,106,0,.03));
+  border: 1px solid rgba(255,106,0,.18);
+  box-shadow: 0 0 32px rgba(255,106,0,.12), var(--depth-shadow);
+  animation: empty-pulse 3s ease-in-out infinite;
 }
-.empty-state-title  { font-size: 17px; font-weight: 700; color: var(--ink2); letter-spacing: -.01em; }
-.empty-state-sub    { font-size: 13px; color: var(--ink3); max-width: 260px; line-height: 1.6; }
+/* Custom SVG icon in empty state */
+.empty-state-icon img {
+  width: 60px; height: 60px; object-fit: contain;
+  filter: drop-shadow(0 0 16px rgba(255,106,0,.5)) drop-shadow(0 0 6px rgba(255,106,0,.3));
+  animation: empty-float 4s ease-in-out infinite;
+}
+@keyframes empty-pulse {
+  0%, 100% { box-shadow: 0 0 32px rgba(255,106,0,.12), var(--depth-shadow); border-color: rgba(255,106,0,.18); }
+  50%       { box-shadow: 0 0 48px rgba(255,106,0,.22), 0 0 16px rgba(255,106,0,.1), var(--depth-shadow); border-color: rgba(255,106,0,.32); }
+}
+@keyframes empty-float {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-5px); }
+}
+.empty-state-title  { font-size: 18px; font-weight: 800; color: var(--ink1); letter-spacing: -.02em; }
+.empty-state-sub    { font-size: 13px; color: var(--ink3); max-width: 280px; line-height: 1.7; }
 
 /* ═══════════════════════════════════════════════════
    14. SKELETON SYSTEM

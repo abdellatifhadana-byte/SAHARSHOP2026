@@ -497,10 +497,12 @@ export default function OrdersPage() {
           ))}
 
           {filtered.length === 0 && (
-            <div className="card" style={{ padding: '60px 24px', textAlign: 'center' }}>
-              <span style={{ fontSize: 48, opacity: .3, display: 'block', marginBottom: 10 }}>🛒</span>
-              <div className="empty-state" style={{ padding: '32px 16px' }}>
-                <div className="empty-state-icon">🛒</div>
+            <div className="card">
+              <div className="empty-state">
+                <div className="empty-state-icon">
+                  <img src="/icons/orders.svg" onError={e => { (e.currentTarget as HTMLImageElement).style.display='none'; (e.currentTarget.nextElementSibling as HTMLElement).style.display='block'; }} alt="" />
+                  <span style={{ display: 'none', fontSize: 44 }}>🛒</span>
+                </div>
                 <div>
                   <p className="empty-state-title">لا توجد طلبات بعد</p>
                   <p className="empty-state-sub">شارك رابط متجرك مع زبائنك لاستقبال أول طلب</p>

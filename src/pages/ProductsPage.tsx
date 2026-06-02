@@ -33,6 +33,59 @@ const CATS = [
   { id: 'other',   icon: '📦', label: 'أخرى',         color: '#6B7280', type: 'product' },
 ] as const;
 
+// ── Comprehensive Moroccan service categories ─────────────────
+const SERVICE_CATS = [
+  // إصلاح وصيانة
+  { id: 'electrician',  icon: '⚡', label: 'كهربائي',            color: '#F59E0B', group: 'إصلاح وصيانة' },
+  { id: 'plumber',      icon: '🔧', label: 'سباك',              color: '#3B82F6', group: 'إصلاح وصيانة' },
+  { id: 'carpenter',    icon: '🪚', label: 'نجار',              color: '#92400E', group: 'إصلاح وصيانة' },
+  { id: 'painter',      icon: '🖌️', label: 'مصبغ / دهان',      color: '#EC4899', group: 'إصلاح وصيانة' },
+  { id: 'tiles',        icon: '🏗️', label: 'بلاطي',             color: '#6B7280', group: 'إصلاح وصيانة' },
+  { id: 'ac',           icon: '❄️', label: 'تكييف مناخ',        color: '#06B6D4', group: 'إصلاح وصيانة' },
+  { id: 'aluminum',     icon: '🪟', label: 'ألمنيوم / PVC',     color: '#4B5563', group: 'إصلاح وصيانة' },
+  { id: 'appliance',    icon: '📺', label: 'صيانة أجهزة',       color: '#8B5CF6', group: 'إصلاح وصيانة' },
+  { id: 'roof',         icon: '🏚️', label: 'سطح وعزل',          color: '#D97706', group: 'إصلاح وصيانة' },
+  { id: 'iron',         icon: '⚙️', label: 'حداد / فورجي',      color: '#374151', group: 'إصلاح وصيانة' },
+  // جمال وعناية
+  { id: 'barber',       icon: '✂️', label: 'حلاق رجال',         color: '#0EA5E9', group: 'جمال وعناية' },
+  { id: 'hairdresser',  icon: '💇', label: 'حلاقة نساء',        color: '#EC4899', group: 'جمال وعناية' },
+  { id: 'makeup',       icon: '💄', label: 'مكياج',             color: '#E11D48', group: 'جمال وعناية' },
+  { id: 'nails',        icon: '💅', label: 'مانيكير',           color: '#F43F5E', group: 'جمال وعناية' },
+  { id: 'spa',          icon: '🧖', label: 'مساج وسبا',         color: '#10B981', group: 'جمال وعناية' },
+  { id: 'henna',        icon: '🌿', label: 'حناء وزينة',        color: '#84CC16', group: 'جمال وعناية' },
+  // تعليم وتدريب
+  { id: 'tutor',        icon: '📚', label: 'دروس خصوصية',       color: '#6366F1', group: 'تعليم وتدريب' },
+  { id: 'languages',    icon: '🗣️', label: 'تعليم لغات',        color: '#A855F7', group: 'تعليم وتدريب' },
+  { id: 'driving',      icon: '🚗', label: 'تعليم قيادة',       color: '#EF4444', group: 'تعليم وتدريب' },
+  { id: 'sports',       icon: '🏋️', label: 'تدريب رياضي',       color: '#F59E0B', group: 'تعليم وتدريب' },
+  { id: 'cooking',      icon: '👨‍🍳', label: 'تعليم الطبخ',       color: '#F97316', group: 'تعليم وتدريب' },
+  // تصميم وإبداع
+  { id: 'graphic',      icon: '🎨', label: 'مصمم جرافيك',       color: '#8B5CF6', group: 'تصميم وإبداع' },
+  { id: 'photo',        icon: '📸', label: 'مصور',              color: '#3B82F6', group: 'تصميم وإبداع' },
+  { id: 'video',        icon: '🎬', label: 'مونتاج فيديو',      color: '#EF4444', group: 'تصميم وإبداع' },
+  { id: 'web',          icon: '💻', label: 'تصميم مواقع',       color: '#06B6D4', group: 'تصميم وإبداع' },
+  { id: 'fashion',      icon: '🧵', label: 'خياطة وأزياء',      color: '#EC4899', group: 'تصميم وإبداع' },
+  { id: 'decor_design', icon: '🏡', label: 'تصميم ديكور',       color: '#D97706', group: 'تصميم وإبداع' },
+  // تنظيف
+  { id: 'cleaning',     icon: '🧹', label: 'تنظيف منازل',       color: '#10B981', group: 'تنظيف' },
+  { id: 'carwash',      icon: '🚿', label: 'غسيل سيارات',       color: '#3B82F6', group: 'تنظيف' },
+  { id: 'office_clean', icon: '🏢', label: 'تنظيف مكاتب',       color: '#6B7280', group: 'تنظيف' },
+  // توصيل ونقل
+  { id: 'delivery_svc', icon: '🛵', label: 'توصيل طلبات',       color: '#F59E0B', group: 'توصيل ونقل' },
+  { id: 'moving',       icon: '🚛', label: 'نقل أثاث',          color: '#EF4444', group: 'توصيل ونقل' },
+  // أغذية
+  { id: 'homecook',     icon: '🍲', label: 'طباخ منزلي',        color: '#F97316', group: 'أغذية' },
+  { id: 'pastry',       icon: '🍰', label: 'حلوى وعجائن',       color: '#E11D48', group: 'أغذية' },
+  // مهن حرة
+  { id: 'accountant',   icon: '📊', label: 'محاسب',             color: '#6366F1', group: 'مهن حرة' },
+  { id: 'translator',   icon: '📝', label: 'مترجم',             color: '#0EA5E9', group: 'مهن حرة' },
+  { id: 'developer',    icon: '👨‍💻', label: 'مطور تطبيقات',       color: '#10B981', group: 'مهن حرة' },
+  { id: 'marketing',    icon: '📈', label: 'تسويق رقمي',        color: '#F59E0B', group: 'مهن حرة' },
+  { id: 'lawyer',       icon: '⚖️', label: 'محامي / مستشار',    color: '#6B7280', group: 'مهن حرة' },
+  // أخرى
+  { id: 'other_svc',    icon: '🔍', label: 'خدمة أخرى',         color: '#6B7280', group: 'أخرى' },
+] as const;
+
 type CatId = typeof CATS[number]['id'];
 
 const CAT_CFG: Record<string, {
@@ -262,18 +315,16 @@ const uid = () => Math.random().toString(36).slice(2, 9);
 // ─────────────────────────────────────────────────────────────
 
 export default function ProductsPage() {
-  const { products, addProduct, updateProduct, deleteProduct, adjustStock, settings, token, notify, currentPage } = useStore();
-
-  const isServicesMode = currentPage === 'services';
+  const { products, addProduct, updateProduct, deleteProduct, adjustStock, settings, token, notify } = useStore();
 
   const [search,  setSearch]  = useState('');
   const [filter,  setFilter]  = useState<Filter>('all');
-  const [typeFilter, setTypeFilter] = useState<'all' | 'product' | 'service' | 'digital'>(isServicesMode ? 'service' : 'all');
   const [sort,    setSort]    = useState<Sort>('newest');
 
   const [showWizard, setShowWizard] = useState(false);
   const [editProd,   setEditProd]   = useState<Product | null>(null);
   const [step,       setStep]       = useState(1);
+  const [wizardMode, setWizardMode] = useState<'' | 'merchant' | 'service' | 'other'>('');
   const [data,       setData]       = useState<WizardData>(initData());
   const [aiLoading,  setAiLoading]  = useState(false);
   const [aiHashLoading, setAiHashLoading] = useState(false);
@@ -357,11 +408,7 @@ export default function ProductsPage() {
           : filter === 'draft'     ? p.status === 'draft'
           : filter === 'low'       ? p.stock > 0 && p.stock <= settings.products.lowStockAlert
           : p.stock === 0;
-        const mt = typeFilter === 'all' ? true
-          : typeFilter === 'service' ? (p.category === 'service' || (p as any).type === 'service')
-          : typeFilter === 'digital' ? (p.category === 'digital' || (p as any).type === 'digital')
-          : !(p.category === 'service' || p.category === 'digital' || (p as any).type === 'service' || (p as any).type === 'digital');
-        return ms && mf && mt;
+        return ms && mf;
       })
       .sort((a, b) => {
         if (sort === 'name')  return a.name.localeCompare(b.name, 'ar');
@@ -382,14 +429,7 @@ export default function ProductsPage() {
   // ── Wizard open/close ────────────────────────────────────────
   const openAdd = () => {
     setData(initData()); setStep(1); setEditProd(null); setShowWizard(true);
-    setCustomColorName(''); setCustomColorHex('#000000');
-    setShowAddField(false); setNewField({ label: '', type: 'text', options: '' });
-    setHashtags([]); setAiDesignUrl('');
-  };
-
-  const openAddService = () => {
-    setData({ ...initData(), category: 'service', type: 'service' });
-    setStep(2); setEditProd(null); setShowWizard(true);
+    setWizardMode('');
     setCustomColorName(''); setCustomColorHex('#000000');
     setShowAddField(false); setNewField({ label: '', type: 'text', options: '' });
     setHashtags([]); setAiDesignUrl('');
@@ -501,27 +541,13 @@ export default function ProductsPage() {
   const handleFiles = async (files: FileList | null) => {
     if (!files) return;
     const existing = data.images.length;
-    if (existing >= 10) { notify('warning', '⚠️ لا يمكن إضافة أكثر من 10 صور للمنتج'); return; }
     const slots = Math.max(0, 10 - existing);
-    const arr = Array.from(files).slice(0, slots);
-    const valid: File[] = [];
-    for (const f of arr) {
-      if (!f.type.startsWith('image/')) { notify('error', `❌ "${f.name}" — نوع الملف غير مدعوم`); continue; }
-      if (f.size > 10 * 1024 * 1024)   { notify('error', `❌ "${f.name}" — حجم الصورة يتجاوز 10 ميجا`); continue; }
-      if (f.size > 5 * 1024 * 1024)    { notify('warning', `⚠️ "${f.name}" — الصورة كبيرة، يُفضل ضغطها لأداء أفضل`); }
-      valid.push(f);
-    }
-    if (!valid.length) return;
-    try {
-      const b64s = await Promise.all(valid.map(readFile));
-      setData(d => {
-        const next = [...d.images, ...b64s];
-        return { ...d, images: next, imageUrl: next[0] || d.imageUrl };
-      });
-      notify('success', `✅ تم إضافة ${valid.length} صورة`);
-    } catch {
-      notify('error', '❌ فشل قراءة الصور، حاول مرة أخرى');
-    }
+    const toRead = Array.from(files).slice(0, slots);
+    const b64s = await Promise.all(toRead.map(readFile));
+    setData(d => {
+      const next = [...d.images, ...b64s];
+      return { ...d, images: next, imageUrl: next[0] || d.imageUrl };
+    });
   };
 
   const removeImage = (idx: number) =>
@@ -613,21 +639,19 @@ export default function ProductsPage() {
 
   // ── Save ──────────────────────────────────────────────────────
   const save = async (status: ProductStatus) => {
-    if (!data.name.trim()) { notify('error', '❌ يجب إدخال اسم المنتج'); return; }
-    if (!data.price)        { notify('error', '❌ يجب إدخال سعر المنتج'); return; }
-
-    const allImages = [...(data.processedImages.length ? data.processedImages : data.images), ...data.variants.flatMap(v => v.images)];
-    if (!allImages.length && !data.imageUrl) {
-      notify('warning', '⚠️ يفضل إضافة صورة واحدة على الأقل للمنتج');
-    }
-
+    if (!data.name || !data.price) return;
     setSaving(true);
     try {
       const catLabel = CATS.find(c => c.id === data.category)?.label || 'أخرى';
-      const finalImages = allImages;
-      const finalColors = data.variants.length > 0 ? data.variants.map(v => v.color) : data.colors || [];
-      const finalSizes  = data.variants.length > 0 ? [...new Set(data.variants.flatMap(v => v.sizes.map(s => s.name)))] : data.sizes || [];
-      const finalStock  = data.variants.length > 0 ? totalVariantStock : Number(data.stock) || 0;
+      const allVariantImages = data.variants.flatMap(v => v.images);
+      const finalImages = [...(data.processedImages.length ? data.processedImages : data.images), ...allVariantImages];
+      const finalColors = data.variants.length > 0
+        ? data.variants.map(v => v.color)
+        : data.colors || [];
+      const finalSizes = data.variants.length > 0
+        ? [...new Set(data.variants.flatMap(v => v.sizes.map(s => s.name)))]
+        : data.sizes || [];
+      const finalStock = data.variants.length > 0 ? totalVariantStock : Number(data.stock) || 0;
 
       const payload: any = {
         name: data.name,
@@ -658,27 +682,12 @@ export default function ProductsPage() {
 
       if (editProd) {
         await updateProduct(editProd.id, payload);
-        notify('success', status === 'published'
-          ? `✅ تم تحديث "${data.name}" ونشره`
-          : status === 'draft'
-          ? `✅ تم حفظ "${data.name}" كمسودة`
-          : `✅ تم أرشفة "${data.name}"`);
       } else {
         await addProduct(payload);
-        notify('success', status === 'published'
-          ? `✅ تم نشر "${data.name}" وأصبح مرئياً للزبائن`
-          : `✅ تم حفظ "${data.name}" كمسودة`);
       }
-
-      if (!navigator.onLine) {
-        notify('info', '🌐 لا يوجد اتصال — تم حفظ البيانات محلياً');
-      }
-
       setShowWizard(false);
       setEditProd(null);
-    } catch (e: any) {
-      notify('error', `❌ حدث خطأ أثناء حفظ المنتج${e?.message ? ': ' + e.message : ''}`);
-    }
+    } catch { /* error handled by store */ }
     setSaving(false);
   };
 
@@ -716,18 +725,13 @@ export default function ProductsPage() {
       {/* ── HEADER ─────────────────────────────────────────────── */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
-          <h1 className="page-title">{isServicesMode ? '🔧 الخدمات' : 'المنتجات'}</h1>
+          <h1 className="page-title">المنتجات</h1>
           <p className="page-sub">
-            {isServicesMode
-              ? `${products.filter(p => p.category === 'service' || (p as any).type === 'service').length} خدمة متوفرة`
-              : `${products.length} منتج · ${products.filter(p => p.status === 'published').length} منشور`}
+            {products.length} منتج &middot; {products.filter(p => p.status === 'published').length} منشور
           </p>
         </div>
-        <button
-          onClick={isServicesMode ? openAddService : openAdd}
-          className="btn btn-primary"
-        >
-          <Plus size={16} /> {isServicesMode ? 'إضافة خدمة' : 'إضافة منتج'}
+        <button onClick={openAdd} className="btn btn-primary">
+          <Plus size={16} /> إضافة منتج
         </button>
       </div>
 
@@ -745,23 +749,6 @@ export default function ProductsPage() {
         </select>
       </div>
 
-      {/* ── TYPE FILTER (only when not in services mode) ─────────── */}
-      {!isServicesMode && (
-        <div className="chips-row" style={{ borderBottom: '1px solid var(--border)', paddingBottom: 10 }}>
-          {([
-            { id: 'all',     label: '🏪 الكل',       count: products.length },
-            { id: 'product', label: '📦 منتجات',      count: products.filter(p => p.category !== 'service' && p.category !== 'digital').length },
-            { id: 'service', label: '🔧 خدمات',       count: products.filter(p => p.category === 'service').length },
-            { id: 'digital', label: '💻 رقمي',        count: products.filter(p => p.category === 'digital').length },
-          ] as const).map(t => (
-            <button key={t.id} onClick={() => setTypeFilter(t.id)} className={`chip ${typeFilter === t.id ? 'active' : ''}`}>
-              {t.label}
-              {t.id !== 'all' && t.count > 0 && <span style={{ marginRight: 4, fontSize: 10, opacity: .6 }}>({t.count})</span>}
-            </button>
-          ))}
-        </div>
-      )}
-
       {/* ── FILTER CHIPS ────────────────────────────────────────── */}
       <div className="chips-row">
         {(Object.keys(FILTER_LABELS) as Filter[]).map(f => (
@@ -776,13 +763,16 @@ export default function ProductsPage() {
       {filtered.length === 0 ? (
         <div className="card">
           <div className="empty-state">
-            <div className="empty-state-icon">📦</div>
+            <div className="empty-state-icon">
+              <img src="/icons/products.svg" onError={e => { (e.currentTarget as HTMLImageElement).style.display='none'; (e.currentTarget.nextElementSibling as HTMLElement).style.display='block'; }} alt="" />
+              <span style={{ display: 'none', fontSize: 44 }}>📦</span>
+            </div>
             <div>
-              <p className="empty-state-title">لا توجد منتجات</p>
-              <p className="empty-state-sub">ابدأ بإضافة أول منتج لمتجرك</p>
+              <p className="empty-state-title">لا توجد منتجات بعد</p>
+              <p className="empty-state-sub">ابدأ بإضافة أول منتج أو خدمة لمتجرك</p>
             </div>
             <button onClick={openAdd} className="btn btn-primary" style={{ marginTop: 8 }}>
-              <Plus size={15} /> إضافة منتج
+              <Plus size={15} /> إضافة منتج / خدمة
             </button>
           </div>
         </div>
@@ -827,7 +817,7 @@ export default function ProductsPage() {
                     <button onClick={() => openEdit(p)} className="icon-btn" style={{ background: 'rgba(7,7,10,.7)', backdropFilter: 'blur(8px)' }}>
                       <Edit3 size={13} />
                     </button>
-                    <button onClick={() => { if (window.confirm(`حذف "${p.name}"؟`)) { deleteProduct(p.id); notify('warning', `🗑️ تم حذف "${p.name}"`); } }} className="icon-btn danger" style={{ background: 'rgba(7,7,10,.7)', backdropFilter: 'blur(8px)' }}>
+                    <button onClick={() => { if (window.confirm(`حذف "${p.name}"؟`)) deleteProduct(p.id); }} className="icon-btn danger" style={{ background: 'rgba(7,7,10,.7)', backdropFilter: 'blur(8px)' }}>
                       <Trash2 size={13} />
                     </button>
                   </div>
@@ -949,70 +939,116 @@ export default function ProductsPage() {
 
             <div className="modal-body">
 
-              {/* ══ STEP 1: Category ═══════════════════════════════ */}
+              {/* ══ STEP 1: Account type + Category ══════════════════ */}
               {step === 1 && (
                 <div>
-                  <p style={{ fontSize: 14, color: 'var(--ink2)', fontWeight: 600, textAlign: 'center', marginBottom: 18 }}>
-                    ما هو نوع ما تبيعه؟
-                  </p>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
-                    {CATS.map(cat => {
-                      const imgBase = CAT_IMG[cat.id];
-                      return (
-                        <button
-                          key={cat.id}
-                          onClick={() => {
-                            setData(d => ({
-                              ...d,
-                              category: cat.id,
-                              type: (cat.type || 'product') as 'product' | 'service' | 'digital',
-                              sizes: CAT_CFG[cat.id]?.sizes?.slice(0, 3) || [],
-                              colors: [],
-                              variants: [],
-                            }));
-                            setStep(2);
-                          }}
-                          style={{
-                            padding: '12px 6px 10px', borderRadius: 16,
-                            border: '1px solid transparent',
-                            background: 'transparent',
-                            cursor: 'pointer',
-                            textAlign: 'center', fontFamily: 'inherit',
-                            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
-                            transition: 'transform .18s, border-color .18s',
-                          }}
-                          onMouseEnter={e => {
-                            e.currentTarget.style.transform = 'translateY(-4px) scale(1.04)';
-                            e.currentTarget.style.borderColor = cat.color + '40';
-                          }}
-                          onMouseLeave={e => {
-                            e.currentTarget.style.transform = '';
-                            e.currentTarget.style.borderColor = 'transparent';
-                          }}
-                        >
-                          {/* Icon — raw image, no frame, no background */}
-                          {imgBase ? (
-                            <>
-                              <img
-                                src={`${imgBase}.png`}
-                                onError={e => {
-                                  const t = e.currentTarget;
-                                  if (!t.dataset.tried) { t.dataset.tried = '1'; t.src = `${imgBase}.svg`; }
-                                  else { t.style.display = 'none'; (t.nextElementSibling as HTMLElement).style.display = 'block'; }
-                                }}
-                                alt={cat.label}
-                                style={{ width: 110, height: 110, objectFit: 'contain', display: 'block', filter: 'drop-shadow(0 4px 14px rgba(0,0,0,0.4))' }}
-                              />
-                              <span style={{ fontSize: 52, display: 'none' }}>{cat.icon}</span>
-                            </>
-                          ) : (
-                            <span style={{ fontSize: 56 }}>{cat.icon}</span>
-                          )}
-                          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink1)', lineHeight: 1.2, marginTop: 2 }}>{cat.label}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
+                  {/* Sub-step A: account type (shown when wizardMode not yet chosen) */}
+                  {wizardMode === '' && (
+                    <div>
+                      <p style={{ fontSize: 14, color: 'var(--ink2)', fontWeight: 600, textAlign: 'center', marginBottom: 18 }}>
+                        ما الذي تريد إضافته؟
+                      </p>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+                        {[
+                          { key: 'merchant', icon: '🛍️', label: 'تاجر منتجات', desc: 'ملابس، أحذية، إكسسوارات، ديكور...', color: '#FF6A00', bg: 'rgba(255,106,0,.1)' },
+                          { key: 'service',  icon: '🔧', label: 'صاحب خدمة',  desc: 'كهربائي، حلاق، مصمم، مدرس...', color: '#8B5CF6', bg: 'rgba(139,92,246,.1)' },
+                          { key: 'other',    icon: '📝', label: 'أخرى',        desc: 'عرض، إعلان، منتج مخصص...', color: '#10B981', bg: 'rgba(16,185,129,.1)' },
+                        ].map(m => (
+                          <button key={m.key}
+                            onClick={() => {
+                              if (m.key === 'other') {
+                                setWizardMode('other');
+                                setData(d => ({ ...d, category: 'other', type: 'product' }));
+                                setStep(2);
+                              } else {
+                                setWizardMode(m.key as 'merchant' | 'service');
+                              }
+                            }}
+                            style={{ padding: '18px 10px 14px', borderRadius: 18, cursor: 'pointer', textAlign: 'center', fontFamily: 'inherit', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, border: `1.5px solid ${m.color}22`, background: m.bg, transition: 'transform .18s, border-color .18s, box-shadow .18s' }}
+                            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.borderColor = m.color + '55'; e.currentTarget.style.boxShadow = `0 8px 24px ${m.color}22`; }}
+                            onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.borderColor = m.color + '22'; e.currentTarget.style.boxShadow = ''; }}
+                          >
+                            <span style={{ fontSize: 42, lineHeight: 1, filter: 'drop-shadow(0 4px 8px rgba(0,0,0,.4))' }}>{m.icon}</span>
+                            <span style={{ fontSize: 13, fontWeight: 800, color: m.color }}>{m.label}</span>
+                            <span style={{ fontSize: 10.5, color: 'var(--ink3)', lineHeight: 1.4 }}>{m.desc}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Sub-step B: product categories (merchant) */}
+                  {wizardMode === 'merchant' && (
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                        <button onClick={() => setWizardMode('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink3)', fontSize: 18, padding: 0 }}>←</button>
+                        <p style={{ fontSize: 13, color: 'var(--ink2)', fontWeight: 700 }}>اختر فئة المنتج</p>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
+                        {CATS.filter(c => c.id !== 'service').map(cat => {
+                          const imgBase = CAT_IMG[cat.id];
+                          return (
+                            <button key={cat.id}
+                              onClick={() => {
+                                setData(d => ({ ...d, category: cat.id, type: (cat.type || 'product') as 'product' | 'service' | 'digital', sizes: CAT_CFG[cat.id]?.sizes?.slice(0, 3) || [], colors: [], variants: [] }));
+                                setStep(2);
+                              }}
+                              style={{ padding: '12px 6px 10px', borderRadius: 16, border: '1px solid transparent', background: 'transparent', cursor: 'pointer', textAlign: 'center', fontFamily: 'inherit', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, transition: 'transform .18s, border-color .18s' }}
+                              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px) scale(1.04)'; e.currentTarget.style.borderColor = cat.color + '40'; }}
+                              onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.borderColor = 'transparent'; }}
+                            >
+                              {imgBase ? (
+                                <>
+                                  <img src={`${imgBase}.png`} onError={e => { const t = e.currentTarget; if (!t.dataset.tried) { t.dataset.tried = '1'; t.src = `${imgBase}.svg`; } else { t.style.display = 'none'; (t.nextElementSibling as HTMLElement).style.display = 'block'; } }} alt={cat.label} style={{ width: 90, height: 90, objectFit: 'contain', display: 'block', filter: 'drop-shadow(0 4px 14px rgba(0,0,0,0.4))' }} />
+                                  <span style={{ fontSize: 48, display: 'none' }}>{cat.icon}</span>
+                                </>
+                              ) : (
+                                <span style={{ fontSize: 52 }}>{cat.icon}</span>
+                              )}
+                              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink1)', lineHeight: 1.2 }}>{cat.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Sub-step B: service categories (صاحب خدمة) */}
+                  {wizardMode === 'service' && (() => {
+                    const groups = Array.from(new Set(SERVICE_CATS.map(s => s.group)));
+                    return (
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                          <button onClick={() => setWizardMode('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink3)', fontSize: 18, padding: 0 }}>←</button>
+                          <p style={{ fontSize: 13, color: 'var(--ink2)', fontWeight: 700 }}>اختر نوع خدمتك</p>
+                        </div>
+                        <div style={{ maxHeight: '52vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                          {groups.map(group => (
+                            <div key={group}>
+                              <p style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--ink3)', letterSpacing: '.06em', marginBottom: 6, paddingRight: 2 }}>{group}</p>
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 6 }}>
+                                {SERVICE_CATS.filter(s => s.group === group).map(svc => (
+                                  <button key={svc.id}
+                                    onClick={() => {
+                                      setData(d => ({ ...d, category: svc.id, type: 'service', sizes: [], colors: [], variants: [] }));
+                                      CAT_CFG['service'] = { emoji: svc.icon, sizes: [], colors: [], fields: [{ id: 'serviceType', label: 'نوع الخدمة', options: [svc.label] }, { id: 'workArea', label: 'منطقة العمل', options: ['الدار البيضاء','الرباط','مراكش','فاس','طنجة','أكادير','جميع المدن'] }] };
+                                      setStep(2);
+                                    }}
+                                    style={{ padding: '10px 4px 8px', borderRadius: 12, border: `1.5px solid ${svc.color}20`, background: `${svc.color}0a`, cursor: 'pointer', textAlign: 'center', fontFamily: 'inherit', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, transition: 'all .15s' }}
+                                    onMouseEnter={e => { e.currentTarget.style.borderColor = svc.color + '55'; e.currentTarget.style.background = svc.color + '18'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+                                    onMouseLeave={e => { e.currentTarget.style.borderColor = svc.color + '20'; e.currentTarget.style.background = svc.color + '0a'; e.currentTarget.style.transform = ''; }}
+                                  >
+                                    <span style={{ fontSize: 24 }}>{svc.icon}</span>
+                                    <span style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--ink2)', lineHeight: 1.2 }}>{svc.label}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
 

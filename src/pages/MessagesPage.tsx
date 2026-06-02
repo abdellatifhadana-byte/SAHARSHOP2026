@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useStore } from '../store';
-import { Send, Bot, Plus, Sparkles, X, Pin, ArrowRight, Phone, Zap, ScanLine, Copy, Check } from 'lucide-react';
+import { Send, Bot, Plus, Sparkles, X, Pin, ArrowRight, Phone, Zap } from 'lucide-react';
 import * as api from '../services/api';
 
 // ─── Animations ──────────────────────────────────────────────────────────────
@@ -147,7 +147,7 @@ function Bubble({ msg }: { msg: any }) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function MessagesPage() {
-  const { conversations, sendMessage, addConversation, updateConversation, deleteConversation, settings, products, isOnline, notify } = useStore();
+  const { conversations, sendMessage, addConversation, updateConversation, settings, products, isOnline, notify } = useStore();
 
   const isMobile = window.innerWidth < 640;
 
@@ -160,9 +160,6 @@ export default function MessagesPage() {
   const [aiThinking,  setAiThinking]  = useState(false);
   const [showNewConv, setShowNewConv] = useState(false);
   const [newConvForm, setNewConvForm] = useState({ name: '', phone: '', source: 'WhatsApp' as const });
-  const [extractData, setExtractData] = useState<Record<string, string> | null>(null);
-  const [extracting,  setExtracting]  = useState(false);
-  const [copied,      setCopied]      = useState<string | null>(null);
 
   const msgEnd = useRef<HTMLDivElement>(null);
   const conv   = conversations.find(c => c.id === active);
@@ -218,28 +215,6 @@ export default function MessagesPage() {
       notify('error', `خطأ AI: ${e.message}`);
     }
     setAiThinking(false);
-  };
-
-  const triggerExtract = async () => {
-    if (!conv?.messages?.length) { notify('info', 'لا توجد رسائل للاستخراج'); return; }
-    setExtracting(true);
-    try {
-      const result = await api.aiAPI.extractOrder(conv.messages);
-      if (Object.keys(result).length === 0) {
-        notify('warning', 'لم يتم العثور على بيانات — تأكد من وجود اسم أو هاتف أو مدينة في المحادثة');
-      } else {
-        setExtractData(result);
-      }
-    } catch {
-      notify('error', 'فشل الاستخراج');
-    }
-    setExtracting(false);
-  };
-
-  const copyField = (val: string, key: string) => {
-    navigator.clipboard.writeText(val).catch(() => {});
-    setCopied(key);
-    setTimeout(() => setCopied(null), 1500);
   };
 
   const createConv = async () => {
@@ -381,10 +356,16 @@ export default function MessagesPage() {
           {/* Conversation list */}
           <div style={{ flex: 1, overflowY: 'auto', padding: '8px 8px', display: 'flex', flexDirection: 'column', gap: 4 }}>
             {filtered.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '40px 16px', color: 'var(--ink3)' }}>
-                <Bot size={40} style={{ margin: '0 auto 10px', opacity: .25, display: 'block' }} />
-                <p style={{ fontSize: 13, marginBottom: 14 }}>لا توجد محادثات</p>
-                <button onClick={() => setShowNewConv(true)} className="btn btn-ghost btn-sm">ابدأ محادثة جديدة</button>
+              <div className="empty-state" style={{ padding: '32px 12px' }}>
+                <div className="empty-state-icon">
+                  <img src="/icons/messages.svg" onError={e => { (e.currentTarget as HTMLImageElement).style.display='none'; (e.currentTarget.nextElementSibling as HTMLElement).style.display='block'; }} alt="" />
+                  <span style={{ display: 'none', fontSize: 40 }}>💬</span>
+                </div>
+                <div>
+                  <p className="empty-state-title" style={{ fontSize: 14 }}>لا توجد محادثات</p>
+                  <p className="empty-state-sub" style={{ fontSize: 11 }}>ابدأ محادثة جديدة مع زبونك</p>
+                </div>
+                <button onClick={() => setShowNewConv(true)} className="btn btn-ghost btn-sm">+ محادثة جديدة</button>
               </div>
             ) : filtered.map(c => {
               const isActive = active === c.id;
@@ -504,21 +485,6 @@ export default function MessagesPage() {
 
                 {/* Actions */}
                 <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                  {/* Extract order data */}
-                  <button
-                    onClick={triggerExtract}
-                    disabled={extracting}
-                    style={{
-                      width: 32, height: 32, borderRadius: 9, cursor: 'pointer',
-                      background: 'rgba(99,102,241,.1)',
-                      border: '1px solid rgba(99,102,241,.3)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      color: '#a78bfa', opacity: extracting ? .5 : 1, transition: 'opacity .15s',
-                    }}
-                    title="استخرج بيانات الطلب"
-                  >
-                    <ScanLine size={13} />
-                  </button>
                   {conv.customerPhone && (
                     <a
                       href={`https://wa.me/${conv.customerPhone.replace(/\D/g, '')}`}
@@ -548,24 +514,6 @@ export default function MessagesPage() {
                     title={conv.pinned ? 'إلغاء التثبيت' : 'تثبيت'}
                   >
                     <Pin size={13} />
-                  </button>
-                  <button
-                    onClick={async () => {
-                      if (!window.confirm(`حذف محادثة "${conv.customerName}"؟`)) return;
-                      await deleteConversation(conv.id);
-                      setActive(null);
-                      if (isMobile) setMobileView('list');
-                    }}
-                    style={{
-                      width: 32, height: 32, borderRadius: 9, cursor: 'pointer',
-                      background: 'rgba(239,68,68,.08)',
-                      border: '1px solid rgba(239,68,68,.25)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      color: '#ef4444',
-                    }}
-                    title="حذف المحادثة"
-                  >
-                    <X size={13} />
                   </button>
                 </div>
               </div>
@@ -687,64 +635,6 @@ export default function MessagesPage() {
           )}
         </div>
       </div>
-
-      {/* ══════════════ EXTRACT ORDER DATA MODAL ══════════════ */}
-      {extractData && (
-        <div
-          onClick={() => setExtractData(null)}
-          style={{ position: 'fixed', inset: 0, zIndex: 500, background: 'rgba(0,0,0,.65)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: isMobile ? 'flex-end' : 'center', justifyContent: 'center', padding: isMobile ? 0 : 16 }}
-        >
-          <div
-            onClick={e => e.stopPropagation()}
-            style={{ width: '100%', maxWidth: isMobile ? '100%' : 440, background: 'var(--panel)', border: isMobile ? 'none' : '1px solid var(--border)', borderRadius: isMobile ? '24px 24px 0 0' : 24, padding: 24, boxShadow: '0 -8px 40px rgba(0,0,0,.4)' }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <div>
-                <h3 style={{ fontSize: 16, fontWeight: 900, color: 'var(--ink1)' }}>🔍 بيانات الطلب المستخرجة</h3>
-                <p style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 3 }}>مستخرجة تلقائياً من المحادثة بالذكاء الاصطناعي</p>
-              </div>
-              <button onClick={() => setExtractData(null)} style={{ width: 30, height: 30, borderRadius: 8, background: 'rgba(255,255,255,.06)', border: '1px solid var(--border)', color: 'var(--ink3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <X size={14} />
-              </button>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
-              {[
-                { key: 'name',  label: '👤 الاسم',    emoji: '👤' },
-                { key: 'phone', label: '📱 الهاتف',   emoji: '📱' },
-                { key: 'city',  label: '📍 المدينة',   emoji: '📍' },
-                { key: 'size',  label: '📏 المقاس',    emoji: '📏' },
-                { key: 'color', label: '🎨 اللون',     emoji: '🎨' },
-              ].map(({ key, label }) => {
-                const val = (extractData as any)[key];
-                if (!val) return null;
-                return (
-                  <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderRadius: 12, background: 'rgba(99,102,241,.07)', border: '1px solid rgba(99,102,241,.18)' }}>
-                    <div style={{ flex: 1 }}>
-                      <p style={{ fontSize: 11, color: 'var(--ink3)', fontWeight: 600, marginBottom: 2 }}>{label}</p>
-                      <p style={{ fontSize: 15, fontWeight: 800, color: 'var(--ink1)', fontFamily: key === 'phone' ? 'monospace' : 'inherit' }}>{val}</p>
-                    </div>
-                    <button
-                      onClick={() => copyField(val, key)}
-                      style={{ width: 32, height: 32, borderRadius: 8, background: copied === key ? 'rgba(0,200,150,.15)' : 'rgba(255,255,255,.06)', border: `1px solid ${copied === key ? 'rgba(0,200,150,.35)' : 'var(--border)'}`, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: copied === key ? 'var(--mint)' : 'var(--ink3)', transition: 'all .15s' }}
-                    >
-                      {copied === key ? <Check size={13} /> : <Copy size={13} />}
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div style={{ padding: '12px 14px', borderRadius: 12, background: 'rgba(255,106,0,.06)', border: '1px solid rgba(255,106,0,.15)', marginBottom: 16 }}>
-              <p style={{ fontSize: 11.5, color: 'var(--ember)', fontWeight: 600, lineHeight: 1.6 }}>
-                💡 يمكنك نسخ هذه البيانات لإنشاء طلب جديد في صفحة الطلبات
-              </p>
-            </div>
-
-            <button onClick={() => setExtractData(null)} className="btn btn-ghost" style={{ width: '100%', justifyContent: 'center' }}>إغلاق</button>
-          </div>
-        </div>
-      )}
 
       {/* ══════════════ NEW CONVERSATION MODAL ══════════════ */}
       {showNewConv && (
