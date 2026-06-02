@@ -16,6 +16,16 @@ const TEMPLATES = [
 
 const LOGO_OPTIONS = ['📦','🚚','⚡','🏢','🛵','🏍️','✈️','🚀','🌍','🔗'];
 
+// ─── Simple-mode known companies ─────────────────────────────────────────────
+const SIMPLE_COMPANIES = [
+  { name: 'Amana', logo: '📦', url: 'https://www.amana.ma', loginUrl: 'https://www.amana.ma/auth', addOrder: 'https://www.amana.ma/orders/create' },
+  { name: 'Jibli Maroc', logo: '🚚', url: 'https://app.jibli.ma', loginUrl: 'https://app.jibli.ma/auth/login', addOrder: 'https://app.jibli.ma/shipments/create' },
+  { name: 'Naqel', logo: '⚡', url: 'https://www.naqelexpress.com', loginUrl: 'https://merchant.naqelexpress.com/login', addOrder: '' },
+  { name: 'Maystro', logo: '🏍️', url: 'https://maystro-delivery.com', loginUrl: 'https://maystro-delivery.com/login', addOrder: 'https://maystro-delivery.com/create-order' },
+  { name: 'Yalidin', logo: '🛵', url: 'https://yalidin.com', loginUrl: 'https://yalidin.com/login', addOrder: '' },
+  { name: 'أخرى', logo: '🏢', url: '', loginUrl: '', addOrder: '' },
+];
+
 // ─── Default order field selectors ───────────────────────────────────────────
 const DEFAULT_FIELD_ROWS: { key: string; label: string; placeholder: string }[] = [
   { key: 'recipientName', label: 'اسم الزبون',   placeholder: `input[name="recipient_name"]` },
@@ -443,9 +453,18 @@ export default function DeliveryPage() {
   const providers = settings.delivery.providers;
 
   const [showAdd, setShowAdd] = useState(false);
-  const [addMode, setAddMode] = useState<'api' | 'url-recipe'>('api');
+  const [addMode, setAddMode] = useState<'simple' | 'whatsapp' | 'api' | 'url-recipe'>('simple');
   const [config, setConfig] = useState<Partial<DeliveryProviderConfig>>(EMPTY_API);
   const [selected, setSelected] = useState<string | null>(null);
+
+  // Simple mode state
+  const [simpleCompany, setSimpleCompany] = useState<string | null>(null);
+  const [simpleCreds, setSimpleCreds] = useState({ username: '', password: '' });
+  const [simpleCustomUrl, setSimpleCustomUrl] = useState({ url: '', loginUrl: '' });
+
+  // WhatsApp mode state
+  const [waName, setWaName] = useState('');
+  const [waPhone, setWaPhone] = useState('');
 
   // ManualAssist state
   const [manualAssist, setManualAssist] = useState<{ data: ManualAssistData; providerName: string } | null>(null);
@@ -502,6 +521,51 @@ export default function DeliveryPage() {
     setShowAdd(false);
   };
 
+  // ── Simple Mode save ──────────────────────────────────────────────────────
+  const saveSimple = () => {
+    const co = SIMPLE_COMPANIES.find(c => c.name === simpleCompany);
+    if (!co || !simpleCreds.username || !simpleCreds.password) {
+      notify('error', 'يرجى اختيار شركة وإدخال البريد وكلمة المرور');
+      return;
+    }
+    const np: DeliveryProviderConfig = {
+      id: `DEL-${Date.now()}`,
+      name: co.name, logo: co.logo,
+      enabled: true, mode: 'api',
+      websiteUrl: co.url || simpleCustomUrl.url,
+      loginUrl: co.loginUrl || simpleCustomUrl.loginUrl,
+      username: simpleCreds.username, password: simpleCreds.password,
+      addOrderPage: co.addOrder, livraisonBonPage: '', ramassagePage: '',
+      apiKey: '', apiEndpoint: '', fields: {},
+    };
+    updateSettings('delivery', { ...settings.delivery, providers: [...providers, np], defaultProvider: np.name });
+    notify('success', `تم إضافة ${co.name}`);
+    setShowAdd(false);
+    setSimpleCompany(null); setSimpleCreds({ username: '', password: '' }); setSimpleCustomUrl({ url: '', loginUrl: '' });
+  };
+
+  // ── WhatsApp Mode save ─────────────────────────────────────────────────────
+  const saveWhatsApp = () => {
+    if (!waPhone || !waName) {
+      notify('error', 'يرجى إدخال اسم الشركة ورقم واتساب');
+      return;
+    }
+    const phone = waPhone.replace(/\D/g, '');
+    const np: DeliveryProviderConfig = {
+      id: `DEL-${Date.now()}`,
+      name: waName, logo: '📱',
+      enabled: true, mode: 'api',
+      websiteUrl: `https://wa.me/${phone}`,
+      loginUrl: '', username: '', password: '',
+      addOrderPage: '', livraisonBonPage: '', ramassagePage: '',
+      apiKey: 'whatsapp', apiEndpoint: phone,
+      fields: { apiType: 'whatsapp', webhookUrl: phone } as any,
+    };
+    updateSettings('delivery', { ...settings.delivery, providers: [...providers, np], defaultProvider: np.name });
+    notify('success', `تم إضافة واتساب التوصيل`);
+    setShowAdd(false); setWaName(''); setWaPhone('');
+  };
+
   const remove = (id: string) => {
     updateSettings('delivery', { ...settings.delivery, providers: providers.filter(p => p.id !== id) });
     notify('warning', 'تم الحذف');
@@ -521,7 +585,11 @@ export default function DeliveryPage() {
   const isUrlRecipe = (p: DeliveryProviderConfig) =>
     (p.fields as any)?.apiType === 'url-recipe' || p.apiKey === 'url-recipe';
 
-  const closeAdd = () => { setShowAdd(false); setConfig(EMPTY_API); };
+  const closeAdd = () => {
+    setShowAdd(false); setAddMode('simple'); setConfig(EMPTY_API);
+    setSimpleCompany(null); setSimpleCreds({ username: '', password: '' }); setSimpleCustomUrl({ url: '', loginUrl: '' });
+    setWaName(''); setWaPhone('');
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -656,80 +724,172 @@ export default function DeliveryPage() {
       {/* ── Add Modal ─────────────────────────────────────────────────────────── */}
       {showAdd && (
         <div className="modal-overlay" onClick={closeAdd}>
-          <div className="modal modal-wide" onClick={e => e.stopPropagation()} style={{ maxWidth: 620 }}>
+          <div className="modal modal-wide" onClick={e => e.stopPropagation()} style={{ maxWidth: 520 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px 16px', borderBottom: '1px solid var(--clr-border)' }}>
               <h2 style={{ fontSize: 18, fontWeight: 900, color: 'var(--txt-1)' }}>إضافة شركة توصيل</h2>
               <button onClick={closeAdd} style={{ background: 'none', border: 'none', color: 'var(--txt-3)', cursor: 'pointer' }}><X size={20} /></button>
             </div>
 
-            <div style={{ padding: '20px 24px 24px', maxHeight: '78vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 18 }}>
+            <div style={{ padding: '20px 24px 24px', maxHeight: '80vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-              {/* Mode selector */}
-              <div>
-                <label className="label">نوع الربط</label>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                  <button
-                    onClick={() => setAddMode('api')}
-                    style={{ padding: '14px', borderRadius: 12, cursor: 'pointer', textAlign: 'center', border: `2px solid ${addMode === 'api' ? 'rgba(99,102,241,0.5)' : 'var(--clr-border)'}`, background: addMode === 'api' ? 'rgba(99,102,241,0.12)' : 'rgba(255,255,255,0.04)' }}>
-                    <Key size={20} color={addMode === 'api' ? 'var(--clr-pri-h)' : 'var(--txt-3)'} style={{ margin: '0 auto 6px' }} />
-                    <p style={{ fontSize: 13.5, fontWeight: 800, color: addMode === 'api' ? 'var(--clr-pri-h)' : 'var(--txt-2)' }}>ربط عبر API</p>
-                    <p style={{ fontSize: 11, color: 'var(--txt-3)', marginTop: 3 }}>الشركة توفر مفتاح API</p>
-                  </button>
-                  <button
-                    onClick={() => setAddMode('url-recipe')}
-                    style={{ padding: '14px', borderRadius: 12, cursor: 'pointer', textAlign: 'center', border: `2px solid ${addMode === 'url-recipe' ? 'rgba(99,102,241,0.5)' : 'var(--clr-border)'}`, background: addMode === 'url-recipe' ? 'rgba(99,102,241,0.12)' : 'rgba(255,255,255,0.04)' }}>
-                    <Globe size={20} color={addMode === 'url-recipe' ? 'var(--clr-pri-h)' : 'var(--txt-3)'} style={{ margin: '0 auto 6px' }} />
-                    <p style={{ fontSize: 13.5, fontWeight: 800, color: addMode === 'url-recipe' ? 'var(--clr-pri-h)' : 'var(--txt-2)' }}>ربط عبر الموقع</p>
-                    <p style={{ fontSize: 11, color: 'var(--txt-3)', marginTop: 3 }}>الشركة لديها موقع فقط</p>
-                  </button>
-                </div>
+              {/* ── Top mode tabs ─────────────────────────────────────────────────── */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+                {[
+                  { key: 'simple',    icon: '🏢', label: 'شركة معروفة',  desc: 'بريد + كلمة مرور فقط' },
+                  { key: 'whatsapp',  icon: '📱', label: 'واتساب',        desc: 'أرسل الطلب بواتساب' },
+                  { key: 'api',       icon: '⚙️', label: 'متقدم',          desc: 'API أو موقع مخصص' },
+                ].map(m => {
+                  const active = m.key === 'simple' ? addMode === 'simple'
+                    : m.key === 'whatsapp' ? addMode === 'whatsapp'
+                    : addMode === 'api' || addMode === 'url-recipe';
+                  return (
+                    <button key={m.key}
+                      onClick={() => setAddMode(m.key as any)}
+                      style={{ padding: '12px 8px', borderRadius: 13, cursor: 'pointer', textAlign: 'center', border: `2px solid ${active ? 'rgba(99,102,241,0.55)' : 'var(--clr-border)'}`, background: active ? 'rgba(99,102,241,0.13)' : 'rgba(255,255,255,0.04)', transition: 'all .18s' }}>
+                      <div style={{ fontSize: 22, marginBottom: 5 }}>{m.icon}</div>
+                      <p style={{ fontSize: 12.5, fontWeight: 800, color: active ? 'var(--clr-pri-h)' : 'var(--txt-2)' }}>{m.label}</p>
+                      <p style={{ fontSize: 10.5, color: 'var(--txt-3)', marginTop: 2 }}>{m.desc}</p>
+                    </button>
+                  );
+                })}
               </div>
 
-              {/* ── API Mode ────────────────────────────────────────────────────────── */}
-              {addMode === 'api' && (
-                <>
-                  {/* Templates */}
+              {/* ── Simple Mode ───────────────────────────────────────────────────── */}
+              {addMode === 'simple' && (
+                <div className="anim-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                   <div>
-                    <label className="label">اختر شركة معروفة</label>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8 }}>
-                      {TEMPLATES.map(t => (
-                        <button key={t.name} onClick={() => setConfig(p => ({ ...p, name: t.name, logo: t.logo, websiteUrl: t.url, loginUrl: t.loginUrl, addOrderPage: t.addOrder }))}
-                          style={{ padding: '12px 8px', borderRadius: 12, textAlign: 'center', cursor: 'pointer', border: `1.5px solid ${config.name === t.name ? 'rgba(99,102,241,0.45)' : 'var(--clr-border)'}`, background: config.name === t.name ? 'rgba(99,102,241,0.12)' : 'rgba(255,255,255,0.04)' }}>
-                          <div style={{ fontSize: 22, marginBottom: 5 }}>{t.logo}</div>
-                          <p style={{ fontSize: 11.5, fontWeight: 800, color: 'var(--txt-2)' }}>{t.name}</p>
+                    <label className="label">اختر شركة التوصيل</label>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+                      {SIMPLE_COMPANIES.map(c => (
+                        <button key={c.name}
+                          onClick={() => { setSimpleCompany(c.name); setSimpleCustomUrl({ url: c.url, loginUrl: c.loginUrl }); }}
+                          style={{ padding: '16px 10px', borderRadius: 14, cursor: 'pointer', textAlign: 'center', border: `2px solid ${simpleCompany === c.name ? 'rgba(99,102,241,0.55)' : 'var(--clr-border)'}`, background: simpleCompany === c.name ? 'rgba(99,102,241,0.14)' : 'rgba(255,255,255,0.04)', transition: 'all .18s' }}>
+                          <div style={{ fontSize: 26, marginBottom: 6 }}>{c.logo}</div>
+                          <p style={{ fontSize: 12.5, fontWeight: 800, color: simpleCompany === c.name ? 'var(--clr-pri-h)' : 'var(--txt-2)' }}>{c.name}</p>
                         </button>
                       ))}
                     </div>
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                    <Input label="اسم الشركة *" value={config.name || ''} onChange={v => setConfig(p => ({ ...p, name: v }))} ph="Amana Livraison" dir="rtl" mono={false} />
-                    <Input label="رابط الموقع" value={config.websiteUrl || ''} onChange={v => setConfig(p => ({ ...p, websiteUrl: v }))} ph="https://..." />
-                    <div style={{ gridColumn: '1/-1' }}>
-                      <Input label="رابط صفحة تسجيل الدخول *" value={config.loginUrl || ''} onChange={v => setConfig(p => ({ ...p, loginUrl: v }))} ph="https://.../login" />
+                  {simpleCompany && (
+                    <div className="anim-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                      {simpleCompany !== 'أخرى' ? (
+                        <div style={{ padding: '10px 14px', borderRadius: 10, background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.22)', fontSize: 12.5, color: 'rgba(52,211,153,0.9)', display: 'flex', gap: 8, alignItems: 'center' }}>
+                          <CheckCircle size={14} />
+                          <span>جميع روابط <strong>{simpleCompany}</strong> جاهزة — أدخل فقط بيانات حسابك التجاري</span>
+                        </div>
+                      ) : (
+                        <>
+                          <Input label="رابط الموقع *" value={simpleCustomUrl.url} onChange={v => setSimpleCustomUrl(p => ({ ...p, url: v }))} ph="https://delivery.ma" />
+                          <Input label="رابط صفحة تسجيل الدخول *" value={simpleCustomUrl.loginUrl} onChange={v => setSimpleCustomUrl(p => ({ ...p, loginUrl: v }))} ph="https://delivery.ma/login" />
+                        </>
+                      )}
+                      <Input label="البريد الإلكتروني *" value={simpleCreds.username} onChange={v => setSimpleCreds(p => ({ ...p, username: v }))} ph="email@example.com" mono={false} />
+                      <Input label="كلمة المرور *" value={simpleCreds.password} onChange={v => setSimpleCreds(p => ({ ...p, password: v }))} ph="••••••••" secret mono={false} />
                     </div>
-                    <Input label="اسم المستخدم / البريد *" value={config.username || ''} onChange={v => setConfig(p => ({ ...p, username: v }))} ph="email@..." mono={false} />
-                    <Input label="كلمة المرور *" value={config.password || ''} onChange={v => setConfig(p => ({ ...p, password: v }))} ph="••••••••" secret mono={false} />
-                    <div style={{ gridColumn: '1/-1' }}>
-                      <Input label="صفحة إضافة طلب" value={config.addOrderPage || ''} onChange={v => setConfig(p => ({ ...p, addOrderPage: v }))} ph="https://.../new" />
-                    </div>
-                    <Input label="Bon de Livraison" value={config.livraisonBonPage || ''} onChange={v => setConfig(p => ({ ...p, livraisonBonPage: v }))} ph="https://..." />
-                    <Input label="Demande Ramassage" value={config.ramassagePage || ''} onChange={v => setConfig(p => ({ ...p, ramassagePage: v }))} ph="https://..." />
-                  </div>
+                  )}
 
-                  <div style={{ display: 'flex', gap: 10 }}>
+                  <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
                     <button onClick={closeAdd} className="btn btn-ghost" style={{ paddingInline: 20 }}>إلغاء</button>
-                    <button onClick={saveApi} className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }}>
+                    <button onClick={saveSimple}
+                      disabled={!simpleCompany || !simpleCreds.username || !simpleCreds.password}
+                      className="btn btn-primary"
+                      style={{ flex: 1, justifyContent: 'center', opacity: (!simpleCompany || !simpleCreds.username || !simpleCreds.password) ? 0.5 : 1 }}>
                       <CheckCircle size={16} /> حفظ شركة التوصيل
                     </button>
                   </div>
-                </>
+                </div>
               )}
 
-              {/* ── URL Recipe Mode ──────────────────────────────────────────────────── */}
-              {addMode === 'url-recipe' && (
-                <UrlWizard onSave={saveUrlRecipe} onCancel={closeAdd} />
+              {/* ── WhatsApp Mode ──────────────────────────────────────────────────── */}
+              {addMode === 'whatsapp' && (
+                <div className="anim-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  <div style={{ padding: '12px 15px', borderRadius: 12, background: 'rgba(37,211,102,0.09)', border: '1px solid rgba(37,211,102,0.25)', fontSize: 12.5, color: 'rgba(74,222,128,0.9)', lineHeight: 1.7 }}>
+                    📱 <strong>توصيل عبر واتساب</strong><br />
+                    أضف رقم واتساب شركة التوصيل. عند إنشاء طلب سيتم إرسال تفاصيله تلقائياً عبر واتساب.
+                  </div>
+
+                  <Input label="اسم الشركة *" value={waName} onChange={setWaName} ph="Amana / شركة التوصيل" dir="rtl" mono={false} />
+                  <Input
+                    label="رقم واتساب شركة التوصيل *"
+                    value={waPhone}
+                    onChange={setWaPhone}
+                    ph="212600000000"
+                    hint="الرقم الدولي بدون + — مثال: 212612345678"
+                  />
+
+                  {waPhone && (
+                    <div style={{ padding: '10px 13px', borderRadius: 10, background: 'rgba(37,211,102,0.07)', border: '1px solid rgba(37,211,102,0.18)', fontSize: 12, color: 'var(--txt-2)' }}>
+                      رسالة الطلب ستُرسل إلى: <strong style={{ color: 'rgba(74,222,128,0.9)', fontFamily: 'monospace' }}>wa.me/{waPhone.replace(/\D/g,'')}</strong>
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+                    <button onClick={closeAdd} className="btn btn-ghost" style={{ paddingInline: 20 }}>إلغاء</button>
+                    <button onClick={saveWhatsApp}
+                      disabled={!waPhone || !waName}
+                      className="btn btn-primary"
+                      style={{ flex: 1, justifyContent: 'center', background: 'linear-gradient(135deg,#25d366,#128c7e)', opacity: (!waPhone || !waName) ? 0.5 : 1 }}>
+                      <CheckCircle size={16} /> إضافة واتساب التوصيل
+                    </button>
+                  </div>
+                </div>
               )}
+
+              {/* ── Advanced Mode (API / URL Recipe) ─────────────────────────────── */}
+              {(addMode === 'api' || addMode === 'url-recipe') && (
+                <div className="anim-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  {/* Sub-mode pills */}
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    {[{ key: 'api', label: 'API', icon: <Key size={13}/> }, { key: 'url-recipe', label: 'وصفة URL', icon: <Globe size={13}/> }].map(m => (
+                      <button key={m.key}
+                        onClick={() => setAddMode(m.key as any)}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '7px 16px', borderRadius: 9, cursor: 'pointer', fontSize: 12.5, fontWeight: 700, border: `1.5px solid ${addMode === m.key ? 'rgba(99,102,241,0.5)' : 'var(--clr-border)'}`, background: addMode === m.key ? 'rgba(99,102,241,0.12)' : 'rgba(255,255,255,0.04)', color: addMode === m.key ? 'var(--clr-pri-h)' : 'var(--txt-3)' }}>
+                        {m.icon} {m.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {addMode === 'api' && (
+                    <>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8 }}>
+                        {TEMPLATES.map(t => (
+                          <button key={t.name} onClick={() => setConfig(p => ({ ...p, name: t.name, logo: t.logo, websiteUrl: t.url, loginUrl: t.loginUrl, addOrderPage: t.addOrder }))}
+                            style={{ padding: '12px 8px', borderRadius: 12, textAlign: 'center', cursor: 'pointer', border: `1.5px solid ${config.name === t.name ? 'rgba(99,102,241,0.45)' : 'var(--clr-border)'}`, background: config.name === t.name ? 'rgba(99,102,241,0.12)' : 'rgba(255,255,255,0.04)' }}>
+                            <div style={{ fontSize: 22, marginBottom: 5 }}>{t.logo}</div>
+                            <p style={{ fontSize: 11.5, fontWeight: 800, color: 'var(--txt-2)' }}>{t.name}</p>
+                          </button>
+                        ))}
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                        <Input label="اسم الشركة *" value={config.name || ''} onChange={v => setConfig(p => ({ ...p, name: v }))} ph="Amana Livraison" dir="rtl" mono={false} />
+                        <Input label="رابط الموقع" value={config.websiteUrl || ''} onChange={v => setConfig(p => ({ ...p, websiteUrl: v }))} ph="https://..." />
+                        <div style={{ gridColumn: '1/-1' }}>
+                          <Input label="رابط صفحة تسجيل الدخول *" value={config.loginUrl || ''} onChange={v => setConfig(p => ({ ...p, loginUrl: v }))} ph="https://.../login" />
+                        </div>
+                        <Input label="اسم المستخدم / البريد *" value={config.username || ''} onChange={v => setConfig(p => ({ ...p, username: v }))} ph="email@..." mono={false} />
+                        <Input label="كلمة المرور *" value={config.password || ''} onChange={v => setConfig(p => ({ ...p, password: v }))} ph="••••••••" secret mono={false} />
+                        <div style={{ gridColumn: '1/-1' }}>
+                          <Input label="صفحة إضافة طلب" value={config.addOrderPage || ''} onChange={v => setConfig(p => ({ ...p, addOrderPage: v }))} ph="https://.../new" />
+                        </div>
+                        <Input label="Bon de Livraison" value={config.livraisonBonPage || ''} onChange={v => setConfig(p => ({ ...p, livraisonBonPage: v }))} ph="https://..." />
+                        <Input label="Demande Ramassage" value={config.ramassagePage || ''} onChange={v => setConfig(p => ({ ...p, ramassagePage: v }))} ph="https://..." />
+                      </div>
+                      <div style={{ display: 'flex', gap: 10 }}>
+                        <button onClick={closeAdd} className="btn btn-ghost" style={{ paddingInline: 20 }}>إلغاء</button>
+                        <button onClick={saveApi} className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }}>
+                          <CheckCircle size={16} /> حفظ شركة التوصيل
+                        </button>
+                      </div>
+                    </>
+                  )}
+
+                  {addMode === 'url-recipe' && (
+                    <UrlWizard onSave={saveUrlRecipe} onCancel={closeAdd} />
+                  )}
+                </div>
+              )}
+
             </div>
           </div>
         </div>
