@@ -953,6 +953,37 @@ export default function Storefront() {
     const cats = [...new Set(products.map(p => p.category).filter(Boolean))];
     return cats;
   }, [products]);
+
+  // Map category names (Arabic) to image files in /categories/
+  // User drops their PNG files here: public/categories/<key>.png
+  const CAT_IMAGE_MAP: Record<string, string> = {
+    'أحذية':           '/categories/shoes',
+    'أحذية رياضية':    '/categories/shoes',
+    'shoes':           '/categories/shoes',
+    'ملابس نسائية':    '/categories/women',
+    'نسائي':           '/categories/women',
+    'women':           '/categories/women',
+    'فساتين':          '/categories/women',
+    'ملابس رجالية':    '/categories/men',
+    'رجالي':           '/categories/men',
+    'men':             '/categories/men',
+    'بدلات':           '/categories/men',
+    'ملابس أطفال':     '/categories/kids',
+    'أطفال':           '/categories/kids',
+    'kids':            '/categories/kids',
+    'بيبي':            '/categories/kids',
+    'إكسسوارات':       '/categories/accessories',
+    'اكسسوارات':       '/categories/accessories',
+    'accessories':     '/categories/accessories',
+    'هدايا':           '/categories/accessories',
+  };
+
+  function getCatImage(cat: string): string | null {
+    const key = Object.keys(CAT_IMAGE_MAP).find(k => cat.includes(k) || k.includes(cat));
+    if (!key) return null;
+    return CAT_IMAGE_MAP[key];
+  }
+
   const filteredProducts = selectedCategory === 'all'
     ? products
     : products.filter(p => p.category === selectedCategory);
@@ -1091,33 +1122,109 @@ export default function Storefront() {
               <Share2 size={12}/> مشاركة
             </button>
           </div>
-          {/* Category filter pills */}
+          {/* Category image cards */}
           {heroCategories.length > 1 && (
-            <div style={{ display:'flex',gap:6,flexWrap:'wrap',justifyContent:'center',marginTop:12 }}>
-              <button
-                onClick={() => setSelectedCategory('all')}
-                style={{
-                  padding:'5px 14px',borderRadius:99,fontSize:12,fontWeight:700,cursor:'pointer',
-                  border:`1.5px solid ${selectedCategory==='all'?'var(--ember)':'rgba(255,255,255,.15)'}`,
-                  background:selectedCategory==='all' ? 'var(--ember)' : 'transparent',
-                  color:selectedCategory==='all' ? '#fff' : 'rgba(255,255,255,.5)',
-                  transition:'all .15s',
-                }}>
-                الكل ({products.length})
-              </button>
-              {heroCategories.map(cat => (
-                <button key={cat}
-                  onClick={() => setSelectedCategory(cat)}
+            <div style={{ overflowX:'auto', marginTop:16, paddingBottom:4,
+              scrollbarWidth:'none', msOverflowStyle:'none' }}>
+              <style>{`.cat-scroll::-webkit-scrollbar{display:none}
+                .cat-card{transition:transform .18s,box-shadow .18s}
+                .cat-card:hover{transform:translateY(-3px);box-shadow:0 8px 24px rgba(0,0,0,.5)!important}
+                .cat-card:active{transform:scale(.96)}`}
+              </style>
+              <div className="cat-scroll" style={{ display:'flex', gap:10, paddingInline:4, width:'max-content', margin:'0 auto' }}>
+                {/* "All" card */}
+                <button onClick={() => setSelectedCategory('all')} className="cat-card"
                   style={{
-                    padding:'5px 14px',borderRadius:99,fontSize:12,fontWeight:700,cursor:'pointer',
-                    border:`1.5px solid ${selectedCategory===cat?'var(--ember)':'rgba(255,255,255,.15)'}`,
-                    background:selectedCategory===cat ? 'var(--ember)' : 'transparent',
-                    color:selectedCategory===cat ? '#fff' : 'rgba(255,255,255,.5)',
-                    transition:'all .15s',
+                    width:80, flexShrink:0, background:'none', border:'none', cursor:'pointer', padding:0,
+                    display:'flex', flexDirection:'column', alignItems:'center', gap:6,
                   }}>
-                  {cat}
+                  <div style={{
+                    width:80, height:80, borderRadius:20,
+                    background: selectedCategory==='all'
+                      ? 'linear-gradient(135deg,var(--ember),#ff8c42)'
+                      : 'rgba(255,255,255,.07)',
+                    border: `2px solid ${selectedCategory==='all' ? 'var(--ember)' : 'rgba(255,255,255,.12)'}`,
+                    display:'flex', alignItems:'center', justifyContent:'center', fontSize:32,
+                    boxShadow: selectedCategory==='all' ? '0 0 20px rgba(255,106,0,.35)' : 'none',
+                    overflow:'hidden',
+                  }}>
+                    🛍️
+                  </div>
+                  <span style={{ fontSize:11, fontWeight:700, color: selectedCategory==='all' ? 'var(--ember)' : 'rgba(255,255,255,.6)', lineHeight:1 }}>
+                    الكل
+                  </span>
+                  <span style={{ fontSize:10, color:'rgba(255,255,255,.35)', marginTop:-2 }}>
+                    {products.length}
+                  </span>
                 </button>
-              ))}
+
+                {heroCategories.map(cat => {
+                  const imgBase = getCatImage(cat);
+                  const count = products.filter(p => p.category === cat).length;
+                  const active = selectedCategory === cat;
+                  return (
+                    <button key={cat} onClick={() => setSelectedCategory(cat)} className="cat-card"
+                      style={{
+                        width:80, flexShrink:0, background:'none', border:'none', cursor:'pointer', padding:0,
+                        display:'flex', flexDirection:'column', alignItems:'center', gap:6,
+                      }}>
+                      <div style={{
+                        width:80, height:80, borderRadius:20, overflow:'hidden', position:'relative',
+                        border: `2px solid ${active ? 'var(--ember)' : 'rgba(255,255,255,.12)'}`,
+                        boxShadow: active ? '0 0 20px rgba(255,106,0,.35)' : '0 4px 14px rgba(0,0,0,.4)',
+                        background:'#0d0e17',
+                      }}>
+                        {imgBase ? (
+                          <img
+                            src={`${imgBase}.png`}
+                            onError={e => {
+                              const t = e.currentTarget;
+                              if (!t.dataset.tried) {
+                                t.dataset.tried = '1';
+                                t.src = `${imgBase}.svg`;
+                              } else {
+                                t.style.display = 'none';
+                                (t.nextElementSibling as HTMLElement).style.display = 'flex';
+                              }
+                            }}
+                            alt={cat}
+                            style={{
+                              width:'100%', height:'100%', objectFit:'contain', objectPosition:'center bottom',
+                              padding:6,
+                              mixBlendMode: 'normal',
+                            }}
+                          />
+                        ) : null}
+                        {/* Fallback emoji */}
+                        <div style={{
+                          display: imgBase ? 'none' : 'flex',
+                          position:'absolute', inset:0, alignItems:'center', justifyContent:'center',
+                          fontSize:32, background:'rgba(255,255,255,.04)',
+                        }}>
+                          {cat.includes('أحذية')||cat.includes('shoes') ? '👟'
+                            : cat.includes('نسائي')||cat.includes('فستان')||cat.includes('women') ? '👗'
+                            : cat.includes('رجال')||cat.includes('men') ? '🤵'
+                            : cat.includes('أطفال')||cat.includes('kids')||cat.includes('بيبي') ? '👶'
+                            : cat.includes('إكسسوار')||cat.includes('accessories') ? '🎁'
+                            : '🏷️'}
+                        </div>
+                        {/* Ember glow overlay when active */}
+                        {active && <div style={{ position:'absolute', inset:0, background:'rgba(255,106,0,.12)', borderRadius:18 }} />}
+                      </div>
+                      <span style={{
+                        fontSize:11, fontWeight:700, lineHeight:1, textAlign:'center', maxWidth:80,
+                        color: active ? 'var(--ember)' : 'rgba(255,255,255,.7)',
+                        overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', width:'100%',
+                      }}>
+                        {cat}
+                      </span>
+                      <span style={{ fontSize:10, color:'rgba(255,255,255,.35)', marginTop:-2 }}>
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>
