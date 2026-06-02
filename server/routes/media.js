@@ -169,9 +169,9 @@ router.post('/upload-base64', auth, async (req, res) => {
     return res.status(400).json({ error: 'Invalid image data — magic bytes mismatch' });
   }
 
-  // ⚠️ Base64 images can be large — warn if approaching Railway's 20 MB body limit
-  if (buffer.length > 15 * 1024 * 1024) {
-    console.warn(`[Media] Large base64 image: ${(buffer.length / 1024 / 1024).toFixed(1)} MB from user ${req.user.id}`);
+  // Reject oversized images — protects SQLite and memory when Cloudinary is not active
+  if (buffer.length > 5 * 1024 * 1024) {
+    return res.status(413).json({ error: 'الصورة كبيرة جداً (الحد الأقصى 5 ميجا) — يرجى ضغطها أولاً أو استخدام Cloudinary' });
   }
 
   try {

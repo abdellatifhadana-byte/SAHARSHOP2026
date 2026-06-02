@@ -191,6 +191,11 @@ export const aiAPI = {
     products: any[];
     settings: any;
   }) => request<{ reply: string; model: string }>('POST', '/ai/reply', data),
+
+  extractOrder: (history: any[]) =>
+    request<{ phone?: string; city?: string; name?: string; size?: string; color?: string }>(
+      'POST', '/ai/extract-order', { history }
+    ),
 };
 
 // ── Loyalty ──────────────────────────────────────────────────

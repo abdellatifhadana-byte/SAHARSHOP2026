@@ -73,7 +73,9 @@ router.post('/request-otp', auth, (req, res) => {
   const user = db.getUserById(req.user.id);
   if (!user) return res.status(404).json({ error: 'User not found' });
   
-  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  const buf = Buffer.alloc(3);
+  require('crypto').randomFillSync(buf);
+  const code = (100000 + (buf.readUIntBE(0, 3) % 900000)).toString();
   const expires = Date.now() + 5 * 60 * 1000; // 5 minutes
   otpStore.set(user.email, { code, expires });
   

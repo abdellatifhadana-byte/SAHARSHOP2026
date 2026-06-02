@@ -109,6 +109,8 @@ export default function ConnectionsPage() {
   const [testResults, setTestResults] = useState<Record<string, { ok: boolean; info?: string } | null>>({});
   const [testingAll, setTestingAll] = useState(false);
   const [serverConfig, setServerConfig] = useState<Record<string, boolean>>({});
+  const [waTestPhone, setWaTestPhone] = useState('');
+  const [waTestLoading, setWaTestLoading] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem('ai_commerce_token') || '';
@@ -242,6 +244,22 @@ export default function ConnectionsPage() {
     else updateSettings('social', { ...settings.social, [svc.id]: { ...settings.social[svc.id as keyof typeof settings.social], connected: false, pageId: '', accessToken: '' } });
     setTestResults(p => ({ ...p, [svc.id]: null }));
     notify('warning', `🔌 تم قطع الاتصال بـ ${svc.name}`);
+  };
+
+  const sendWhatsAppTest = async () => {
+    if (!waTestPhone.trim()) { notify('error', 'أدخل رقم هاتف للاختبار'); return; }
+    setWaTestLoading(true);
+    try {
+      const r = await fetch('/api/settings/test-whatsapp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
+        body: JSON.stringify({ to: waTestPhone.trim() }),
+      });
+      const d = await r.json();
+      if (d.ok) notify('success', `✅ ${d.info || 'تم إرسال رسالة الاختبار!'}`);
+      else notify('error', `❌ ${d.error || 'فشل الإرسال'}`);
+    } catch (e: any) { notify('error', `❌ ${e.message}`); }
+    setWaTestLoading(false);
   };
 
   const testAll = async () => {
@@ -413,6 +431,32 @@ export default function ConnectionsPage() {
                   <button onClick={() => connect(svc)} disabled={loading[svc.id]} className={`btn ${conn ? 'btn-ghost' : 'btn-primary'}`} style={{ justifyContent: 'center' }}>
                     {loading[svc.id] ? <><Loader2 size={15} className="spin" /> جارٍ التحقق...</> : conn ? <><RefreshCw size={15} /> إعادة اختبار</> : <><Wifi size={15} /> اتصال وتحقق</>}
                   </button>
+
+                  {/* WhatsApp: send real test message */}
+                  {svc.id === 'whatsapp' && conn && (
+                    <div style={{ padding: '14px 16px', borderRadius: 12, background: 'rgba(37,211,102,.07)', border: '1px solid rgba(37,211,102,.2)', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      <p style={{ fontSize: 12.5, fontWeight: 800, color: '#25d366' }}>📲 اختبار الإرسال الحقيقي</p>
+                      <p style={{ fontSize: 11.5, color: 'var(--txt-3)' }}>أدخل رقمك لإرسال رسالة اختبار حقيقية عبر WhatsApp Business</p>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <input
+                          className="input"
+                          style={{ flex: 1, fontFamily: 'monospace', fontSize: 13 }}
+                          placeholder="212612265893"
+                          value={waTestPhone}
+                          onChange={e => setWaTestPhone(e.target.value)}
+                          dir="ltr"
+                        />
+                        <button
+                          onClick={sendWhatsAppTest}
+                          disabled={waTestLoading}
+                          className="btn btn-ghost btn-sm"
+                          style={{ whiteSpace: 'nowrap', borderColor: 'rgba(37,211,102,.35)', color: '#25d366' }}
+                        >
+                          {waTestLoading ? <Loader2 size={13} className="spin" /> : '📤 إرسال'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

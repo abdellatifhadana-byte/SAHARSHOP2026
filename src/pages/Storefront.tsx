@@ -1078,6 +1078,51 @@ export default function Storefront() {
   const brand = storeInfo!.brand;
   const cur   = brand.currency || 'MAD';
 
+  // Empty store — merchant registered but no products yet
+  if (!loading && !error && storeInfo && products.length === 0) return (
+    <div dir="rtl" style={{ minHeight:'100dvh', background:'var(--void)', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'32px 24px', textAlign:'center', gap:0 }}>
+      {/* Zellige strip */}
+      <svg style={{ position:'fixed',top:0,left:0,width:'100%',height:28,pointerEvents:'none',zIndex:1 }} viewBox="0 0 800 28" preserveAspectRatio="xMidYMid slice">
+        {Array.from({length:40},(_,i)=>(
+          <polygon key={i} points={`${i*22-11},0 ${i*22},10 ${i*22-11},20 ${i*22-22},10`}
+            fill={['#FF6A00','#C9954C','#00C896','#FF6A00','#C9954C'][i%5]} opacity={0.35}/>
+        ))}
+      </svg>
+      {/* Logo */}
+      <div style={{ width:72,height:72,borderRadius:18,overflow:'hidden',background:'var(--panel)',border:'2px solid rgba(255,106,0,.25)',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:20,boxShadow:'0 4px 20px rgba(255,106,0,.15)' }}>
+        {brand.logo
+          ? <img src={brand.logo} alt="logo" style={{ width:'100%',height:'100%',objectFit:'contain' }}/>
+          : <span style={{ fontSize:32 }}>🏪</span>}
+      </div>
+      <h1 style={{ fontSize:'clamp(20px,5vw,28px)',fontWeight:900,color:'var(--ember)',marginBottom:8 }}>{brand.name || 'المتجر'}</h1>
+      {brand.description && <p style={{ fontSize:14,color:'var(--ink3)',maxWidth:320,lineHeight:1.7,marginBottom:4 }}>{brand.description}</p>}
+      {/* Big emoji */}
+      <div style={{ fontSize:72,margin:'24px 0 16px',lineHeight:1 }}>📦</div>
+      <h2 style={{ fontSize:20,fontWeight:800,color:'var(--ink1)',marginBottom:8 }}>المتجر قيد التجهيز</h2>
+      <p style={{ fontSize:14,color:'var(--ink3)',maxWidth:300,lineHeight:1.8,marginBottom:28 }}>
+        سيضاف المنتجات قريباً — تابعونا!
+        <br/>
+        <span style={{ fontSize:12,opacity:.7 }}>نعمل على تجهيز أفضل المنتجات لكم</span>
+      </p>
+      {/* Contact buttons */}
+      <div style={{ display:'flex',flexDirection:'column',gap:10,width:'100%',maxWidth:280 }}>
+        {brand.phone && (
+          <a href={`https://wa.me/${brand.phone.replace(/\D/g,'')}`} target="_blank" rel="noreferrer"
+            style={{ display:'flex',alignItems:'center',justifyContent:'center',gap:8,padding:'13px 20px',borderRadius:12,background:'rgba(37,211,102,.15)',border:'1px solid rgba(37,211,102,.35)',color:'#25D366',fontSize:14,fontWeight:700,textDecoration:'none' }}>
+            💬 تواصل معنا على واتساب
+          </a>
+        )}
+        {brand.instagram && (
+          <a href={`https://instagram.com/${brand.instagram}`} target="_blank" rel="noreferrer"
+            style={{ display:'flex',alignItems:'center',justifyContent:'center',gap:8,padding:'11px 20px',borderRadius:12,background:'rgba(225,48,108,.1)',border:'1px solid rgba(225,48,108,.25)',color:'#E1306C',fontSize:13,fontWeight:700,textDecoration:'none' }}>
+            📸 تابعنا على Instagram
+          </a>
+        )}
+      </div>
+      <p style={{ marginTop:32,fontSize:11,color:'var(--ink3)',opacity:.5 }}>Powered by SAHAR shop</p>
+    </div>
+  );
+
   return (
     <div dir="rtl" style={{ minHeight:'100dvh',background:'var(--void)',color:'var(--ink1)',fontFamily:'Tajawal,system-ui,sans-serif' }}>
       <style>{`

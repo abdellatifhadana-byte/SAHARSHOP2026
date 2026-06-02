@@ -51,6 +51,7 @@ function PageContent() {
     case 'import':        return <ChatImportPage />;
     case 'coupons':       return <CouponsPage />;
     case 'insights':      return <AnalyticsPage />;
+    case 'services':      return <ProductsPage />;
     default:              return <DashboardPage />;
   }
 }

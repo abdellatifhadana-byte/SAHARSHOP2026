@@ -173,7 +173,23 @@ router.post('/reply', auth, async (req, res) => {
   const openaiKey   = reqSettings?.ai?.apiKey   || dbSettings.ai?.apiKey   || process.env.OPENAI_API_KEY;
   const geminiKey   = reqSettings?.ai?.geminiKey || dbSettings.ai?.geminiKey || process.env.GEMINI_API_KEY;
   const provider    = reqSettings?.ai?.provider  || dbSettings.ai?.provider  || 'openai';
-  const sysPrompt   = systemPrompt || reqSettings?.ai?.systemPrompt || dbSettings.ai?.systemPrompt || 'أنت مساعد بيع ذكي لمتجر مغربي. تتحدث بالدارجة المغربية بأسلوب ودود واحترافي.';
+  const mergedSettings = { ...dbSettings, ...reqSettings, ai: { ...dbSettings.ai, ...reqSettings?.ai } };
+  const brand = mergedSettings.brand || {};
+  const delivery = mergedSettings.delivery || {};
+  const cur = brand.currency || 'MAD';
+  const allProds = (products || db.getProducts(req.user.id) || []).slice(0, 30)
+    .filter(p => p.status === 'published' && p.stock > 0)
+    .map(p => `- ${p.emoji||'📦'} ${p.name}: ${p.price} ${cur}${(p.sizes||[]).length?` (${p.sizes.join('/')})`:''}`).join('\n');
+  const autoSysPrompt = `أنت مساعد بيع ذكي لمتجر "${brand.name||'متجر مغربي'}". تتحدث بالدارجة المغربية بأسلوب ودود واحترافي.
+معلومات المتجر:
+• الهاتف: ${brand.phone||''}
+• الوصف: ${brand.description||''}
+• التوصيل: ${delivery.defaultCost||'20-40'} ${cur} — 24-48 ساعة لجميع مدن المغرب
+• الدفع: ${delivery.paymentMethod||'عند الاستلام (COD)'}
+المنتجات المتوفرة:
+${allProds||'لا منتجات منشورة'}
+قواعد: رد بالدارجة، كن مقنعاً، اطلب الاسم والهاتف والمدينة عند الطلب.`;
+  const sysPrompt = systemPrompt || reqSettings?.ai?.systemPrompt || dbSettings.ai?.systemPrompt || autoSysPrompt;
 
   const temperature = reqSettings?.ai?.temperature || dbSettings.ai?.temperature || 0.7;
   const model       = reqSettings?.ai?.model       || dbSettings.ai?.model       || 'gpt-4o-mini';

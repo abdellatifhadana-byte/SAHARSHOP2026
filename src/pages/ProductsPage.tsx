@@ -262,10 +262,13 @@ const uid = () => Math.random().toString(36).slice(2, 9);
 // ─────────────────────────────────────────────────────────────
 
 export default function ProductsPage() {
-  const { products, addProduct, updateProduct, deleteProduct, adjustStock, settings, token, notify } = useStore();
+  const { products, addProduct, updateProduct, deleteProduct, adjustStock, settings, token, notify, currentPage } = useStore();
+
+  const isServicesMode = currentPage === 'services';
 
   const [search,  setSearch]  = useState('');
   const [filter,  setFilter]  = useState<Filter>('all');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'product' | 'service' | 'digital'>(isServicesMode ? 'service' : 'all');
   const [sort,    setSort]    = useState<Sort>('newest');
 
   const [showWizard, setShowWizard] = useState(false);
@@ -354,7 +357,11 @@ export default function ProductsPage() {
           : filter === 'draft'     ? p.status === 'draft'
           : filter === 'low'       ? p.stock > 0 && p.stock <= settings.products.lowStockAlert
           : p.stock === 0;
-        return ms && mf;
+        const mt = typeFilter === 'all' ? true
+          : typeFilter === 'service' ? (p.category === 'service' || (p as any).type === 'service')
+          : typeFilter === 'digital' ? (p.category === 'digital' || (p as any).type === 'digital')
+          : !(p.category === 'service' || p.category === 'digital' || (p as any).type === 'service' || (p as any).type === 'digital');
+        return ms && mf && mt;
       })
       .sort((a, b) => {
         if (sort === 'name')  return a.name.localeCompare(b.name, 'ar');
@@ -375,6 +382,14 @@ export default function ProductsPage() {
   // ── Wizard open/close ────────────────────────────────────────
   const openAdd = () => {
     setData(initData()); setStep(1); setEditProd(null); setShowWizard(true);
+    setCustomColorName(''); setCustomColorHex('#000000');
+    setShowAddField(false); setNewField({ label: '', type: 'text', options: '' });
+    setHashtags([]); setAiDesignUrl('');
+  };
+
+  const openAddService = () => {
+    setData({ ...initData(), category: 'service', type: 'service' });
+    setStep(2); setEditProd(null); setShowWizard(true);
     setCustomColorName(''); setCustomColorHex('#000000');
     setShowAddField(false); setNewField({ label: '', type: 'text', options: '' });
     setHashtags([]); setAiDesignUrl('');
@@ -670,13 +685,18 @@ export default function ProductsPage() {
       {/* ── HEADER ─────────────────────────────────────────────── */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
-          <h1 className="page-title">المنتجات</h1>
+          <h1 className="page-title">{isServicesMode ? '🔧 الخدمات' : 'المنتجات'}</h1>
           <p className="page-sub">
-            {products.length} منتج &middot; {products.filter(p => p.status === 'published').length} منشور
+            {isServicesMode
+              ? `${products.filter(p => p.category === 'service' || (p as any).type === 'service').length} خدمة متوفرة`
+              : `${products.length} منتج · ${products.filter(p => p.status === 'published').length} منشور`}
           </p>
         </div>
-        <button onClick={openAdd} className="btn btn-primary">
-          <Plus size={16} /> إضافة منتج
+        <button
+          onClick={isServicesMode ? openAddService : openAdd}
+          className="btn btn-primary"
+        >
+          <Plus size={16} /> {isServicesMode ? 'إضافة خدمة' : 'إضافة منتج'}
         </button>
       </div>
 
@@ -693,6 +713,23 @@ export default function ProductsPage() {
           <option value="stock">المخزون</option>
         </select>
       </div>
+
+      {/* ── TYPE FILTER (only when not in services mode) ─────────── */}
+      {!isServicesMode && (
+        <div className="chips-row" style={{ borderBottom: '1px solid var(--border)', paddingBottom: 10 }}>
+          {([
+            { id: 'all',     label: '🏪 الكل',       count: products.length },
+            { id: 'product', label: '📦 منتجات',      count: products.filter(p => p.category !== 'service' && p.category !== 'digital').length },
+            { id: 'service', label: '🔧 خدمات',       count: products.filter(p => p.category === 'service').length },
+            { id: 'digital', label: '💻 رقمي',        count: products.filter(p => p.category === 'digital').length },
+          ] as const).map(t => (
+            <button key={t.id} onClick={() => setTypeFilter(t.id)} className={`chip ${typeFilter === t.id ? 'active' : ''}`}>
+              {t.label}
+              {t.id !== 'all' && t.count > 0 && <span style={{ marginRight: 4, fontSize: 10, opacity: .6 }}>({t.count})</span>}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* ── FILTER CHIPS ────────────────────────────────────────── */}
       <div className="chips-row">

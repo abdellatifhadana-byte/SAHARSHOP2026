@@ -56,6 +56,7 @@ interface StoreValue {
   sendMessage: (convId: string, content: string, role: 'customer' | 'agent' | 'ai') => Promise<void>;
   addConversation: (c: any) => Promise<string>;
   updateConversation: (id: string, u: Partial<Conversation>) => Promise<void>;
+  deleteConversation: (id: string) => Promise<void>;
 
   // Templates
   addTemplate: (t: any) => Promise<void>;
@@ -526,6 +527,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setState(s => ({ ...s, conversations: s.conversations.map(c => c.id === id ? { ...c, ...u } : c) }));
   };
 
+  const deleteConversation = async (id: string) => {
+    setState(s => ({ ...s, conversations: s.conversations.filter(c => c.id !== id) }));
+    if (state.isOnline && api.getToken()) {
+      try { await api.conversationsAPI.remove(id); } catch {}
+    }
+  };
+
   // ── TEMPLATES ────────────────────────────────────────────
   const addTemplate = async (t: any) => {
     setState(s => ({ ...s, settings: { ...s.settings, templates: [{ ...t, id: 'T'+uid(), usageCount: 0 }, ...s.settings.templates] } }));
@@ -604,6 +612,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       addTemplate, updateTemplate, deleteTemplate,
       notify, clearNotifications, markNotifRead, log,
       resetToDemo, exportData, importData, refreshData,
+      deleteConversation,
     }}>
       {children}
     </StoreCtx.Provider>

@@ -279,7 +279,8 @@ export default function NavBar() {
                 { page: 'conversations' as Page, icon: NavIconMessage, label: 'الرسائل' },
                 { page: 'delivery' as Page, icon: NavIconTruck, label: 'التوصيل' },
                 { page: 'coupons' as Page, icon: Tag, label: 'الكوبونات' },
-                { page: 'import' as Page, icon: NavIconMessage, label: '📥 استيراد المحادثات' },
+                { page: 'import'    as Page, icon: NavIconMessage, label: '📥 استيراد المحادثات' },
+                { page: 'services'  as Page, icon: NavIconPackage,  label: '🔧 الخدمات' },
               ].map(item => {
                 const active = currentPage === item.page || (item.page === 'insights' && currentPage === 'analytics');
                 const b = badge(item.page);

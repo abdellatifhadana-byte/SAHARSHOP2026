@@ -40,9 +40,9 @@ const EMPTY_FORM: CouponForm = {
 // ─── Helper: generate random coupon code ─────────────────────────────────────
 function randomCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let s = '';
-  for (let i = 0; i < 8; i++) s += chars[Math.floor(Math.random() * chars.length)];
-  return s;
+  const bytes = new Uint8Array(8);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes).map(b => chars[b % chars.length]).join('');
 }
 
 // ─── Helper: build API base URL ───────────────────────────────────────────────

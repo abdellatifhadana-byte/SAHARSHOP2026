@@ -2,14 +2,22 @@ import { useState } from 'react';
 import { useStore } from '../store';
 import { CheckCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 
-type Step = 'welcome' | 'brand' | 'cloud' | 'connect' | 'ai' | 'done';
-const ORDER: Step[] = ['welcome', 'brand', 'cloud', 'connect', 'ai', 'done'];
+type Step = 'welcome' | 'type' | 'brand' | 'cloud' | 'connect' | 'ai' | 'done';
+const ORDER: Step[] = ['welcome', 'type', 'brand', 'cloud', 'connect', 'ai', 'done'];
+
+const BTYPE_OPTIONS = [
+  { id: 'products',         icon: '📦', title: 'بائع منتجات',      sub: 'ملابس، أحذية، إلكترونيات...',       color: '#FF6A00' },
+  { id: 'services',         icon: '🔧', title: 'مقدم خدمات',        sub: 'سباك، كهربائي، مصمم، مدرّس...',     color: '#8B5CF6' },
+  { id: 'digital',          icon: '💻', title: 'منتجات رقمية',      sub: 'دروس، كتب، برامج، اشتراكات...',    color: '#0EA5E9' },
+  { id: 'mixed',            icon: '🏪', title: 'متجر متكامل',       sub: 'منتجات + خدمات معاً',              color: '#00D2B3' },
+];
 
 export default function Onboarding() {
   const { settings, updateSettings } = useStore();
   const [step, setStep] = useState<Step>('welcome');
   const [brand, setBrand] = useState({ name: '', currency: 'MAD', phone: '' });
   const [ai, setAi] = useState({ personality: 'Moroccan Seller', language: 'Darija', tone: 'Friendly' });
+  const [businessType, setBusinessType] = useState('products');
   const [cloudStatus, setCloudStatus] = useState<{supabase: 'idle'|'testing'|'ok'|'fail'; cloudinary: 'idle'|'testing'|'ok'|'fail'}>({ supabase: 'idle', cloudinary: 'idle' });
 
   const idx = ORDER.indexOf(step);
@@ -19,6 +27,7 @@ export default function Onboarding() {
   const finish = () => {
     if (brand.name) updateSettings('brand', { ...settings.brand, ...brand, name: brand.name || 'متجري' });
     updateSettings('ai', { ...settings.ai, ...ai });
+    updateSettings('businessType' as any, businessType);
     updateSettings('onboardingDone', true as any);
   };
   const skip = () => {
@@ -106,6 +115,41 @@ export default function Onboarding() {
               <button onClick={skip} style={{ marginTop: 14, color: 'var(--txt-3)', fontSize: 13, background: 'none', border: 'none', cursor: 'pointer', display: 'block', width: '100%' }}>
                 تخطي والدخول مباشرة
               </button>
+            </div>
+          )}
+
+          {/* TYPE */}
+          {step === 'type' && (
+            <div>
+              <div style={{ textAlign: 'center', marginBottom: 24 }}>
+                <span style={{ fontSize: 42, display: 'block', marginBottom: 8 }}>🏪</span>
+                <h2 style={{ fontSize: 22, fontWeight: 900, color: 'var(--txt-1)' }}>ما نوع نشاطك التجاري؟</h2>
+                <p style={{ fontSize: 13, color: 'var(--txt-3)', marginTop: 4 }}>سنضبط التطبيق حسب احتياجاتك</p>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 24 }}>
+                {BTYPE_OPTIONS.map(opt => (
+                  <button
+                    key={opt.id}
+                    onClick={() => setBusinessType(opt.id)}
+                    style={{
+                      padding: '16px 12px', borderRadius: 16, textAlign: 'center', cursor: 'pointer',
+                      border: `2px solid ${businessType === opt.id ? opt.color : 'var(--clr-border)'}`,
+                      background: businessType === opt.id ? `${opt.color}15` : 'rgba(255,255,255,0.04)',
+                      transition: 'all .18s',
+                    }}
+                  >
+                    <span style={{ fontSize: 30, display: 'block', marginBottom: 6 }}>{opt.icon}</span>
+                    <p style={{ fontSize: 13, fontWeight: 900, color: businessType === opt.id ? opt.color : 'var(--txt-1)', marginBottom: 4 }}>{opt.title}</p>
+                    <p style={{ fontSize: 10.5, color: 'var(--txt-3)', lineHeight: 1.4 }}>{opt.sub}</p>
+                  </button>
+                ))}
+              </div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button onClick={prev} className="btn btn-ghost" style={{ paddingInline: 14 }}><ChevronRight size={18} /></button>
+                <button onClick={next} className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }}>
+                  التالي <ChevronLeft size={16} />
+                </button>
+              </div>
             </div>
           )}
 
@@ -322,6 +366,7 @@ export default function Onboarding() {
               </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24, textAlign: 'right' }}>
                 {[
+                  `✅ نوع النشاط: ${BTYPE_OPTIONS.find(o => o.id === businessType)?.title || businessType}`,
                   `✅ اسم المتجر: ${brand.name || 'متجري'}`,
                   `✅ العملة: ${brand.currency}`,
                   `✅ مساعد AI: ${ai.personality} · ${ai.language}`,

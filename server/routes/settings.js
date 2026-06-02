@@ -245,4 +245,43 @@ router.get('/backups/:filename', auth, (req, res) => {
   res.download(filepath);
 });
 
+// POST /api/settings/test-whatsapp — send a real test WhatsApp message to merchant's own number
+router.post('/test-whatsapp', auth, async (req, res) => {
+  const settings = db.getSettings(req.user.id) || {};
+  const { to } = req.body; // phone number to send test message to (from merchant input)
+  const waToken  = settings.social?.whatsapp?.accessToken;
+  const waPhoneId= settings.social?.whatsapp?.pageId;
+  if (!waToken || !waPhoneId) return res.status(400).json({ ok: false, error: 'WhatsApp غير مربوط — أدخل Phone ID و Access Token أولاً' });
+  if (!to) return res.status(400).json({ ok: false, error: 'أدخل رقم الهاتف لإرسال الرسالة التجريبية' });
+
+  const https2 = require('https');
+  const cleanTo = to.replace(/[\s\-\(\)]/g, '');
+  const msg = `✅ رسالة تجريبية من SAHAR shop\n\nإذا وصلتك هذه الرسالة فإن ربط WhatsApp Business يعمل بشكل صحيح! 🎉\n\nوقت الإرسال: ${new Date().toLocaleString('ar-MA')}`;
+  const body = JSON.stringify({ messaging_product: 'whatsapp', to: cleanTo, type: 'text', text: { body: msg } });
+
+  return new Promise(resolve => {
+    const reqW = https2.request({
+      hostname: 'graph.facebook.com',
+      path: `/v19.0/${waPhoneId}/messages`,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${waToken}`, 'Content-Length': Buffer.byteLength(body) },
+    }, respW => {
+      let d = '';
+      respW.on('data', c => d += c);
+      respW.on('end', () => {
+        try {
+          const r = JSON.parse(d);
+          if (r.messages?.[0]?.id) { res.json({ ok: true, info: `تم الإرسال إلى ${cleanTo}` }); }
+          else { res.json({ ok: false, error: r.error?.message || 'فشل الإرسال' }); }
+        } catch { res.json({ ok: false, error: 'خطأ في استجابة WhatsApp' }); }
+        resolve(undefined);
+      });
+    });
+    reqW.on('error', (e) => { res.json({ ok: false, error: e.message }); resolve(undefined); });
+    reqW.setTimeout(10000, () => { reqW.destroy(); res.json({ ok: false, error: 'انتهت مهلة الاتصال' }); resolve(undefined); });
+    reqW.write(body);
+    reqW.end();
+  });
+});
+
 module.exports = router;
