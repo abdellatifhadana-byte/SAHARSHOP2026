@@ -84,7 +84,7 @@ import { Search, ChevronDown, ChevronUp, CheckCircle, XCircle, Package, AlertTri
 
 const STATUS_AR: Record<string, string> = { pending: 'بانتظار', pending_confirmation: 'تأكيد واتساب', approved: 'موافقة', processing: 'جارٍ', shipped: 'شُحن', delivered: 'وُصّل', cancelled: 'ملغي' };
 
-function printOrder(order: any, currency: string) {
+function printOrder(order: any, settings: any, currency: string) {
   const brandName = settings.brand?.name || 'SAHAR shop';
   const brandPhone = settings.brand?.phone || '';
   const brandLogo = settings.brand?.logo || '/sahar-logo-text.png';
@@ -489,7 +489,7 @@ export default function OrdersPage() {
                       </button>
                     )}
                     {order.status === 'shipped' && <button onClick={() => { deliverOrder(order.id); setExpanded(null); }} className="btn btn-success" style={{ flex: 1, justifyContent: 'center' }}><Package size={15} /> تأكيد التوصيل</button>}
-                    <button onClick={() => printOrder(order, currency)} className="btn btn-ghost btn-sm" style={{ paddingInline: 14 }}>🖨️ طباعة</button>
+                    <button onClick={() => printOrder(order, settings, currency)} className="btn btn-ghost btn-sm" style={{ paddingInline: 14 }}>🖨️ طباعة</button>
                   </div>
                 </div>
               )}

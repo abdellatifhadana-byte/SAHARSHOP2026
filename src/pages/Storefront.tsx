@@ -110,9 +110,28 @@ function useCart() {
 
 /* Product Card */
 function ProductCard({ p, onAdd, onView, currency }: { p:SProduct; onAdd:(p:SProduct)=>void; onView:(p:SProduct)=>void; currency:string }) {
-  const [liked, setLiked] = useState(false);
+  const wishlistKey = 'sahar_wishlist';
+  const getWishlist = (): string[] => { try { return JSON.parse(localStorage.getItem(wishlistKey) || '[]'); } catch { return []; } };
+  const [liked, setLiked] = useState(() => getWishlist().includes(p.id));
   const [hover, setHover] = useState(false);
   const isNew = p.createdAt && (Date.now() - new Date(p.createdAt).getTime() < 7*24*60*60*1000);
+
+  const toggleLike = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const wl = getWishlist();
+    const next = liked ? wl.filter(id => id !== p.id) : [...wl, p.id];
+    try { localStorage.setItem(wishlistKey, JSON.stringify(next)); } catch {}
+    setLiked(!liked);
+  };
+
+  const shareProduct = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const userId = window.location.pathname.split('/store/')[1]?.split('/')[0] || '';
+    const url = `${window.location.origin}/store/${userId}?p=${p.id}`;
+    const text = `${p.name} — ${p.price} ${currency}\n${url}`;
+    if (navigator.share) navigator.share({ title: p.name, text, url }).catch(() => {});
+    else navigator.clipboard?.writeText(url).then(() => alert('تم نسخ الرابط ✅'));
+  };
 
   return (
     <div onClick={() => onView(p)}
@@ -148,11 +167,17 @@ function ProductCard({ p, onAdd, onView, currency }: { p:SProduct; onAdd:(p:SPro
           {(!p.type || p.type === 'product') && p.stock === 0 && <span style={{ background:'rgba(0,0,0,.7)',backdropFilter:'blur(4px)',color:'#fff',fontSize:9,fontWeight:800,padding:'3px 8px',borderRadius:99 }}>نفذ المخزون</span>}
         </div>
 
-        {/* Like */}
-        <button onClick={e=>{e.stopPropagation();setLiked(v=>!v)}}
-          style={{ position:'absolute',top:10,left:10,width:32,height:32,borderRadius:'50%',background:'rgba(0,0,0,.45)',backdropFilter:'blur(6px)',border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',transition:'all .2s' }}>
-          <Heart size={14} fill={liked?'#ef4444':'none'} color={liked?'#ef4444':'#fff'}/>
-        </button>
+        {/* Like + Share */}
+        <div style={{ position:'absolute',top:10,left:10,display:'flex',flexDirection:'column',gap:5 }}>
+          <button onClick={toggleLike}
+            style={{ width:32,height:32,borderRadius:'50%',background:liked?'rgba(239,68,68,.25)':'rgba(0,0,0,.45)',backdropFilter:'blur(6px)',border:liked?'1px solid rgba(239,68,68,.5)':'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',transition:'all .2s' }}>
+            <Heart size={14} fill={liked?'#ef4444':'none'} color={liked?'#ef4444':'#fff'}/>
+          </button>
+          <button onClick={shareProduct}
+            style={{ width:32,height:32,borderRadius:'50%',background:'rgba(0,0,0,.45)',backdropFilter:'blur(6px)',border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',transition:'all .2s',opacity:hover?1:0.7 }}>
+            <Share2 size={13} color='#fff'/>
+          </button>
+        </div>
 
         {/* Colors row at bottom */}
         {p.colors?.length > 0 && (
@@ -922,8 +947,6 @@ export default function Storefront() {
   })();
 
   const { products, storeInfo, loading, error } = useStorefront(userId);
-  // Expose products globally for related products in modal
-  useEffect(() => { (window as any).__sfProducts = products; }, [products]);
   const cart = useCart();
 
   const [lang, setLang]          = useState<'ar'|'fr'>('ar');
@@ -946,6 +969,26 @@ export default function Storefront() {
     setCartAnim(true);
     setTimeout(() => setCartAnim(false), 600);
   };
+
+  // Expose products globally for related products in modal
+  useEffect(() => { (window as any).__sfProducts = products; }, [products]);
+
+  // Handle ?p= URL param — auto-open product
+  useEffect(() => {
+    if (!products.length) return;
+    const pid = new URLSearchParams(window.location.search).get('p');
+    if (pid) { const found = products.find(x => x.id === pid); if (found) setViewProduct(found); }
+  }, [products]);
+
+  // Track recently viewed (persisted in localStorage)
+  const trackViewed = useCallback((p: SProduct) => {
+    try {
+      const key = `sahar_viewed_${userId}`;
+      const prev: string[] = JSON.parse(localStorage.getItem(key) || '[]');
+      const next = [p.id, ...prev.filter(id => id !== p.id)].slice(0, 20);
+      localStorage.setItem(key, JSON.stringify(next));
+    } catch {}
+  }, [userId]);
 
   const categories = ['all', ...Array.from(new Set(products.map(p=>p.category).filter(Boolean)))];
 
@@ -1305,7 +1348,7 @@ export default function Storefront() {
         {filtered.map(p => (
           <ProductCard key={p.id} p={p} currency={cur}
             onAdd={handleAddToCart}
-            onView={setViewProduct}
+            onView={p => { trackViewed(p); setViewProduct(p); }}
           />
         ))}
         {filtered.length === 0 && (

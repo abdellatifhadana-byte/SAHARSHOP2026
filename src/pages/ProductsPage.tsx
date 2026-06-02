@@ -136,6 +136,11 @@ type WizardData = {
   stock: string;
   duration: string;
   workArea: string;
+  portfolio: string[];
+  bookingDays: string[];
+  bookingTime: string;
+  bookingLocation: string;
+  bookingMethod: string;
   images: string[];
   imageUrl: string;
   status: ProductStatus;
@@ -154,6 +159,7 @@ type WizardData = {
 const initData = (): WizardData => ({
   category: '', type: 'product', name: '', description: '',
   price: '', cost: '', stock: '', duration: '', workArea: '',
+  portfolio: [], bookingDays: [], bookingTime: '', bookingLocation: '', bookingMethod: 'phone',
   images: [], imageUrl: '', status: 'draft',
   variants: [], customFields: [],
   designOpts: { showName: false, showPrice: false, watermark: false, textColor: '#ffffff' },
@@ -612,6 +618,11 @@ export default function ProductsPage() {
         ageRange: data.ageRange || '',
         variants: data.variants,
         customFields: data.customFields,
+        portfolio: data.portfolio,
+        bookingDays: data.bookingDays,
+        bookingTime: data.bookingTime,
+        bookingLocation: data.bookingLocation,
+        bookingMethod: data.bookingMethod,
       };
 
       if (editProd) {
@@ -1269,6 +1280,49 @@ export default function ProductsPage() {
 
               {/* ══ STEP 4: Colors & Variants ═════════════════════ */}
               {step === 4 && (
+                data.type === 'service' || data.type === 'digital' ? (
+                  /* Portfolio gallery for services */
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    <div style={{ textAlign: 'center' }}>
+                      <p style={{ fontSize: 22, marginBottom: 6 }}>🖼️</p>
+                      <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink1)', marginBottom: 4 }}>معرض الأعمال</p>
+                      <p style={{ fontSize: 12, color: 'var(--ink3)' }}>أضف صور أعمالك السابقة لإثبات جودتك</p>
+                    </div>
+                    <div style={{ display: 'flex', gap: 10 }}>
+                      <button className="btn btn-ghost" style={{ flex: 1, gap: 8, justifyContent: 'center' }} onClick={() => galleryRef.current?.click()}>
+                        <Image size={16} /> 🖼️ إضافة صور
+                      </button>
+                      <button className="btn btn-ghost" style={{ flex: 1, gap: 8, justifyContent: 'center' }} onClick={() => cameraRef.current?.click()}>
+                        <Camera size={16} /> 📸 تصوير
+                      </button>
+                    </div>
+                    {data.portfolio.length > 0 && (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
+                        {data.portfolio.map((src, i) => (
+                          <div key={i} style={{ position: 'relative', aspectRatio: '1', borderRadius: 10, overflow: 'hidden', border: '1px solid var(--border)' }}>
+                            <img src={src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            <button onClick={() => setData(d => ({ ...d, portfolio: d.portfolio.filter((_,ii) => ii !== i) }))}
+                              style={{ position: 'absolute', top: 3, left: 3, width: 20, height: 20, borderRadius: '50%', background: 'rgba(0,0,0,.7)', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11 }}>×</button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {data.portfolio.length === 0 && (
+                      <div style={{ padding: 24, textAlign: 'center', border: '2px dashed var(--border)', borderRadius: 14, color: 'var(--ink3)', fontSize: 13 }}>
+                        لا توجد أعمال سابقة — أضف أمثلة لتثق بك الزبائن أكثر
+                      </div>
+                    )}
+                    <input type="file" accept="image/*" multiple style={{ display: 'none' }} ref={(el) => { if (el) (window as any).__portfolioRef = el; }}
+                      onChange={async (e) => {
+                        if (!e.target.files) return;
+                        const b64s = await Promise.all(Array.from(e.target.files).slice(0,10).map(readFile));
+                        setData(d => ({ ...d, portfolio: [...d.portfolio, ...b64s].slice(0,10) }));
+                      }} />
+                    <button onClick={() => (window as any).__portfolioRef?.click()} className="btn btn-primary" style={{ gap: 8, justifyContent: 'center' }}>
+                      <Plus size={16} /> إضافة صورة عمل
+                    </button>
+                  </div>
+                ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                   <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink1)' }}>اختر الألوان المتوفرة</p>
 
@@ -1448,6 +1502,7 @@ export default function ProductsPage() {
                     </div>
                   )}
                 </div>
+                )
               )}
 
               {/* ══ STEP 5: Pricing ══════════════════════════════ */}
@@ -1506,6 +1561,73 @@ export default function ProductsPage() {
 
               {/* ══ STEP 6: Design Studio ════════════════════════ */}
               {step === 6 && (
+                data.type === 'service' ? (
+                  /* Booking info for services */
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    <div style={{ textAlign: 'center', marginBottom: 4 }}>
+                      <p style={{ fontSize: 22, marginBottom: 6 }}>📅</p>
+                      <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink1)', marginBottom: 4 }}>معلومات الحجز</p>
+                      <p style={{ fontSize: 12, color: 'var(--ink3)' }}>كيف يحجز الزبون خدمتك؟</p>
+                    </div>
+
+                    <div>
+                      <label className="label">أيام العمل</label>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                        {['الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت','الأحد'].map(day => (
+                          <button key={day}
+                            onClick={() => setData(d => ({ ...d, bookingDays: d.bookingDays.includes(day) ? d.bookingDays.filter(x=>x!==day) : [...d.bookingDays, day] }))}
+                            className={`chip ${data.bookingDays.includes(day) ? 'active' : ''}`}>
+                            {day}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="label">ساعات العمل</label>
+                      <input className="input" placeholder="مثال: 9:00 ص — 6:00 م" value={data.bookingTime}
+                        onChange={e => setData(d => ({ ...d, bookingTime: e.target.value }))} />
+                    </div>
+
+                    <div>
+                      <label className="label">موقع تقديم الخدمة</label>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                        {[
+                          { val: 'onsite', label: '🏠 عند الزبون', sub: 'تنتقل أنت' },
+                          { val: 'workshop', label: '🔧 في الورشة', sub: 'يأتي الزبون' },
+                          { val: 'remote', label: '💻 عن بعد', sub: 'عبر الإنترنت' },
+                          { val: 'both', label: '🔀 كلاهما', sub: 'حسب الاتفاق' },
+                        ].map(opt => (
+                          <button key={opt.val}
+                            onClick={() => setData(d => ({ ...d, bookingLocation: opt.val }))}
+                            style={{ padding: '10px 12px', borderRadius: 12, border: `1.5px solid ${data.bookingLocation === opt.val ? 'rgba(255,106,0,.5)' : 'var(--border)'}`, background: data.bookingLocation === opt.val ? 'rgba(255,106,0,.1)' : 'transparent', cursor: 'pointer', textAlign: 'right', fontFamily: 'inherit' }}>
+                            <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink1)' }}>{opt.label}</p>
+                            <p style={{ fontSize: 11, color: 'var(--ink3)' }}>{opt.sub}</p>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="label">طريقة التواصل للحجز</label>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
+                        {[
+                          { val: 'phone', label: '📞 هاتف' },
+                          { val: 'whatsapp', label: '💬 واتساب' },
+                          { val: 'message', label: '✉️ رسالة' },
+                        ].map(opt => (
+                          <button key={opt.val}
+                            onClick={() => setData(d => ({ ...d, bookingMethod: opt.val }))}
+                            className={`chip ${data.bookingMethod === opt.val ? 'active' : ''}`}
+                            style={{ justifyContent: 'center' }}>
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                /* Design studio for products — existing content */
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink1)' }}>
@@ -1580,6 +1702,7 @@ export default function ProductsPage() {
                     </>
                   )}
                 </div>
+                )
               )}
 
               {/* ══ STEP 7: Preview & Publish ════════════════════ */}

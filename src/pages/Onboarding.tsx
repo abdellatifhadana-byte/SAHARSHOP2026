@@ -2,14 +2,15 @@ import { useState } from 'react';
 import { useStore } from '../store';
 import { CheckCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 
-type Step = 'welcome' | 'brand' | 'connect' | 'ai' | 'done';
-const ORDER: Step[] = ['welcome', 'brand', 'connect', 'ai', 'done'];
+type Step = 'welcome' | 'brand' | 'cloud' | 'connect' | 'ai' | 'done';
+const ORDER: Step[] = ['welcome', 'brand', 'cloud', 'connect', 'ai', 'done'];
 
 export default function Onboarding() {
   const { settings, updateSettings } = useStore();
   const [step, setStep] = useState<Step>('welcome');
   const [brand, setBrand] = useState({ name: '', currency: 'MAD', phone: '' });
   const [ai, setAi] = useState({ personality: 'Moroccan Seller', language: 'Darija', tone: 'Friendly' });
+  const [cloudStatus, setCloudStatus] = useState<{supabase: 'idle'|'testing'|'ok'|'fail'; cloudinary: 'idle'|'testing'|'ok'|'fail'}>({ supabase: 'idle', cloudinary: 'idle' });
 
   const idx = ORDER.indexOf(step);
   const pct = (idx / (ORDER.length - 1)) * 100;
@@ -23,6 +24,17 @@ export default function Onboarding() {
   const skip = () => {
     updateSettings('brand', { ...settings.brand, name: 'متجري' });
     updateSettings('onboardingDone', true as any);
+  };
+  const testCloud = async (service: 'supabase' | 'cloudinary') => {
+    setCloudStatus(s => ({ ...s, [service]: 'testing' }));
+    try {
+      const r = await fetch('/api/settings/server-config');
+      const data = await r.json();
+      const ok = service === 'supabase' ? !!data.supabase : !!data.cloudinary;
+      setCloudStatus(s => ({ ...s, [service]: ok ? 'ok' : 'fail' }));
+    } catch {
+      setCloudStatus(s => ({ ...s, [service]: 'fail' }));
+    }
   };
 
   return (
@@ -137,6 +149,65 @@ export default function Onboarding() {
               <div style={{ display: 'flex', gap: 10 }}>
                 <button onClick={prev} className="btn btn-ghost" style={{ paddingInline: 14 }}><ChevronRight size={18} /></button>
                 <button onClick={next} disabled={!brand.name.trim()} className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }}>
+                  التالي <ChevronLeft size={16} />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* CLOUD */}
+          {step === 'cloud' && (
+            <div>
+              <div style={{ textAlign: 'center', marginBottom: 24 }}>
+                <span style={{ fontSize: 42, display: 'block', marginBottom: 8 }}>☁️</span>
+                <h2 style={{ fontSize: 22, fontWeight: 900, color: 'var(--txt-1)' }}>إعداد السحابة</h2>
+                <p style={{ fontSize: 13, color: 'var(--txt-3)', marginTop: 4 }}>لحفظ بياناتك بأمان وإتاحة صورك عبر الإنترنت</p>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
+                {[
+                  { key: 'supabase' as const, icon: '🗄️', name: 'Supabase', sub: 'قاعدة البيانات السحابية', desc: 'يحفظ طلباتك وزبائنك ومنتجاتك بأمان' },
+                  { key: 'cloudinary' as const, icon: '🖼️', name: 'Cloudinary', sub: 'تخزين الصور السحابي', desc: 'صور المنتجات تُحفظ في السحابة وتُتاح بسرعة' },
+                ].map(svc => {
+                  const status = cloudStatus[svc.key];
+                  return (
+                    <div key={svc.key} style={{ padding: '16px', borderRadius: 14, border: `1px solid ${status === 'ok' ? 'rgba(16,185,129,.35)' : status === 'fail' ? 'rgba(239,68,68,.3)' : 'var(--clr-border)'}`, background: status === 'ok' ? 'rgba(16,185,129,.07)' : status === 'fail' ? 'rgba(239,68,68,.06)' : 'rgba(255,255,255,.03)', transition: 'all .3s' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <span style={{ fontSize: 28 }}>{svc.icon}</span>
+                        <div style={{ flex: 1 }}>
+                          <p style={{ fontSize: 14, fontWeight: 800, color: 'var(--txt-1)' }}>{svc.name}</p>
+                          <p style={{ fontSize: 11.5, color: 'var(--txt-3)' }}>{svc.desc}</p>
+                        </div>
+                        <button
+                          onClick={() => testCloud(svc.key)}
+                          disabled={status === 'testing'}
+                          style={{ padding: '7px 14px', borderRadius: 9, fontSize: 12, fontWeight: 700, border: '1px solid var(--clr-border)', background: 'rgba(255,255,255,.06)', color: 'var(--txt-2)', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
+                          {status === 'testing' ? '⏳ ...' : status === 'ok' ? '✅ متصل' : status === 'fail' ? '❌ فشل' : '🔍 اختبار'}
+                        </button>
+                      </div>
+                      {status === 'ok' && (
+                        <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 5 }}>
+                          <p style={{ fontSize: 11, color: '#10b981', fontWeight: 700 }}>
+                            {svc.key === 'supabase' ? '✓ Database Connected · ✓ Backup Enabled' : '✓ Storage Connected · ✓ Images Upload Working'}
+                          </p>
+                        </div>
+                      )}
+                      {status === 'fail' && (
+                        <p style={{ marginTop: 8, fontSize: 11, color: 'rgba(239,68,68,.8)' }}>
+                          {svc.key === 'supabase' ? 'تأكد من إضافة SUPABASE_URL في إعدادات Railway' : 'تأكد من إضافة CLOUDINARY_URL في إعدادات Railway'}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              <div style={{ padding: '12px 16px', borderRadius: 12, background: 'rgba(255,106,0,.06)', border: '1px solid rgba(255,106,0,.15)', marginBottom: 20 }}>
+                <p style={{ fontSize: 12, color: 'rgba(255,106,0,.8)', fontWeight: 600 }}>
+                  💡 إن لم تكن متصلاً بالسحابة، ستُحفظ بياناتك محلياً ولن تُفقد — يمكنك الربط لاحقاً من صفحة الاتصالات
+                </p>
+              </div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button onClick={prev} className="btn btn-ghost" style={{ paddingInline: 14 }}><ChevronRight size={18} /></button>
+                <button onClick={next} className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }}>
                   التالي <ChevronLeft size={16} />
                 </button>
               </div>

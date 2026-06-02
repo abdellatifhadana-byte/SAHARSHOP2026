@@ -84,6 +84,7 @@ export default function NavBar() {
 
   const [showSearch, setShowSearch] = React.useState(false);
   const [fabOpen, setFabOpen] = React.useState(false);
+  const [navHidden, setNavHidden] = React.useState(false);
 
   React.useEffect(() => {
     const h = (e: KeyboardEvent) => {
@@ -92,6 +93,25 @@ export default function NavBar() {
     };
     window.addEventListener('keydown', h);
     return () => window.removeEventListener('keydown', h);
+  }, []);
+
+  React.useEffect(() => {
+    let lastY = 0;
+    const handler = () => {
+      const y = window.scrollY || document.documentElement.scrollTop ||
+        document.querySelector('.page-content')?.scrollTop || 0;
+      const delta = y - lastY;
+      if (delta > 8 && y > 60) setNavHidden(true);
+      else if (delta < -8) setNavHidden(false);
+      lastY = y;
+    };
+    const el = document.querySelector('.page-content') as HTMLElement;
+    if (el) el.addEventListener('scroll', handler, { passive: true });
+    window.addEventListener('scroll', handler, { passive: true });
+    return () => {
+      if (el) el.removeEventListener('scroll', handler);
+      window.removeEventListener('scroll', handler);
+    };
   }, []);
 
   const pending   = orders.filter(o => o.status === 'pending').length;
@@ -259,6 +279,7 @@ export default function NavBar() {
                 { page: 'conversations' as Page, icon: NavIconMessage, label: 'الرسائل' },
                 { page: 'delivery' as Page, icon: NavIconTruck, label: 'التوصيل' },
                 { page: 'coupons' as Page, icon: Tag, label: 'الكوبونات' },
+                { page: 'import' as Page, icon: NavIconMessage, label: '📥 استيراد المحادثات' },
               ].map(item => {
                 const active = currentPage === item.page || (item.page === 'insights' && currentPage === 'analytics');
                 const b = badge(item.page);
@@ -321,20 +342,21 @@ export default function NavBar() {
             key={item.action}
             onClick={() => doFabAction(item.action, item.page)}
             style={{
-              width: '100%', maxWidth: 260,
-              padding: '12px 20px',
-              borderRadius: 14,
-              background: 'var(--surface)',
-              border: '1px solid var(--border)',
-              color: 'var(--ink)',
+              width: '100%', maxWidth: 280,
+              padding: '14px 22px',
+              borderRadius: 18,
+              background: i === 0 ? 'linear-gradient(135deg,rgba(255,106,0,.18),rgba(255,133,51,.12))' : i === 1 ? 'linear-gradient(135deg,rgba(139,92,246,.18),rgba(124,111,250,.12))' : 'linear-gradient(135deg,rgba(0,210,179,.18),rgba(0,237,202,.12))',
+              border: i === 0 ? '1px solid rgba(255,106,0,.35)' : i === 1 ? '1px solid rgba(139,92,246,.35)' : '1px solid rgba(0,210,179,.35)',
+              color: 'var(--ink1)',
               fontSize: 15,
-              fontWeight: 700,
+              fontWeight: 800,
               fontFamily: 'inherit',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: 12,
-              boxShadow: '0 4px 20px rgba(0,0,0,0.25)',
+              gap: 14,
+              boxShadow: i === 0 ? '0 4px 24px rgba(255,106,0,0.2), 0 0 40px rgba(255,106,0,0.06)' : i === 1 ? '0 4px 24px rgba(139,92,246,0.2)' : '0 4px 24px rgba(0,210,179,0.2)',
+              backdropFilter: 'blur(12px)',
               transform: fabOpen ? 'translateY(0)' : 'translateY(10px)',
               opacity: fabOpen ? 1 : 0,
               transition: `transform 0.2s cubic-bezier(.4,0,.2,1) ${i * 0.04}s, opacity 0.16s ease ${i * 0.04}s`,
@@ -346,7 +368,11 @@ export default function NavBar() {
         ))}
       </div>
 
-      <nav className="mobile-bottom-nav" style={{ display: 'flex', alignItems: 'center' }}>
+      <nav className="mobile-bottom-nav" style={{
+        display: 'flex', alignItems: 'center',
+        transform: navHidden ? 'translateY(34px)' : 'translateY(0)',
+        transition: 'transform 0.3s cubic-bezier(.4,0,.2,1)',
+      }}>
         {/* Left 2: الرئيسية + المنتجات — always visible */}
         {[
           { page: 'dashboard' as Page, icon: LayoutDashboard, label: 'الرئيسية' },
@@ -365,7 +391,6 @@ export default function NavBar() {
                   </span>
                 )}
               </div>
-              <span>{item.label}</span>
             </button>
           );
         })}
@@ -373,7 +398,7 @@ export default function NavBar() {
         {/* Central FAB — icon only, ember glow, no circle */}
         <div style={{ flex: '0 0 68px', display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative' }}>
           <button
-            onClick={() => setFabOpen(v => !v)}
+            onClick={() => { if (navHidden) { setNavHidden(false); } else { setFabOpen(v => !v); } }}
             style={{
               width: 52, height: 52,
               borderRadius: '50%',
@@ -414,7 +439,6 @@ export default function NavBar() {
                   </span>
                 )}
               </div>
-              <span>{item.label}</span>
             </button>
           );
         })}
