@@ -1,14 +1,14 @@
 import { useState, useMemo } from 'react';
 import { useStore } from '../store';
 import type { Customer } from '../types';
-import { Plus, Search, Star, Phone, MapPin, MessageCircle, Check, X, Edit2, ChevronRight } from 'lucide-react';
+import { Plus, Search, Star, Phone, MapPin, MessageCircle, Check, X, Edit2, ChevronRight, Trash2 } from 'lucide-react';
 
 const STATUS_AR: Record<string,string> = {
   pending:'⏳',approved:'✅',processing:'⚙️',shipped:'🚚',delivered:'📦',cancelled:'❌',
 };
 
 export default function CustomersPage() {
-  const { customers, orders, addCustomer, updateCustomer, settings } = useStore();
+  const { customers, orders, addCustomer, updateCustomer, deleteCustomer, settings, notify } = useStore();
   const [search, setSearch] = useState('');
   const [src, setSrc] = useState('all');
   const [vipOnly, setVipOnly] = useState(false);
@@ -36,8 +36,12 @@ export default function CustomersPage() {
   const newThisMonth = customers.filter(c => c.createdAt?.startsWith(thisMonth)).length;
 
   const save = () => {
-    if (!form.name || !form.phone) return;
+    if (!form.name.trim()) { notify('error', '❌ اسم الزبون مطلوب'); return; }
+    if (!form.phone.trim()) { notify('error', '❌ رقم الهاتف مطلوب'); return; }
+    const dup = customers.find(c => c.phone.replace(/\D/g,'') === form.phone.replace(/\D/g,''));
+    if (dup) { notify('warning', `⚠️ هذا الرقم مسجل مسبقاً للزبون "${dup.name}"`); return; }
     addCustomer({ ...form });
+    notify('success', `✅ تمت إضافة "${form.name}" بنجاح`);
     setForm({ name: '', phone: '', city: '', address: '', source: 'WhatsApp', notes: '', vip: false });
     setShowAdd(false);
   };
@@ -47,6 +51,15 @@ export default function CustomersPage() {
     updateCustomer(selected.id, editForm);
     setSelected(c => c ? { ...c, ...editForm } : null);
     setEditing(false);
+    notify('success', '✅ تم حفظ التعديلات');
+  };
+
+  const handleDelete = (c: Customer) => {
+    if (!window.confirm(`⚠️ هل أنت متأكد من حذف "${c.name}"؟`)) return;
+    deleteCustomer(c.id);
+    setSelected(null);
+    setEditing(false);
+    notify('success', `🗑️ تم حذف "${c.name}" من قائمة الزبائن`);
   };
 
   const openDetail = (c: Customer) => {
@@ -175,6 +188,10 @@ export default function CustomersPage() {
                   style={{ width: 32, height: 32, borderRadius: 9, background: editing ? 'var(--ember-soft)' : 'rgba(255,255,255,.06)', border: `1px solid ${editing ? 'rgba(255,106,0,.3)' : 'var(--border)'}`, color: editing ? 'var(--ember)' : 'var(--ink3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <Edit2 size={13} />
                 </button>
+                <button onClick={() => handleDelete(selected)}
+                  style={{ width: 32, height: 32, borderRadius: 9, background: 'rgba(239,68,68,.08)', border: '1px solid rgba(239,68,68,.25)', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Trash2 size={13} />
+                </button>
                 <button onClick={() => { setSelected(null); setEditing(false); }}
                   style={{ width: 32, height: 32, borderRadius: 9, background: 'rgba(255,255,255,.06)', border: '1px solid var(--border)', color: 'var(--ink3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <X size={14} />
@@ -255,7 +272,12 @@ export default function CustomersPage() {
                         <Phone size={14} /> اتصال
                       </a>
                     )}
-                    <button onClick={() => { updateCustomer(selected.id, { vip: !selected.vip }); setSelected(c => c ? { ...c, vip: !c.vip } : null); }}
+                    <button onClick={() => {
+                      const newVip = !selected.vip;
+                      updateCustomer(selected.id, { vip: newVip });
+                      setSelected(c => c ? { ...c, vip: newVip } : null);
+                      notify('success', newVip ? `⭐ تم تصنيف "${selected.name}" كزبون VIP` : `✅ تم إزالة تصنيف VIP عن "${selected.name}"`);
+                    }}
                       className="btn btn-ghost btn-sm" style={{ flex: 1, justifyContent: 'center', color: selected.vip ? '#fbbf24' : undefined, borderColor: selected.vip ? 'rgba(245,158,11,.3)' : undefined, background: selected.vip ? 'rgba(245,158,11,.08)' : undefined }}>
                       <Star size={14} /> {selected.vip ? 'إزالة VIP' : 'VIP'}
                     </button>

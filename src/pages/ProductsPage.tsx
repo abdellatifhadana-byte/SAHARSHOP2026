@@ -501,13 +501,27 @@ export default function ProductsPage() {
   const handleFiles = async (files: FileList | null) => {
     if (!files) return;
     const existing = data.images.length;
+    if (existing >= 10) { notify('warning', '⚠️ لا يمكن إضافة أكثر من 10 صور للمنتج'); return; }
     const slots = Math.max(0, 10 - existing);
-    const toRead = Array.from(files).slice(0, slots);
-    const b64s = await Promise.all(toRead.map(readFile));
-    setData(d => {
-      const next = [...d.images, ...b64s];
-      return { ...d, images: next, imageUrl: next[0] || d.imageUrl };
-    });
+    const arr = Array.from(files).slice(0, slots);
+    const valid: File[] = [];
+    for (const f of arr) {
+      if (!f.type.startsWith('image/')) { notify('error', `❌ "${f.name}" — نوع الملف غير مدعوم`); continue; }
+      if (f.size > 10 * 1024 * 1024)   { notify('error', `❌ "${f.name}" — حجم الصورة يتجاوز 10 ميجا`); continue; }
+      if (f.size > 5 * 1024 * 1024)    { notify('warning', `⚠️ "${f.name}" — الصورة كبيرة، يُفضل ضغطها لأداء أفضل`); }
+      valid.push(f);
+    }
+    if (!valid.length) return;
+    try {
+      const b64s = await Promise.all(valid.map(readFile));
+      setData(d => {
+        const next = [...d.images, ...b64s];
+        return { ...d, images: next, imageUrl: next[0] || d.imageUrl };
+      });
+      notify('success', `✅ تم إضافة ${valid.length} صورة`);
+    } catch {
+      notify('error', '❌ فشل قراءة الصور، حاول مرة أخرى');
+    }
   };
 
   const removeImage = (idx: number) =>
@@ -599,19 +613,21 @@ export default function ProductsPage() {
 
   // ── Save ──────────────────────────────────────────────────────
   const save = async (status: ProductStatus) => {
-    if (!data.name || !data.price) return;
+    if (!data.name.trim()) { notify('error', '❌ يجب إدخال اسم المنتج'); return; }
+    if (!data.price)        { notify('error', '❌ يجب إدخال سعر المنتج'); return; }
+
+    const allImages = [...(data.processedImages.length ? data.processedImages : data.images), ...data.variants.flatMap(v => v.images)];
+    if (!allImages.length && !data.imageUrl) {
+      notify('warning', '⚠️ يفضل إضافة صورة واحدة على الأقل للمنتج');
+    }
+
     setSaving(true);
     try {
       const catLabel = CATS.find(c => c.id === data.category)?.label || 'أخرى';
-      const allVariantImages = data.variants.flatMap(v => v.images);
-      const finalImages = [...(data.processedImages.length ? data.processedImages : data.images), ...allVariantImages];
-      const finalColors = data.variants.length > 0
-        ? data.variants.map(v => v.color)
-        : data.colors || [];
-      const finalSizes = data.variants.length > 0
-        ? [...new Set(data.variants.flatMap(v => v.sizes.map(s => s.name)))]
-        : data.sizes || [];
-      const finalStock = data.variants.length > 0 ? totalVariantStock : Number(data.stock) || 0;
+      const finalImages = allImages;
+      const finalColors = data.variants.length > 0 ? data.variants.map(v => v.color) : data.colors || [];
+      const finalSizes  = data.variants.length > 0 ? [...new Set(data.variants.flatMap(v => v.sizes.map(s => s.name)))] : data.sizes || [];
+      const finalStock  = data.variants.length > 0 ? totalVariantStock : Number(data.stock) || 0;
 
       const payload: any = {
         name: data.name,
@@ -642,12 +658,27 @@ export default function ProductsPage() {
 
       if (editProd) {
         await updateProduct(editProd.id, payload);
+        notify('success', status === 'published'
+          ? `✅ تم تحديث "${data.name}" ونشره`
+          : status === 'draft'
+          ? `✅ تم حفظ "${data.name}" كمسودة`
+          : `✅ تم أرشفة "${data.name}"`);
       } else {
         await addProduct(payload);
+        notify('success', status === 'published'
+          ? `✅ تم نشر "${data.name}" وأصبح مرئياً للزبائن`
+          : `✅ تم حفظ "${data.name}" كمسودة`);
       }
+
+      if (!navigator.onLine) {
+        notify('info', '🌐 لا يوجد اتصال — تم حفظ البيانات محلياً');
+      }
+
       setShowWizard(false);
       setEditProd(null);
-    } catch { /* error handled by store */ }
+    } catch (e: any) {
+      notify('error', `❌ حدث خطأ أثناء حفظ المنتج${e?.message ? ': ' + e.message : ''}`);
+    }
     setSaving(false);
   };
 
@@ -796,7 +827,7 @@ export default function ProductsPage() {
                     <button onClick={() => openEdit(p)} className="icon-btn" style={{ background: 'rgba(7,7,10,.7)', backdropFilter: 'blur(8px)' }}>
                       <Edit3 size={13} />
                     </button>
-                    <button onClick={() => { if (window.confirm(`حذف "${p.name}"؟`)) deleteProduct(p.id); }} className="icon-btn danger" style={{ background: 'rgba(7,7,10,.7)', backdropFilter: 'blur(8px)' }}>
+                    <button onClick={() => { if (window.confirm(`حذف "${p.name}"؟`)) { deleteProduct(p.id); notify('warning', `🗑️ تم حذف "${p.name}"`); } }} className="icon-btn danger" style={{ background: 'rgba(7,7,10,.7)', backdropFilter: 'blur(8px)' }}>
                       <Trash2 size={13} />
                     </button>
                   </div>

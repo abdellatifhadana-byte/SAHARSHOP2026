@@ -43,6 +43,7 @@ interface StoreValue {
   // Customers
   addCustomer: (c: any) => Promise<void>;
   updateCustomer: (id: string, u: Partial<Customer>) => Promise<void>;
+  deleteCustomer: (id: string) => Promise<void>;
 
   // Orders
   addOrder: (o: any) => Promise<string>;
@@ -337,6 +338,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const deleteCustomer = async (id: string) => {
+    setState(s => ({ ...s, customers: s.customers.filter(c => c.id !== id) }));
+    if (state.isOnline && api.getToken()) {
+      try { await api.customersAPI.remove(id); } catch {}
+    }
+  };
+
   // ── ORDERS ───────────────────────────────────────────────
   const addOrder = async (o: any) => {
     let order: any;
@@ -606,7 +614,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     <StoreCtx.Provider value={{
       ...state, login, register, logout, setPage, setSidebarOpen, updateSettings,
       addProduct, updateProduct, deleteProduct, adjustStock,
-      addCustomer, updateCustomer,
+      addCustomer, updateCustomer, deleteCustomer,
       addOrder, updateOrder, approveOrder, rejectOrder, shipOrder, deliverOrder,
       sendMessage, addConversation, updateConversation,
       addTemplate, updateTemplate, deleteTemplate,
