@@ -1170,9 +1170,9 @@ export default function Storefront() {
                       }}>
                       <div style={{
                         width:80, height:80, borderRadius:20, overflow:'hidden', position:'relative',
-                        border: `2px solid ${active ? 'var(--ember)' : 'rgba(255,255,255,.12)'}`,
-                        boxShadow: active ? '0 0 20px rgba(255,106,0,.35)' : '0 4px 14px rgba(0,0,0,.4)',
-                        background:'#0d0e17',
+                        border: `2px solid ${active ? 'var(--ember)' : 'rgba(255,255,255,.15)'}`,
+                        boxShadow: active ? '0 0 22px rgba(255,106,0,.4)' : '0 4px 14px rgba(0,0,0,.4)',
+                        background: imgBase ? '#fff' : '#0d0e17',
                       }}>
                         {imgBase ? (
                           <img
@@ -1184,14 +1184,14 @@ export default function Storefront() {
                                 t.src = `${imgBase}.svg`;
                               } else {
                                 t.style.display = 'none';
+                                (t.parentElement!.style.background = '#0d0e17');
                                 (t.nextElementSibling as HTMLElement).style.display = 'flex';
                               }
                             }}
                             alt={cat}
                             style={{
-                              width:'100%', height:'100%', objectFit:'contain', objectPosition:'center bottom',
+                              width:'100%', height:'100%', objectFit:'contain', objectPosition:'center',
                               padding:6,
-                              mixBlendMode: 'normal',
                             }}
                           />
                         ) : null}
@@ -1208,8 +1208,8 @@ export default function Storefront() {
                             : cat.includes('إكسسوار')||cat.includes('accessories') ? '🎁'
                             : '🏷️'}
                         </div>
-                        {/* Ember glow overlay when active */}
-                        {active && <div style={{ position:'absolute', inset:0, background:'rgba(255,106,0,.12)', borderRadius:18 }} />}
+                        {/* Ember overlay when active */}
+                        {active && <div style={{ position:'absolute', inset:0, background:'rgba(255,106,0,.10)', borderRadius:18 }} />}
                       </div>
                       <span style={{
                         fontSize:11, fontWeight:700, lineHeight:1, textAlign:'center', maxWidth:80,

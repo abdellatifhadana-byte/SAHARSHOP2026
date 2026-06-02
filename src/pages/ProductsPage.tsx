@@ -8,6 +8,15 @@ import type { Product, ProductStatus, CustomFieldDef, CustomFieldType } from '..
 
 // ── Category config ───────────────────────────────────────────
 
+// Image files in /public/categories/ — PNG with white bg (auto-detected)
+const CAT_IMG: Record<string, string> = {
+  men:    '/categories/men',
+  women:  '/categories/women',
+  kids:   '/categories/kids',
+  shoes:  '/categories/shoes',
+  access: '/categories/accessories',
+};
+
 const CATS = [
   { id: 'men',     icon: '👕', label: 'ملابس رجال',   color: '#3B82F6', type: 'product' },
   { id: 'women',   icon: '👗', label: 'ملابس نساء',   color: '#EC4899', type: 'product' },
@@ -864,41 +873,74 @@ export default function ProductsPage() {
                     ما هو نوع ما تبيعه؟
                   </p>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
-                    {CATS.map(cat => (
-                      <button
-                        key={cat.id}
-                        onClick={() => {
-                          setData(d => ({
-                            ...d,
-                            category: cat.id,
-                            type: (cat.type || 'product') as 'product' | 'service' | 'digital',
-                            sizes: CAT_CFG[cat.id]?.sizes?.slice(0, 3) || [],
-                            colors: [],
-                            variants: [],
-                          }));
-                          setStep(2);
-                        }}
-                        style={{
-                          padding: '18px 14px', borderRadius: 14,
-                          border: '1.5px solid var(--border)',
-                          background: 'var(--panel2)', cursor: 'pointer',
-                          textAlign: 'center', fontFamily: 'inherit',
-                          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
-                          transition: 'border-color .15s, background .15s',
-                        }}
-                        onMouseEnter={e => {
-                          (e.currentTarget).style.borderColor = cat.color;
-                          (e.currentTarget).style.background = `${cat.color}18`;
-                        }}
-                        onMouseLeave={e => {
-                          (e.currentTarget).style.borderColor = 'var(--border)';
-                          (e.currentTarget).style.background = 'var(--panel2)';
-                        }}
-                      >
-                        <span style={{ fontSize: 30 }}>{cat.icon}</span>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink1)' }}>{cat.label}</span>
-                      </button>
-                    ))}
+                    {CATS.map(cat => {
+                      const imgBase = CAT_IMG[cat.id];
+                      return (
+                        <button
+                          key={cat.id}
+                          onClick={() => {
+                            setData(d => ({
+                              ...d,
+                              category: cat.id,
+                              type: (cat.type || 'product') as 'product' | 'service' | 'digital',
+                              sizes: CAT_CFG[cat.id]?.sizes?.slice(0, 3) || [],
+                              colors: [],
+                              variants: [],
+                            }));
+                            setStep(2);
+                          }}
+                          style={{
+                            padding: '12px 8px 10px', borderRadius: 14,
+                            border: '1.5px solid var(--border)',
+                            background: 'var(--panel2)', cursor: 'pointer',
+                            textAlign: 'center', fontFamily: 'inherit',
+                            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+                            transition: 'border-color .15s, background .15s, transform .15s',
+                          }}
+                          onMouseEnter={e => {
+                            e.currentTarget.style.borderColor = cat.color;
+                            e.currentTarget.style.background = `${cat.color}15`;
+                            e.currentTarget.style.transform = 'translateY(-2px)';
+                          }}
+                          onMouseLeave={e => {
+                            e.currentTarget.style.borderColor = 'var(--border)';
+                            e.currentTarget.style.background = 'var(--panel2)';
+                            e.currentTarget.style.transform = '';
+                          }}
+                        >
+                          {/* Image or emoji fallback */}
+                          <div style={{
+                            width: 64, height: 64, borderRadius: 12, overflow: 'hidden',
+                            background: imgBase ? '#fff' : `${cat.color}18`,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            boxShadow: '0 2px 8px rgba(0,0,0,.15)',
+                          }}>
+                            {imgBase ? (
+                              <img
+                                src={`${imgBase}.png`}
+                                onError={e => {
+                                  const t = e.currentTarget;
+                                  if (!t.dataset.tried) {
+                                    t.dataset.tried = '1';
+                                    t.src = `${imgBase}.svg`;
+                                  } else {
+                                    t.style.display = 'none';
+                                    (t.nextElementSibling as HTMLElement).style.display = 'flex';
+                                  }
+                                }}
+                                alt={cat.label}
+                                style={{ width: '100%', height: '100%', objectFit: 'contain', objectPosition: 'center', padding: 4 }}
+                              />
+                            ) : null}
+                            <span style={{
+                              fontSize: 30,
+                              display: imgBase ? 'none' : 'block',
+                            }}>{cat.icon}</span>
+                          </div>
+                          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink1)', lineHeight: 1.2 }}>{cat.label}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}
