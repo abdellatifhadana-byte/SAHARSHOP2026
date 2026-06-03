@@ -133,11 +133,11 @@ export default function ConnectionsPage() {
   const setVal = (id: string, k: string, v: string) => setValues(p => ({ ...p, [id]: { ...(p[id] || {}), [k]: v } }));
 
   const isConnected = (id: string) => {
-    if (id === 'openai') return !!settings.ai.apiKey || !!serverConfig.openai;
-    if (id === 'gemini') return !!settings.ai.geminiKey || !!serverConfig.gemini;
-    if (id === 'supabase') return (!!(settings as any).supabaseUrl && !!(settings as any).supabaseKey) || !!serverConfig.supabase;
-    if (id === 'cloudinary') return (!!(settings as any).cloudinaryCloudName && !!(settings as any).cloudinaryApiKey) || !!serverConfig.cloudinary;
-    if (id === 'whatsapp') return (settings.social?.whatsapp?.connected) || !!serverConfig.whatsapp;
+    if (id === 'openai') return !!settings.ai.apiKey;
+    if (id === 'gemini') return !!settings.ai.geminiKey;
+    if (id === 'supabase') return !!(settings as any).supabaseUrl && !!(settings as any).supabaseKey;
+    if (id === 'cloudinary') return !!(settings as any).cloudinaryCloudName && !!(settings as any).cloudinaryApiKey;
+    if (id === 'whatsapp') return !!(settings.social?.whatsapp?.connected);
     return settings.social[id as keyof typeof settings.social]?.connected || false;
   };
 

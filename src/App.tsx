@@ -6,6 +6,7 @@ import MainLayout            from './pages/MainLayout';
 import LandingPage           from './pages/LandingPage';
 import Storefront            from './pages/Storefront';
 import NotificationToast     from './components/NotificationToast';
+import TourGuide             from './components/TourGuide';
 
 const PAGE_URLS: Record<string, string> = {
   dashboard:     '/dashboard',
@@ -83,6 +84,7 @@ function AppShell() {
       <ThemeManager />
       {isAuthed && <RouterSync />}
       <NotificationToast />
+      {isAuthed && <TourGuide />}
       {/* ambient background handled in CSS body */}
 
       <Routes>

@@ -28,13 +28,14 @@ const NAV_ICON_MAP: Record<string, string> = {
 const FAB_ICON = '/icons/fab';
 
 /** Renders a custom PNG icon with fallback to a Lucide component */
-function NavIcon({ page, FallbackIcon, size = 22, active = false }: {
-  page: string; FallbackIcon: any; size?: number; active?: boolean;
+function NavIcon({ page, FallbackIcon, size = 22, cssSize, active = false }: {
+  page: string; FallbackIcon: any; size?: number; cssSize?: string; active?: boolean;
 }) {
   const base = NAV_ICON_MAP[page];
   const [useFallback, setUseFallback] = React.useState(false);
   if (!base || useFallback) {
-    return <FallbackIcon size={size} strokeWidth={active ? 2.4 : 1.8} />;
+    return <FallbackIcon size={size} strokeWidth={active ? 2.4 : 1.8}
+      style={cssSize ? { width: cssSize, height: cssSize } : undefined} />;
   }
   return (
     <img
@@ -45,7 +46,7 @@ function NavIcon({ page, FallbackIcon, size = 22, active = false }: {
         else setUseFallback(true);
       }}
       alt={page}
-      style={{ width: size, height: size, objectFit: 'contain', display: 'block',
+      style={{ width: cssSize || size, height: cssSize || size, objectFit: 'contain', display: 'block',
         filter: active ? 'none' : 'brightness(0.6)',
         transition: 'filter .15s',
       }}
@@ -371,7 +372,7 @@ export default function NavBar() {
 
       <nav className="mobile-bottom-nav" style={{
         display: 'flex', alignItems: 'center',
-        transform: navHidden ? 'translateY(36px)' : 'translateY(0)',
+        transform: navHidden ? 'translateY(100%)' : 'translateY(0)',
         transition: 'transform 0.3s cubic-bezier(.4,0,.2,1)',
       }}>
         {/* Left 2: الرئيسية + المنتجات — always visible */}
@@ -385,7 +386,7 @@ export default function NavBar() {
             <button key={item.page} className={`mob-nav-btn${active ? ' active' : ''}`} onClick={() => go(item.page)}
               style={{ flex: 1 }}>
               <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <NavIcon page={item.page} FallbackIcon={item.icon} size={36} active={active} />
+                <NavIcon page={item.page} FallbackIcon={item.icon} size={30} cssSize="clamp(28px,5vw,44px)" active={active} />
                 {b > 0 && (
                   <span style={{ position: 'absolute', top: -5, right: -7, width: 16, height: 16, background: 'var(--ember)', borderRadius: '50%', fontSize: 9, fontWeight: 900, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 8px rgba(255,106,0,.6)' }}>
                     {b > 9 ? '9' : b}
@@ -433,7 +434,7 @@ export default function NavBar() {
             <button key={item.page} className={`mob-nav-btn${active ? ' active' : ''}`} onClick={() => go(item.page)}
               style={{ flex: 1 }}>
               <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <NavIcon page={item.page} FallbackIcon={item.icon} size={36} active={active} />
+                <NavIcon page={item.page} FallbackIcon={item.icon} size={30} cssSize="clamp(28px,5vw,44px)" active={active} />
                 {b > 0 && (
                   <span style={{ position: 'absolute', top: -5, right: -7, width: 16, height: 16, background: 'var(--ember)', borderRadius: '50%', fontSize: 9, fontWeight: 900, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 8px rgba(255,106,0,.6)' }}>
                     {b > 9 ? '9' : b}

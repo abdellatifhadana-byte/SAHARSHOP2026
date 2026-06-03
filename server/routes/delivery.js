@@ -127,6 +127,32 @@ router.post('/simulate/:orderId', auth, (req, res) => {
   res.json({ success: true, tracking, provider: prov.name, orderUrl: prov.addOrderPage || prov.websiteUrl });
 });
 
+// POST /api/delivery/test-connection — server-side URL reachability test (no CORS issues)
+router.post('/test-connection', auth, async (req, res) => {
+  const { url } = req.body || {};
+  if (!url || typeof url !== 'string') return res.json({ ok: false, error: 'رابط غير صالح' });
+  let parsed;
+  try { parsed = new URL(url); } catch { return res.json({ ok: false, error: 'صيغة الرابط غير صحيحة' }); }
+  if (!['http:', 'https:'].includes(parsed.protocol)) return res.json({ ok: false, error: 'البروتوكول غير مدعوم' });
+  const start = Date.now();
+  try {
+    const mod = parsed.protocol === 'https:' ? require('https') : require('http');
+    await new Promise((resolve, reject) => {
+      const r = mod.request(
+        { hostname: parsed.hostname, port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80), path: parsed.pathname || '/', method: 'HEAD', headers: { 'User-Agent': 'Mozilla/5.0' } },
+        resolve
+      );
+      r.on('error', reject);
+      r.setTimeout(7000, () => { r.destroy(); reject(new Error('Timeout')); });
+      r.end();
+    });
+    const ms = Date.now() - start;
+    res.json({ ok: true, info: `${ms}ms — ${parsed.hostname}` });
+  } catch (e) {
+    res.json({ ok: false, error: e.message || 'لا يمكن الوصول للموقع' });
+  }
+});
+
 function _post(hostname, path, extraHeaders, body) {
   return new Promise((resolve, reject) => {
     const opts = {

@@ -210,14 +210,25 @@ function StepDots({ current, total }: { current: number; total: number }) {
 }
 
 // ─── URL Mode — 4-step wizard ─────────────────────────────────────────────────
-function UrlWizard({ onSave, onCancel }: { onSave: (draft: UrlRecipeDraft) => void; onCancel: () => void }) {
+function UrlWizard({ onSave, onCancel, onDirtyChange }: {
+  onSave: (draft: UrlRecipeDraft) => void;
+  onCancel: () => void;
+  onDirtyChange?: (dirty: boolean) => void;
+}) {
   const [step, setStep] = useState(0);
   const [draft, setDraft] = useState<UrlRecipeDraft>({ ...EMPTY_URL });
   const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState<null | 'ok' | 'fail'>(null);
+  const [testResult, setTestResult] = useState<null | 'ok' | 'fail' | 'stage'>(null);
+  const [testStage, setTestStage] = useState('');
 
-  const set = <K extends keyof UrlRecipeDraft>(k: K, v: UrlRecipeDraft[K]) =>
-    setDraft(d => ({ ...d, [k]: v }));
+  const set = <K extends keyof UrlRecipeDraft>(k: K, v: UrlRecipeDraft[K]) => {
+    setDraft(d => {
+      const next = { ...d, [k]: v };
+      const dirty = !!(next.name || next.websiteUrl || next.username || next.password);
+      onDirtyChange?.(dirty);
+      return next;
+    });
+  };
 
   const setField = (key: string, val: string) =>
     setDraft(d => ({ ...d, fields: { ...d.fields, [key]: val } }));
@@ -234,11 +245,22 @@ function UrlWizard({ onSave, onCancel }: { onSave: (draft: UrlRecipeDraft) => vo
 
   const testConnection = async () => {
     setTesting(true); setTestResult(null);
+    const token = localStorage.getItem('ai_commerce_token') || '';
+    const stages = ['الاتصال بالخادم...', 'التحقق من الرابط...', 'فحص الاستجابة...'];
+    for (const s of stages) { setTestStage(s); await new Promise(r => setTimeout(r, 380)); }
     try {
-      const r = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(draft.websiteUrl)}`, { signal: AbortSignal.timeout(6000) });
-      setTestResult(r.ok ? 'ok' : 'fail');
+      const r = await fetch('/api/delivery/test-connection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ url: draft.websiteUrl }),
+        signal: AbortSignal.timeout(10000),
+      });
+      const d = await r.json();
+      setTestResult(d.ok ? 'ok' : 'fail');
+      setTestStage(d.info || '');
     } catch {
       setTestResult('fail');
+      setTestStage('');
     } finally { setTesting(false); }
   };
 
@@ -390,14 +412,19 @@ function UrlWizard({ onSave, onCancel }: { onSave: (draft: UrlRecipeDraft) => vo
           <Zap size={14} />
           {testing ? 'جاري الاختبار...' : 'اختبار الاتصال'}
         </button>
-        {testResult === 'ok' && (
+        {testing && testStage && (
+          <span style={{ fontSize: 12, color: 'var(--txt-3)', fontWeight: 600 }}>{testStage}</span>
+        )}
+        {!testing && testResult === 'ok' && (
           <span style={{ fontSize: 12.5, color: '#10b981', fontWeight: 700 }}>
-            <CheckCircle size={13} style={{ display: 'inline', marginLeft: 5 }} />الموقع يستجيب
+            <CheckCircle size={13} style={{ display: 'inline', marginLeft: 5 }} />
+            الموقع يستجيب{testStage ? ` · ${testStage}` : ''}
           </span>
         )}
-        {testResult === 'fail' && (
+        {!testing && testResult === 'fail' && (
           <span style={{ fontSize: 12.5, color: '#f59e0b', fontWeight: 700 }}>
-            <AlertTriangle size={13} style={{ display: 'inline', marginLeft: 5 }} />لم يمكن الوصول (قد يكون CORS)
+            <AlertTriangle size={13} style={{ display: 'inline', marginLeft: 5 }} />
+            {testStage || 'لم يمكن الوصول للموقع'}
           </span>
         )}
       </div>
@@ -468,6 +495,9 @@ export default function DeliveryPage() {
 
   // ManualAssist state
   const [manualAssist, setManualAssist] = useState<{ data: ManualAssistData; providerName: string } | null>(null);
+
+  // Dirty-state tracking to prevent accidental data loss
+  const [urlWizardDirty, setUrlWizardDirty] = useState(false);
 
   // ── API Mode save ──────────────────────────────────────────────────────────
   const saveApi = () => {
@@ -573,10 +603,19 @@ export default function DeliveryPage() {
 
   const testConn = async (prov: DeliveryProviderConfig) => {
     notify('info', `اختبار ${prov.name}...`);
+    const token = localStorage.getItem('ai_commerce_token') || '';
     try {
       if (prov.websiteUrl) {
-        const r = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(prov.websiteUrl)}`, { signal: AbortSignal.timeout(5000) });
-        if (r.ok) { notify('success', `${prov.name} يستجيب`); return; }
+        const r = await fetch('/api/delivery/test-connection', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ url: prov.websiteUrl }),
+          signal: AbortSignal.timeout(8000),
+        });
+        const d = await r.json();
+        if (d.ok) { notify('success', `✅ ${prov.name} يستجيب${d.info ? ` · ${d.info}` : ''}`); return; }
+        notify('warning', `⚠️ ${prov.name}: ${d.error || 'لم يستجب الموقع'}`);
+        return;
       }
       notify('success', `إعدادات ${prov.name} محفوظة`);
     } catch { notify('warning', `لم يمكن الوصول لـ ${prov.name}`); }
@@ -588,7 +627,20 @@ export default function DeliveryPage() {
   const closeAdd = () => {
     setShowAdd(false); setAddMode('simple'); setConfig(EMPTY_API);
     setSimpleCompany(null); setSimpleCreds({ username: '', password: '' }); setSimpleCustomUrl({ url: '', loginUrl: '' });
-    setWaName(''); setWaPhone('');
+    setWaName(''); setWaPhone(''); setUrlWizardDirty(false);
+  };
+
+  const getIsDirty = () => {
+    if (addMode === 'simple') return !!simpleCompany || !!simpleCreds.username || !!simpleCreds.password;
+    if (addMode === 'whatsapp') return !!waName || !!waPhone;
+    if (addMode === 'api') return !!(config.name || config.loginUrl || config.username);
+    if (addMode === 'url-recipe') return urlWizardDirty;
+    return false;
+  };
+
+  const handleCloseAdd = () => {
+    if (getIsDirty() && !window.confirm('لديك بيانات غير محفوظة. هل تريد الإغلاق؟')) return;
+    closeAdd();
   };
 
   return (
@@ -723,11 +775,11 @@ export default function DeliveryPage() {
 
       {/* ── Add Modal ─────────────────────────────────────────────────────────── */}
       {showAdd && (
-        <div className="modal-overlay" onClick={closeAdd}>
+        <div className="modal-overlay" onClick={handleCloseAdd}>
           <div className="modal modal-wide" onClick={e => e.stopPropagation()} style={{ maxWidth: 520 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px 16px', borderBottom: '1px solid var(--clr-border)' }}>
               <h2 style={{ fontSize: 18, fontWeight: 900, color: 'var(--txt-1)' }}>إضافة شركة توصيل</h2>
-              <button onClick={closeAdd} style={{ background: 'none', border: 'none', color: 'var(--txt-3)', cursor: 'pointer' }}><X size={20} /></button>
+              <button onClick={handleCloseAdd} style={{ background: 'none', border: 'none', color: 'var(--txt-3)', cursor: 'pointer' }}><X size={20} /></button>
             </div>
 
             <div style={{ padding: '20px 24px 24px', maxHeight: '80vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -790,7 +842,7 @@ export default function DeliveryPage() {
                   )}
 
                   <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
-                    <button onClick={closeAdd} className="btn btn-ghost" style={{ paddingInline: 20 }}>إلغاء</button>
+                    <button onClick={handleCloseAdd} className="btn btn-ghost" style={{ paddingInline: 20 }}>إلغاء</button>
                     <button onClick={saveSimple}
                       disabled={!simpleCompany || !simpleCreds.username || !simpleCreds.password}
                       className="btn btn-primary"
@@ -825,7 +877,7 @@ export default function DeliveryPage() {
                   )}
 
                   <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
-                    <button onClick={closeAdd} className="btn btn-ghost" style={{ paddingInline: 20 }}>إلغاء</button>
+                    <button onClick={handleCloseAdd} className="btn btn-ghost" style={{ paddingInline: 20 }}>إلغاء</button>
                     <button onClick={saveWhatsApp}
                       disabled={!waPhone || !waName}
                       className="btn btn-primary"
@@ -876,7 +928,7 @@ export default function DeliveryPage() {
                         <Input label="Demande Ramassage" value={config.ramassagePage || ''} onChange={v => setConfig(p => ({ ...p, ramassagePage: v }))} ph="https://..." />
                       </div>
                       <div style={{ display: 'flex', gap: 10 }}>
-                        <button onClick={closeAdd} className="btn btn-ghost" style={{ paddingInline: 20 }}>إلغاء</button>
+                        <button onClick={handleCloseAdd} className="btn btn-ghost" style={{ paddingInline: 20 }}>إلغاء</button>
                         <button onClick={saveApi} className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }}>
                           <CheckCircle size={16} /> حفظ شركة التوصيل
                         </button>
@@ -885,7 +937,7 @@ export default function DeliveryPage() {
                   )}
 
                   {addMode === 'url-recipe' && (
-                    <UrlWizard onSave={saveUrlRecipe} onCancel={closeAdd} />
+                    <UrlWizard onSave={saveUrlRecipe} onCancel={handleCloseAdd} onDirtyChange={setUrlWizardDirty} />
                   )}
                 </div>
               )}
