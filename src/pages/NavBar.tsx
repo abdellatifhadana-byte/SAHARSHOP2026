@@ -7,6 +7,84 @@ import {
 import { NavIconCart, NavIconTruck, NavIconBrain, NavIconPackage, NavIconMessage } from '../components/icons';
 import React from 'react';
 import GlobalSearch from '../components/GlobalSearch';
+import type { Lang } from '../i18n';
+
+const LANGS: { code: Lang; flag: string; label: string }[] = [
+  { code: 'ar',     flag: '🇸🇦', label: 'العربية'  },
+  { code: 'darija', flag: '🇲🇦', label: 'الدارجة'  },
+  { code: 'fr',     flag: '🇫🇷', label: 'Français' },
+  { code: 'en',     flag: '🇬🇧', label: 'English'  },
+];
+
+function LangSwitcher({ compact = false }: { compact?: boolean }) {
+  const { settings, updateSettings } = useStore();
+  const lang: Lang = ((settings.brand as any)?.language || 'ar') as Lang;
+  const [open, setOpen] = React.useState(false);
+  const ref = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, []);
+
+  const cur = LANGS.find(l => l.code === lang) || LANGS[0];
+  const isRtl = lang === 'ar' || lang === 'darija';
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button
+        onClick={() => setOpen(v => !v)}
+        title="تغيير اللغة"
+        style={{
+          display: 'flex', alignItems: 'center', gap: compact ? 0 : 5,
+          padding: compact ? '4px 6px' : '4px 10px',
+          borderRadius: 8, background: 'rgba(255,255,255,.05)',
+          border: '1px solid var(--border)', color: 'var(--ink2)',
+          cursor: 'pointer', fontSize: compact ? 15 : 12, fontWeight: 600,
+          fontFamily: 'inherit',
+        }}
+      >
+        <span style={{ fontSize: 14, lineHeight: 1 }}>{cur.flag}</span>
+        {!compact && <span>{cur.label}</span>}
+      </button>
+      {open && (
+        <div style={{
+          position: 'absolute',
+          top: '110%',
+          ...(isRtl ? { right: 0 } : { left: 0 }),
+          minWidth: 145,
+          background: 'var(--panel,#111827)',
+          border: '1px solid rgba(255,255,255,.09)',
+          borderRadius: 12, overflow: 'hidden',
+          boxShadow: '0 12px 36px rgba(0,0,0,.4)',
+          zIndex: 9999,
+        }}>
+          {LANGS.map(l => (
+            <button key={l.code}
+              onClick={() => { updateSettings('brand', { ...(settings.brand as any), language: l.code }); setOpen(false); }}
+              style={{
+                width: '100%', display: 'flex', alignItems: 'center', gap: 8,
+                padding: '9px 14px',
+                background: l.code === lang ? 'rgba(255,106,0,.1)' : 'transparent',
+                border: 'none', color: l.code === lang ? '#FF6A00' : 'var(--ink2)',
+                fontSize: 13, fontWeight: l.code === lang ? 800 : 500,
+                cursor: 'pointer', fontFamily: 'inherit',
+                textAlign: isRtl ? 'right' : 'left',
+                transition: 'background .12s',
+              }}
+              onMouseEnter={e => { if (l.code !== lang) e.currentTarget.style.background = 'rgba(255,255,255,.05)'; }}
+              onMouseLeave={e => { if (l.code !== lang) e.currentTarget.style.background = 'transparent'; }}
+            >
+              <span style={{ fontSize: 16 }}>{l.flag}</span>
+              {l.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 const MAIN_NAV: { page: Page; icon: any; label: string }[] = [
   { page: 'dashboard',   icon: LayoutDashboard, label: 'الرئيسية'   },
@@ -203,6 +281,8 @@ export default function NavBar() {
             </div>
           )}
 
+          <LangSwitcher />
+
           <button
             onClick={() => updateSettings('design', { ...settings.design, theme: isDark ? 'light' : 'dark' })}
             style={{ width: 32, height: 32, borderRadius: 'var(--r-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,.05)', border: '1px solid var(--border)', color: 'var(--ink3)', cursor: 'pointer' }}
@@ -296,16 +376,19 @@ export default function NavBar() {
                 );
               })}
             </nav>
-            <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border)', display: 'flex', gap: 8 }}>
-              <button
-                onClick={() => updateSettings('design', { ...settings.design, theme: isDark ? 'light' : 'dark' })}
-                style={{ flex: 1, padding: '8px', borderRadius: 8, background: 'rgba(255,255,255,.05)', border: '1px solid var(--border)', color: 'var(--ink2)', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontFamily: 'inherit' }}>
-                {isDark ? '☀️ نهار' : '🌙 ليل'}
-              </button>
-              <button onClick={() => { if (window.confirm('خروج؟')) logout(); }}
-                style={{ flex: 1, padding: '8px', borderRadius: 8, background: 'var(--ember-soft)', border: '1px solid rgba(255,106,0,.2)', color: 'var(--ember)', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontFamily: 'inherit' }}>
-                <LogOut size={13} /> خروج
-              </button>
+            <div style={{ padding: '12px 16px 14px', borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <LangSwitcher />
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  onClick={() => updateSettings('design', { ...settings.design, theme: isDark ? 'light' : 'dark' })}
+                  style={{ flex: 1, padding: '8px', borderRadius: 8, background: 'rgba(255,255,255,.05)', border: '1px solid var(--border)', color: 'var(--ink2)', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontFamily: 'inherit' }}>
+                  {isDark ? '☀️ نهار' : '🌙 ليل'}
+                </button>
+                <button onClick={() => { if (window.confirm('خروج؟')) logout(); }}
+                  style={{ flex: 1, padding: '8px', borderRadius: 8, background: 'var(--ember-soft)', border: '1px solid rgba(255,106,0,.2)', color: 'var(--ember)', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontFamily: 'inherit' }}>
+                  <LogOut size={13} /> خروج
+                </button>
+              </div>
             </div>
           </div>
         </div>
