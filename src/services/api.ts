@@ -214,7 +214,8 @@ export function connectWS(userId: string) {
   if (_ws && _ws.readyState < 2) return;
   try {
     const wsBase = BASE_URL.replace(/^http/, 'ws').replace('/api', '');
-    _ws = new WebSocket(`${wsBase}/ws?userId=${userId}`);
+    const authParam = _token ? `&token=${encodeURIComponent(_token)}` : '';
+    _ws = new WebSocket(`${wsBase}/ws?userId=${userId}${authParam}`);
     _ws.onmessage = (e) => {
       try {
         const { event, data } = JSON.parse(e.data);

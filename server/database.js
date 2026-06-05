@@ -246,11 +246,14 @@ const db = {
     }
     if (!parts.length) return this.getProduct(id);
     parts.push(`updated_at = NOW()`);
-    await pool.query(`UPDATE products SET ${parts.join(', ')} WHERE id = $1`, vals);
+    // userId guard: only the owning user can update
+    if (u.userId) { vals.push(u.userId); await pool.query(`UPDATE products SET ${parts.join(', ')} WHERE id = $1 AND user_id = $${idx}`, vals); }
+    else await pool.query(`UPDATE products SET ${parts.join(', ')} WHERE id = $1`, vals);
     return this.getProduct(id);
   },
-  async deleteProduct(id) {
-    await pool.query('DELETE FROM products WHERE id = $1', [id]);
+  async deleteProduct(id, userId) {
+    if (userId) await pool.query('DELETE FROM products WHERE id = $1 AND user_id = $2', [id, userId]);
+    else await pool.query('DELETE FROM products WHERE id = $1', [id]);
   },
 
   // ── Customers ────────────────────────────────────────────────
@@ -295,11 +298,13 @@ const db = {
       vals.push(u[jsKey]);
     }
     if (!parts.length) return this.getCustomer(id);
-    await pool.query(`UPDATE customers SET ${parts.join(', ')} WHERE id = $1`, vals);
+    if (u.userId) { vals.push(u.userId); await pool.query(`UPDATE customers SET ${parts.join(', ')} WHERE id = $1 AND user_id = $${idx}`, vals); }
+    else await pool.query(`UPDATE customers SET ${parts.join(', ')} WHERE id = $1`, vals);
     return this.getCustomer(id);
   },
-  async deleteCustomer(id) {
-    await pool.query('DELETE FROM customers WHERE id = $1', [id]);
+  async deleteCustomer(id, userId) {
+    if (userId) await pool.query('DELETE FROM customers WHERE id = $1 AND user_id = $2', [id, userId]);
+    else await pool.query('DELETE FROM customers WHERE id = $1', [id]);
   },
 
   // ── Orders ───────────────────────────────────────────────────

@@ -48,7 +48,7 @@ router.delete('/:id', auth, async (req, res) => {
   try {
     const p = await db.getProduct(req.params.id);
     if (!p || p.userId !== req.user.id) return res.status(404).json({ error: 'Not found' });
-    await db.deleteProduct(req.params.id);
+    await db.deleteProduct(req.params.id, req.user.id);
     await db.addLog({ userId: req.user.id, user: 'Manager', action: `Deleted product: ${p.name}`, details: '', type: 'product', severity: 'warning' });
     req.app.get('broadcast')?.(req.user.id, { event: 'product_deleted', data: { id: req.params.id } });
     res.json({ success: true });

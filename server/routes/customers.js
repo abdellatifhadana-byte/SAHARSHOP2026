@@ -60,7 +60,7 @@ router.delete('/:id', auth, async (req, res) => {
   try {
     const c = await db.getCustomer(req.params.id);
     if (!c || c.userId !== req.user.id) return res.status(404).json({ error: 'Not found' });
-    // Soft delete — just note in logs
+    await db.deleteCustomer(req.params.id, req.user.id);
     await db.addLog({ userId: req.user.id, user: 'Manager', action: `Customer removed: ${c.name}`, details: c.phone, type: 'customer', severity: 'warning' });
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: 'Server error' }); }

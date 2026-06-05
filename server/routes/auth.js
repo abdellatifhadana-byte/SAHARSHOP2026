@@ -7,7 +7,7 @@ const jwt     = require('jsonwebtoken');
 const { db }  = require('../database');
 
 const SECRET  = process.env.JWT_SECRET;
-const EXPIRES = '30d';
+const EXPIRES = '7d';
 
 if (!SECRET) {
   if (process.env.NODE_ENV === 'production') {

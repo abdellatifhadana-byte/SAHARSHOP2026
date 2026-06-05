@@ -65,7 +65,7 @@ app.use(helmet({
 }));
 app.use(compression());
 
-// CORS: strict allowlist — unknown origins blocked in production
+// CORS: strict allowlist only — no wildcard domains
 app.use(cors({
   origin: (origin, callback) => {
     // Allow: no origin (same-origin, Capacitor mobile apps)
@@ -73,23 +73,15 @@ app.use(cors({
     const allowed = [
       'http://localhost:5173', 'http://localhost:3000',
       'http://localhost:3001', 'http://localhost:4173',
-      ...(process.env.PRODUCTION_URL   ? [process.env.PRODUCTION_URL]                          : []),
-      ...(process.env.FRONTEND_URL     ? [process.env.FRONTEND_URL]                            : []),
-      ...(process.env.RAILWAY_PUBLIC_DOMAIN ? [`https://${process.env.RAILWAY_PUBLIC_DOMAIN}`] : []),
+      ...(process.env.PRODUCTION_URL   ? [process.env.PRODUCTION_URL]   : []),
+      ...(process.env.FRONTEND_URL     ? [process.env.FRONTEND_URL]     : []),
+      ...(process.env.RAILWAY_PUBLIC_DOMAIN
+        ? [`https://${process.env.RAILWAY_PUBLIC_DOMAIN}`]
+        : []),
     ];
-    const permitted =
-      allowed.some(o => origin.startsWith(o)) ||
-      origin.endsWith('.railway.app') ||
-      origin.endsWith('.up.railway.app');
-
-    if (permitted) return callback(null, true);
-
-    // Production: block unknown origins — do NOT silently allow
-    if (process.env.NODE_ENV === 'production') {
-      console.warn('[CORS] Blocked unknown origin in production:', origin);
-      return callback(new Error(`CORS: ${origin} not allowed`));
-    }
-    callback(new Error(`CORS: ${origin} not allowed`));
+    if (allowed.includes(origin)) return callback(null, true);
+    console.warn('[CORS] Blocked origin:', origin);
+    return callback(new Error(`CORS: ${origin} not allowed`));
   },
   credentials: true,
   methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
@@ -99,8 +91,8 @@ app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 if (process.env.NODE_ENV !== 'test') app.use(morgan('dev'));
 
 // ── Rate limiting ─────────────────────────────────────────────
-app.use('/api/', rateLimit({ windowMs: 15 * 60 * 1000, max: 500, standardHeaders: true, legacyHeaders: false }));
-app.use('/api/auth/', rateLimit({ windowMs: 60 * 1000, max: 20, message: { error: 'Too many requests, try again later' } }));
+app.use('/api/', rateLimit({ windowMs: 15 * 60 * 1000, max: 100, standardHeaders: true, legacyHeaders: false }));
+app.use('/api/auth/', rateLimit({ windowMs: 60 * 1000, max: 10, message: { error: 'Too many requests, try again later' } }));
 
 // ── Routes ───────────────────────────────────────────────────
 app.use('/api/auth',          require('./routes/auth'));
@@ -189,12 +181,33 @@ async function startServer() {
 
     // ── WebSocket (moved inside async start) ─────────────────
     const WebSocket = require('ws');
+    const jwt       = require('jsonwebtoken');
     const wss = new WebSocket.Server({ server, path: '/ws' });
     const clients = new Map();
+    const _wsSecret = process.env.JWT_SECRET || 'dev-only-never-use-in-production';
 
     wss.on('connection', (ws, req) => {
       const params = new URLSearchParams((req.url||'').split('?')[1]);
-      const userId = params.get('userId') || 'anon';
+      const token  = params.get('token');
+      let userId   = 'anon';
+
+      // Verify JWT when provided; reject unauthenticated connections in production
+      if (token) {
+        try {
+          const decoded = jwt.verify(token, _wsSecret);
+          userId = decoded.id || 'anon';
+        } catch {
+          ws.close(4001, 'Unauthorized');
+          return;
+        }
+      } else if (process.env.NODE_ENV === 'production') {
+        ws.close(4001, 'Unauthorized');
+        return;
+      } else {
+        // Dev-only: allow unauthenticated with explicit userId param
+        userId = params.get('userId') || 'anon';
+      }
+
       if (!clients.has(userId)) clients.set(userId, new Set());
       clients.get(userId).add(ws);
       ws.send(JSON.stringify({ event: 'connected', userId }));
@@ -250,29 +263,31 @@ function startMorningReportCron() {
     next.setDate(next.getDate() + (now.getHours() >= 8 ? 1 : 0));
     next.setHours(8, 0, 0, 0);
     const delay = next.getTime() - now.getTime();
-    setTimeout(() => {
+    setTimeout(async () => {
       try {
-        const users = db.listUsers();
-        users.forEach(user => {
-          const orders = db.getOrders(user.id);
+        const users = await db.listUsers();
+        if (!Array.isArray(users)) return;
+        for (const user of users) {
+          const orders        = await db.getOrders(user.id)        || [];
+          const conversations = await db.getConversations(user.id) || [];
+          const products      = await db.getProducts(user.id)      || [];
+          const settings      = await db.getSettings(user.id)      || {};
           const yesterday = new Date(Date.now()-86400000).toISOString().split('T')[0];
-          const ydOrders = orders.filter(o=>o.status!=='cancelled'&&o.createdAt?.startsWith(yesterday));
-          const ydRev = ydOrders.reduce((s,o)=>s+o.total,0);
-          const pending = orders.filter(o=>o.status==='pending').length;
-          const conversations = db.getConversations(user.id);
-          const unread = conversations.filter(c=>c.unread>0).length;
-          const products = db.getProducts(user.id);
-          const lowStock = products.filter(p=>p.stock>0&&p.stock<=5).length;
+          const ydOrders  = orders.filter(o=>o.status!=='cancelled'&&o.createdAt?.startsWith(yesterday));
+          const ydRev     = ydOrders.reduce((s,o)=>s+o.total,0);
+          const pending   = orders.filter(o=>o.status==='pending').length;
+          const unread    = conversations.filter(c=>c.unread>0).length;
+          const lowStock  = products.filter(p=>p.stock>0&&p.stock<=5).length;
           const msg = [
             '🌅 ملخص صباح اليوم:',
-            `💰 إيراد الأمس: ${ydRev.toLocaleString()} ${db.getSettings(user.id)?.brand?.currency||'MAD'}`,
+            `💰 إيراد الأمس: ${ydRev.toLocaleString()} ${settings?.brand?.currency||'MAD'}`,
             `🛒 طلبات معلقة: ${pending}`,
             `💬 رسائل غير مقروءة: ${unread}`,
             lowStock > 0 ? `⚠️ مخزون منخفض: ${lowStock} منتج` : '✅ المخزون جيد',
           ].join("\n");
-          db.addNotification({ userId: user.id, type: 'info', message: msg });
-          db.addLog({ userId: user.id, user: 'System', action: 'Morning report generated', details: '', type: 'info', severity: 'info' });
-        });
+          await db.addNotification({ userId: user.id, type: 'info', message: msg });
+          await db.addLog({ userId: user.id, user: 'System', action: 'Morning report generated', details: '', type: 'info', severity: 'info' });
+        }
       } catch(e) { console.error('[MorningReport]', e.message); }
       scheduleNext();
     }, delay);
@@ -285,16 +300,17 @@ startMorningReportCron();
 // ── Daily Backup System ─────────────────────────
 function startDailyBackup() {
   const { db } = require('./database');
-  function doBackup() {
+  async function doBackup() {
     try {
-      const users = db.listUsers();
-      users.forEach(user => {
+      const users = await db.listUsers();
+      if (!Array.isArray(users) || !users.length) return;
+      for (const user of users) {
         const backup = {
           timestamp: new Date().toISOString(),
-          products: db.getProducts(user.id),
-          orders: db.getOrders(user.id),
-          customers: db.getCustomers(user.id),
-          settings: db.getSettings(user.id),
+          products:  await db.getProducts(user.id)  || [],
+          orders:    await db.getOrders(user.id)    || [],
+          customers: await db.getCustomers(user.id) || [],
+          settings:  await db.getSettings(user.id)  || {},
         };
         const backupDir = path.join(DATA_DIR, 'backups');
         if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
@@ -304,7 +320,7 @@ function startDailyBackup() {
         const files = fs.readdirSync(backupDir).filter(f => f.includes(user.id)).sort();
         if (files.length > 7) files.slice(0, files.length - 7).forEach(f => fs.unlinkSync(path.join(backupDir, f)));
         console.log(`[Backup] ✅ ${user.email} — ${filename}`);
-      });
+      }
     } catch(e) { console.error('[Backup]', e.message); }
   }
   // Run at startup + every 24h

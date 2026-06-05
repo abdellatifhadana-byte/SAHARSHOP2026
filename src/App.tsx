@@ -12,6 +12,7 @@ import TourGuide             from './components/TourGuide';
 const PAGE_URLS: Record<string, string> = {
   dashboard:     '/dashboard',
   products:      '/products',
+  services:      '/products',
   orders:        '/orders',
   conversations: '/messages',
   customers:     '/customers',
@@ -24,6 +25,7 @@ const PAGE_URLS: Record<string, string> = {
   banner:        '/studio',
   editor:        '/editor',
   import:        '/import',
+  coupons:       '/coupons',
 };
 
 const URL_PAGES: Record<string, string> = Object.fromEntries(
