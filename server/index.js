@@ -250,29 +250,31 @@ function startMorningReportCron() {
     next.setDate(next.getDate() + (now.getHours() >= 8 ? 1 : 0));
     next.setHours(8, 0, 0, 0);
     const delay = next.getTime() - now.getTime();
-    setTimeout(() => {
+    setTimeout(async () => {
       try {
-        const users = db.listUsers();
-        users.forEach(user => {
-          const orders = db.getOrders(user.id);
+        const users = await db.listUsers();
+        if (!Array.isArray(users)) return;
+        for (const user of users) {
+          const orders        = await db.getOrders(user.id)        || [];
+          const conversations = await db.getConversations(user.id) || [];
+          const products      = await db.getProducts(user.id)      || [];
+          const settings      = await db.getSettings(user.id)      || {};
           const yesterday = new Date(Date.now()-86400000).toISOString().split('T')[0];
-          const ydOrders = orders.filter(o=>o.status!=='cancelled'&&o.createdAt?.startsWith(yesterday));
-          const ydRev = ydOrders.reduce((s,o)=>s+o.total,0);
-          const pending = orders.filter(o=>o.status==='pending').length;
-          const conversations = db.getConversations(user.id);
-          const unread = conversations.filter(c=>c.unread>0).length;
-          const products = db.getProducts(user.id);
-          const lowStock = products.filter(p=>p.stock>0&&p.stock<=5).length;
+          const ydOrders  = orders.filter(o=>o.status!=='cancelled'&&o.createdAt?.startsWith(yesterday));
+          const ydRev     = ydOrders.reduce((s,o)=>s+o.total,0);
+          const pending   = orders.filter(o=>o.status==='pending').length;
+          const unread    = conversations.filter(c=>c.unread>0).length;
+          const lowStock  = products.filter(p=>p.stock>0&&p.stock<=5).length;
           const msg = [
             '🌅 ملخص صباح اليوم:',
-            `💰 إيراد الأمس: ${ydRev.toLocaleString()} ${db.getSettings(user.id)?.brand?.currency||'MAD'}`,
+            `💰 إيراد الأمس: ${ydRev.toLocaleString()} ${settings?.brand?.currency||'MAD'}`,
             `🛒 طلبات معلقة: ${pending}`,
             `💬 رسائل غير مقروءة: ${unread}`,
             lowStock > 0 ? `⚠️ مخزون منخفض: ${lowStock} منتج` : '✅ المخزون جيد',
           ].join("\n");
-          db.addNotification({ userId: user.id, type: 'info', message: msg });
-          db.addLog({ userId: user.id, user: 'System', action: 'Morning report generated', details: '', type: 'info', severity: 'info' });
-        });
+          await db.addNotification({ userId: user.id, type: 'info', message: msg });
+          await db.addLog({ userId: user.id, user: 'System', action: 'Morning report generated', details: '', type: 'info', severity: 'info' });
+        }
       } catch(e) { console.error('[MorningReport]', e.message); }
       scheduleNext();
     }, delay);
@@ -285,16 +287,17 @@ startMorningReportCron();
 // ── Daily Backup System ─────────────────────────
 function startDailyBackup() {
   const { db } = require('./database');
-  function doBackup() {
+  async function doBackup() {
     try {
-      const users = db.listUsers();
-      users.forEach(user => {
+      const users = await db.listUsers();
+      if (!Array.isArray(users) || !users.length) return;
+      for (const user of users) {
         const backup = {
           timestamp: new Date().toISOString(),
-          products: db.getProducts(user.id),
-          orders: db.getOrders(user.id),
-          customers: db.getCustomers(user.id),
-          settings: db.getSettings(user.id),
+          products:  await db.getProducts(user.id)  || [],
+          orders:    await db.getOrders(user.id)    || [],
+          customers: await db.getCustomers(user.id) || [],
+          settings:  await db.getSettings(user.id)  || {},
         };
         const backupDir = path.join(DATA_DIR, 'backups');
         if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
@@ -304,7 +307,7 @@ function startDailyBackup() {
         const files = fs.readdirSync(backupDir).filter(f => f.includes(user.id)).sort();
         if (files.length > 7) files.slice(0, files.length - 7).forEach(f => fs.unlinkSync(path.join(backupDir, f)));
         console.log(`[Backup] ✅ ${user.email} — ${filename}`);
-      });
+      }
     } catch(e) { console.error('[Backup]', e.message); }
   }
   // Run at startup + every 24h
