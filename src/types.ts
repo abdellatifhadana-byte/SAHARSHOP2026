@@ -41,6 +41,8 @@ export interface Product {
   type: ProductType;
   duration?: string; // for services: "ساعتين" / "نصف يوم"
   workArea?: string; // for services: "الدار البيضاء، الرباط"
+  offer_type?: 'product' | 'service';
+  service_area?: string;
   portfolio?: string[]; // service portfolio images
   customFields?: CustomFieldDef[];
 }

@@ -3,6 +3,7 @@ import type { Page } from '../types';
 import {
   LayoutDashboard, BarChart3, Settings, Tag,
   Search, LogOut, ExternalLink, Sun, Moon, Plus,
+  Users, Bell, Download, Layers, MoreHorizontal,
 } from 'lucide-react';
 import { NavIconCart, NavIconTruck, NavIconBrain, NavIconPackage, NavIconMessage } from '../components/icons';
 import React from 'react';
@@ -95,64 +96,43 @@ const MAIN_NAV: { page: Page; icon: any; label: string }[] = [
   { page: 'settings',    icon: Settings,        label: 'الإعدادات'  },
 ];
 
-// Custom PNG icons — drop files in /public/icons/
-// Falls back to default icon if PNG not found
-const NAV_ICON_MAP: Record<string, string> = {
-  dashboard:     '/icons/home',
-  products:      '/icons/products',
-  orders:        '/icons/orders',
-  conversations: '/icons/messages',
-};
-const FAB_ICON = '/icons/fab';
+const SIDEBAR_GROUPS: { label: string; items: { page: Page; icon: any; label: string }[] }[] = [
+  { label: 'التجارة', items: [
+    { page: 'dashboard',   icon: LayoutDashboard, label: 'الرئيسية'   },
+    { page: 'products',    icon: NavIconPackage,  label: 'المنتجات'   },
+    { page: 'orders',      icon: NavIconCart,     label: 'الطلبات'    },
+    { page: 'customers',   icon: Users,           label: 'الزبائن'    },
+    { page: 'coupons',     icon: Tag,             label: 'الكوبونات'  },
+  ]},
+  { label: 'التسويق', items: [
+    { page: 'conversations', icon: NavIconMessage, label: 'الرسائل' },
+    { page: 'banner',        icon: Layers,         label: 'البنر'   },
+  ]},
+  { label: 'الذكاء الاصطناعي', items: [
+    { page: 'insights', icon: BarChart3, label: 'التحليلات' },
+    { page: 'import',   icon: Download,  label: 'استيراد'   },
+  ]},
+  { label: 'العمليات', items: [
+    { page: 'delivery',      icon: NavIconTruck, label: 'التوصيل'   },
+    { page: 'notifications', icon: Bell,         label: 'الإشعارات' },
+    { page: 'connections',   icon: NavIconBrain, label: 'الاتصالات' },
+  ]},
+  { label: 'النظام', items: [
+    { page: 'settings', icon: Settings, label: 'الإعدادات' },
+  ]},
+];
 
-/** Renders a custom PNG icon with fallback to a Lucide component */
-function NavIcon({ page, FallbackIcon, size = 22, cssSize, active = false }: {
-  page: string; FallbackIcon: any; size?: number; cssSize?: string; active?: boolean;
-}) {
-  const base = NAV_ICON_MAP[page];
-  const [useFallback, setUseFallback] = React.useState(false);
-  if (!base || useFallback) {
-    return <FallbackIcon size={size} strokeWidth={active ? 2.4 : 1.8}
-      style={cssSize ? { width: cssSize, height: cssSize } : undefined} />;
-  }
-  return (
-    <img
-      src={`${base}.png`}
-      onError={(e) => {
-        const t = e.currentTarget;
-        if (!t.dataset.tried) { t.dataset.tried = '1'; t.src = `${base}.svg`; }
-        else setUseFallback(true);
-      }}
-      alt={page}
-      style={{ width: cssSize || size, height: cssSize || size, objectFit: 'contain', display: 'block',
-        filter: active ? 'none' : 'brightness(0.6)',
-        transition: 'filter .15s',
-      }}
-    />
-  );
-}
-
-function FabIcon({ open }: { open: boolean }) {
-  const [useFallback, setUseFallback] = React.useState(false);
-  const rot: React.CSSProperties = {
-    transform: open ? 'rotate(45deg)' : 'rotate(0deg)',
-    transition: 'transform .22s cubic-bezier(.4,0,.2,1)',
-    display: 'block',
-  };
-  if (useFallback) return <Plus size={40} strokeWidth={2.8} style={rot} color="var(--ember)" />;
-  return (
-    <img
-      src={`${FAB_ICON}.png`}
-      onError={(e) => {
-        const t = e.currentTarget;
-        if (!t.dataset.tried) { t.dataset.tried = '1'; t.src = `${FAB_ICON}.svg`; }
-        else setUseFallback(true);
-      }}
-      alt="+"
-      style={{ width: 42, height: 42, objectFit: 'contain', ...rot }}
-    />
-  );
-}
+const MORE_ITEMS: { page: Page; icon: any; label: string }[] = [
+  { page: 'conversations', icon: NavIconMessage, label: 'الرسائل'   },
+  { page: 'customers',     icon: Users,          label: 'الزبائن'   },
+  { page: 'analytics',     icon: BarChart3,      label: 'التحليلات' },
+  { page: 'delivery',      icon: NavIconTruck,   label: 'التوصيل'   },
+  { page: 'coupons',       icon: Tag,            label: 'الكوبونات' },
+  { page: 'notifications', icon: Bell,           label: 'الإشعارات' },
+  { page: 'connections',   icon: NavIconBrain,   label: 'الاتصالات' },
+  { page: 'banner',        icon: Layers,         label: 'البنر'     },
+  { page: 'import',        icon: Download,       label: 'استيراد'   },
+];
 
 export default function NavBar() {
   const {
@@ -164,6 +144,7 @@ export default function NavBar() {
   const [showSearch, setShowSearch] = React.useState(false);
   const [fabOpen, setFabOpen] = React.useState(false);
   const [navHidden, setNavHidden] = React.useState(false);
+  const [moreOpen, setMoreOpen] = React.useState(false);
 
   React.useEffect(() => {
     const h = (e: KeyboardEvent) => {
@@ -394,6 +375,82 @@ export default function NavBar() {
         </div>
       )}
 
+      {/* ══ DESKTOP SIDEBAR (≥1024px) ══ */}
+      <aside className="nav-desktop-sidebar" dir="rtl">
+        {SIDEBAR_GROUPS.map(group => (
+          <div key={group.label} style={{ marginBottom: 4 }}>
+            <div style={{ padding: '10px 14px 4px', fontSize: 10, fontWeight: 800, color: 'var(--ink3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              {group.label}
+            </div>
+            {group.items.map(item => {
+              const active = currentPage === item.page || (item.page === 'insights' && currentPage === 'analytics');
+              const b = badge(item.page);
+              return (
+                <button key={item.page} onClick={() => go(item.page)} className={`sidebar-item${active ? ' active' : ''}`} style={{ fontSize: 13 }}>
+                  <item.icon size={15} strokeWidth={active ? 2.4 : 1.8} style={{ flexShrink: 0 }} />
+                  <span style={{ flex: 1 }}>{item.label}</span>
+                  {b > 0 && <span style={{ minWidth: 16, height: 16, borderRadius: 99, background: 'var(--ember)', color: '#fff', fontSize: 9, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px' }}>{b > 9 ? '9+' : b}</span>}
+                </button>
+              );
+            })}
+          </div>
+        ))}
+        <div style={{ marginTop: 'auto', padding: '12px 14px', borderTop: '1px solid var(--border2)' }}>
+          <LangSwitcher compact />
+        </div>
+      </aside>
+
+      {/* ══ MOBILE MORE SHEET ══ */}
+      {moreOpen && (
+        <div
+          onClick={() => setMoreOpen(false)}
+          style={{ position: 'fixed', inset: 0, zIndex: 999, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(2px)' }}
+        />
+      )}
+      <div style={{
+        position: 'fixed', left: 0, right: 0, bottom: 72, zIndex: 1000,
+        padding: '16px 16px 8px',
+        background: 'var(--panel)',
+        borderTop: '1px solid var(--border2)',
+        borderRadius: '18px 18px 0 0',
+        boxShadow: '0 -8px 40px rgba(0,0,0,.45)',
+        transform: moreOpen ? 'translateY(0)' : 'translateY(100%)',
+        opacity: moreOpen ? 1 : 0,
+        pointerEvents: moreOpen ? 'auto' : 'none',
+        transition: 'transform 0.25s cubic-bezier(.4,0,.2,1), opacity 0.2s ease',
+        display: 'grid',
+        gridTemplateColumns: 'repeat(3, 1fr)',
+        gap: 8,
+      }}>
+        {MORE_ITEMS.map(item => {
+          const active = currentPage === item.page;
+          const b = badge(item.page);
+          return (
+            <button
+              key={item.page}
+              onClick={() => { go(item.page); setMoreOpen(false); }}
+              style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+                padding: '12px 8px', borderRadius: 14, cursor: 'pointer',
+                background: active ? 'var(--ember-soft)' : 'rgba(255,255,255,.04)',
+                border: `1px solid ${active ? 'rgba(255,106,0,.3)' : 'var(--border)'}`,
+                color: active ? 'var(--ember)' : 'var(--ink2)',
+                fontFamily: 'inherit', fontWeight: 700, fontSize: 12,
+                position: 'relative', transition: 'all .15s',
+              }}
+            >
+              <item.icon size={20} strokeWidth={active ? 2.4 : 1.8} />
+              <span>{item.label}</span>
+              {b > 0 && (
+                <span style={{ position: 'absolute', top: 6, left: 6, minWidth: 16, height: 16, borderRadius: 99, background: 'var(--ember)', color: '#fff', fontSize: 9, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px' }}>
+                  {b > 9 ? '9' : b}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
       {/* ══ MOBILE BOTTOM NAV ══ */}
 
       {/* FAB action sheet backdrop */}
@@ -469,7 +526,7 @@ export default function NavBar() {
             <button key={item.page} className={`mob-nav-btn${active ? ' active' : ''}`} onClick={() => go(item.page)}
               style={{ flex: 1 }}>
               <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <NavIcon page={item.page} FallbackIcon={item.icon} size={30} cssSize="clamp(28px,5vw,44px)" active={active} />
+                <item.icon size={22} strokeWidth={active ? 2.4 : 1.8} />
                 {b > 0 && (
                   <span style={{ position: 'absolute', top: -5, right: -7, width: 16, height: 16, background: 'var(--ember)', borderRadius: '50%', fontSize: 9, fontWeight: 900, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 8px rgba(255,106,0,.6)' }}>
                     {b > 9 ? '9' : b}
@@ -502,31 +559,37 @@ export default function NavBar() {
             onMouseLeave={e => e.currentTarget.style.filter = 'drop-shadow(0 0 10px rgba(255,106,0,0.85)) drop-shadow(0 0 4px rgba(255,106,0,0.5))'}
             aria-label="قائمة الإجراءات"
           >
-            <FabIcon open={fabOpen} />
+            <Plus size={26} strokeWidth={2.8} style={{ transform: fabOpen ? 'rotate(45deg)' : 'rotate(0deg)', transition: 'transform .22s cubic-bezier(.4,0,.2,1)', display: 'block' }} />
           </button>
         </div>
 
-        {/* Right side: الطلبات + الرسائل — always visible */}
-        {[
-          { page: 'orders'        as Page, icon: NavIconCart,    label: 'الطلبات'  },
-          { page: 'conversations' as Page, icon: NavIconMessage, label: 'الرسائل' },
-        ].map(item => {
-          const active = currentPage === item.page;
-          const b = badge(item.page);
+        {/* Right 2: الطلبات + المزيد */}
+        {(() => {
+          const ordersActive = currentPage === 'orders';
+          const ordersB = badge('orders' as Page);
           return (
-            <button key={item.page} className={`mob-nav-btn${active ? ' active' : ''}`} onClick={() => go(item.page)}
-              style={{ flex: 1 }}>
+            <button className={`mob-nav-btn${ordersActive ? ' active' : ''}`} onClick={() => go('orders')} style={{ flex: 1 }}>
               <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <NavIcon page={item.page} FallbackIcon={item.icon} size={30} cssSize="clamp(28px,5vw,44px)" active={active} />
-                {b > 0 && (
+                <NavIconCart size={22} strokeWidth={ordersActive ? 2.4 : 1.8} />
+                {ordersB > 0 && (
                   <span style={{ position: 'absolute', top: -5, right: -7, width: 16, height: 16, background: 'var(--ember)', borderRadius: '50%', fontSize: 9, fontWeight: 900, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 8px rgba(255,106,0,.6)' }}>
-                    {b > 9 ? '9' : b}
+                    {ordersB > 9 ? '9' : ordersB}
                   </span>
                 )}
               </div>
             </button>
           );
-        })}
+        })()}
+        {/* 5th button: المزيد */}
+        <button
+          className={`mob-nav-btn${moreOpen ? ' active' : ''}`}
+          onClick={() => { setMoreOpen(v => !v); setFabOpen(false); }}
+          style={{ flex: 1 }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <MoreHorizontal size={22} strokeWidth={moreOpen ? 2.4 : 1.8} />
+          </div>
+        </button>
       </nav>
 
     </>

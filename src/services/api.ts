@@ -32,6 +32,7 @@ export function setToken(t: string | null) {
 }
 
 // ── Health check ──────────────────────────────────────────────
+export const healthCheck = () => checkBackend();
 export async function checkBackend(): Promise<boolean> {
   try {
     const r = await fetch(`${BASE_URL}/health`, {
@@ -84,6 +85,7 @@ export const authAPI = {
 };
 
 // ── Products ──────────────────────────────────────────────────
+// data may include: offer_type, duration, service_area alongside standard fields
 export const productsAPI = {
   list:   ()              => request<any[]>('GET', '/products'),
   create: (data: any)     => request<any>('POST', '/products', data),

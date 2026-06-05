@@ -13,7 +13,7 @@ const BTYPE_OPTIONS = [
 ];
 
 export default function Onboarding() {
-  const { settings, updateSettings } = useStore();
+  const { settings, updateSettings, setOnboardingCompleted, setPage } = useStore();
   const [step, setStep] = useState<Step>('welcome');
   const [brand, setBrand] = useState({ name: '', currency: 'MAD', phone: '' });
   const [ai, setAi] = useState({ personality: 'Moroccan Seller', language: 'Darija', tone: 'Friendly' });
@@ -29,10 +29,14 @@ export default function Onboarding() {
     updateSettings('ai', { ...settings.ai, ...ai });
     updateSettings('businessType' as any, businessType);
     updateSettings('onboardingDone', true as any);
+    setOnboardingCompleted(true);
+    setPage('dashboard');
   };
   const skip = () => {
     updateSettings('brand', { ...settings.brand, name: 'متجري' });
     updateSettings('onboardingDone', true as any);
+    setOnboardingCompleted(true);
+    setPage('dashboard');
   };
   const testCloud = async (service: 'supabase' | 'cloudinary') => {
     setCloudStatus(s => ({ ...s, [service]: 'testing' }));

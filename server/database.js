@@ -1,584 +1,700 @@
 'use strict';
-const Database = require('better-sqlite3');
-const path = require('path');
-const fs   = require('fs');
+const pool   = require('./db');
 const crypto = require('crypto');
 
-const DATA_DIR = path.join(__dirname, 'data');
-if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-
-const dbPath = path.join(DATA_DIR, 'commerce.db');
-const sqlite = new Database(dbPath);
-
-// ── Performance pragmas ───────────────────────────────────────
-sqlite.pragma('journal_mode = WAL');
-sqlite.pragma('foreign_keys = ON');
-// Migration: add customerCode if missing
-try { sqlite.exec("ALTER TABLE orders ADD COLUMN customerCode TEXT DEFAULT ''"); } catch {}
-// Migration: add colorImages and sizeType to products if missing
-try { sqlite.exec("ALTER TABLE products ADD COLUMN colorImages TEXT DEFAULT '{}'"); } catch {}
-try { sqlite.exec("ALTER TABLE products ADD COLUMN sizeType TEXT DEFAULT 'adult'"); } catch {}
-// Migration: add API fields to delivery_providers
-try { sqlite.exec("ALTER TABLE delivery_providers ADD COLUMN apiType TEXT DEFAULT ''"); } catch {}
-try { sqlite.exec("ALTER TABLE delivery_providers ADD COLUMN apiKey TEXT DEFAULT ''"); } catch {}
-try { sqlite.exec("ALTER TABLE delivery_providers ADD COLUMN apiEndpoint TEXT DEFAULT ''"); } catch {}
-try { sqlite.exec("ALTER TABLE delivery_providers ADD COLUMN webhookUrl TEXT DEFAULT ''"); } catch {}
-// Migration: add type and service fields to products
-try { sqlite.exec("ALTER TABLE products ADD COLUMN type TEXT DEFAULT 'product'"); } catch {}
-try { sqlite.exec("ALTER TABLE products ADD COLUMN duration TEXT DEFAULT ''"); } catch {}
-try { sqlite.exec("ALTER TABLE products ADD COLUMN workArea TEXT DEFAULT ''"); } catch {}
-try { sqlite.exec("ALTER TABLE products ADD COLUMN portfolio TEXT DEFAULT '[]'"); } catch {}
-// Migration: booking fields for service wizard
-try { sqlite.exec("ALTER TABLE products ADD COLUMN bookingDays TEXT DEFAULT '[]'"); } catch {}
-try { sqlite.exec("ALTER TABLE products ADD COLUMN bookingTime TEXT DEFAULT ''"); } catch {}
-try { sqlite.exec("ALTER TABLE products ADD COLUMN bookingLocation TEXT DEFAULT ''"); } catch {}
-try { sqlite.exec("ALTER TABLE products ADD COLUMN bookingMethod TEXT DEFAULT 'phone'"); } catch {}
-// Migration: dynamic custom fields per product
-try { sqlite.exec("ALTER TABLE products ADD COLUMN custom_fields TEXT DEFAULT '[]'"); } catch {}
-
-// ── Schema ────────────────────────────────────────────────────
-sqlite.exec(`
-  CREATE TABLE IF NOT EXISTS users (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    email TEXT UNIQUE NOT NULL,
-    password TEXT NOT NULL,
-    role TEXT DEFAULT 'admin',
-    createdAt TEXT NOT NULL
-  );
-
-  CREATE TABLE IF NOT EXISTS settings (
-    userId TEXT PRIMARY KEY,
-    data TEXT NOT NULL,
-    updatedAt TEXT NOT NULL,
-    FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE
-  );
-
-  CREATE TABLE IF NOT EXISTS products (
-    id TEXT PRIMARY KEY,
-    userId TEXT NOT NULL,
-    name TEXT NOT NULL,
-    description TEXT DEFAULT '',
-    price REAL NOT NULL DEFAULT 0,
-    cost REAL DEFAULT 0,
-    stock INTEGER DEFAULT 0,
-    category TEXT DEFAULT '',
-    sizes TEXT DEFAULT '[]',
-    colors TEXT DEFAULT '[]',
-    status TEXT DEFAULT 'draft',
-    emoji TEXT DEFAULT '📦',
-    imageUrl TEXT DEFAULT '',
-    images TEXT DEFAULT '[]',
-    isForChildren INTEGER DEFAULT 0,
-    ageRange TEXT DEFAULT '',
-    views INTEGER DEFAULT 0,
-    sales INTEGER DEFAULT 0,
-    sku TEXT DEFAULT '',
-    colorImages TEXT DEFAULT '{}',
-    sizeType TEXT DEFAULT 'adult',
-    createdAt TEXT NOT NULL,
-    FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE
-  );
-
-  CREATE TABLE IF NOT EXISTS customers (
-    id TEXT PRIMARY KEY,
-    userId TEXT NOT NULL,
-    name TEXT NOT NULL,
-    phone TEXT DEFAULT '',
-    city TEXT DEFAULT '',
-    address TEXT DEFAULT '',
-    totalOrders INTEGER DEFAULT 0,
-    totalSpent REAL DEFAULT 0,
-    lastOrderDate TEXT DEFAULT '',
-    source TEXT DEFAULT 'manual',
-    notes TEXT DEFAULT '',
-    vip INTEGER DEFAULT 0,
-    trustScore INTEGER DEFAULT 80,
-    buyerScore INTEGER DEFAULT 50,
-    createdAt TEXT NOT NULL,
-    FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE
-  );
-
-  CREATE TABLE IF NOT EXISTS orders (
-    id TEXT PRIMARY KEY,
-    userId TEXT NOT NULL,
-    customerId TEXT DEFAULT '',
-    customerName TEXT NOT NULL,
-    customerPhone TEXT DEFAULT '',
-    city TEXT DEFAULT '',
-    address TEXT DEFAULT '',
-    items TEXT DEFAULT '[]',
-    total REAL DEFAULT 0,
-    status TEXT DEFAULT 'pending',
-    source TEXT DEFAULT 'manual',
-    deliveryProvider TEXT DEFAULT '',
-    trackingNumber TEXT DEFAULT '',
-    notes TEXT DEFAULT '',
-    needsReview INTEGER DEFAULT 0,
-    reviewReason TEXT DEFAULT '',
-    customerCode TEXT DEFAULT '',
-    createdAt TEXT NOT NULL,
-    FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE
-  );
-
-  -- Auto-add customerCode column if missing (migration)
-  CREATE TABLE IF NOT EXISTS conversations (
-    id TEXT PRIMARY KEY,
-    userId TEXT NOT NULL,
-    customerId TEXT DEFAULT '',
-    customerName TEXT NOT NULL,
-    customerPhone TEXT DEFAULT '',
-    source TEXT DEFAULT 'manual',
-    status TEXT DEFAULT 'active',
-    lastMessage TEXT DEFAULT '',
-    messages TEXT DEFAULT '[]',
-    unread INTEGER DEFAULT 0,
-    priority TEXT DEFAULT 'medium',
-    mood TEXT DEFAULT 'neutral',
-    pinned INTEGER DEFAULT 0,
-    label TEXT DEFAULT '',
-    createdAt TEXT NOT NULL,
-    FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE
-  );
-
-  CREATE TABLE IF NOT EXISTS audit_logs (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    userId TEXT NOT NULL,
-    timestamp TEXT NOT NULL,
-    user TEXT DEFAULT 'System',
-    action TEXT NOT NULL,
-    details TEXT DEFAULT '',
-    type TEXT DEFAULT 'info',
-    severity TEXT DEFAULT 'info',
-    FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE
-  );
-
-  CREATE TABLE IF NOT EXISTS notifications (
-    id TEXT PRIMARY KEY,
-    userId TEXT NOT NULL,
-    type TEXT DEFAULT 'info',
-    message TEXT NOT NULL,
-    timestamp INTEGER NOT NULL,
-    read INTEGER DEFAULT 0,
-    FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE
-  );
-
-  CREATE TABLE IF NOT EXISTS delivery_providers (
-    id TEXT PRIMARY KEY,
-    userId TEXT NOT NULL,
-    name TEXT NOT NULL,
-    websiteUrl TEXT DEFAULT '',
-    addOrderPage TEXT DEFAULT '',
-    trackingUrl TEXT DEFAULT '',
-    phone TEXT DEFAULT '',
-    cost REAL DEFAULT 0,
-    enabled INTEGER DEFAULT 1,
-    createdAt TEXT NOT NULL,
-    FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE
-  );
-
-  CREATE TABLE IF NOT EXISTS broadcasts (
-    id TEXT PRIMARY KEY,
-    userId TEXT NOT NULL,
-    message TEXT NOT NULL,
-    target TEXT DEFAULT 'all',
-    sentTo INTEGER DEFAULT 0,
-    failed INTEGER DEFAULT 0,
-    type TEXT DEFAULT 'custom',
-    simulated INTEGER DEFAULT 1,
-    createdAt TEXT NOT NULL,
-    FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE
-  );
-
-  CREATE TABLE IF NOT EXISTS templates (
-    userId TEXT PRIMARY KEY,
-    data TEXT NOT NULL,
-    updatedAt TEXT NOT NULL,
-    FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE
-  );
-`);
-
-// ── Performance indexes — prevent full-table scans at 1000+ rows ─
-sqlite.exec(`
-  CREATE INDEX IF NOT EXISTS idx_orders_userId    ON orders(userId);
-  CREATE INDEX IF NOT EXISTS idx_orders_status    ON orders(status);
-  CREATE INDEX IF NOT EXISTS idx_orders_createdAt ON orders(createdAt);
-  CREATE INDEX IF NOT EXISTS idx_products_userId  ON products(userId);
-  CREATE INDEX IF NOT EXISTS idx_products_status  ON products(status);
-  CREATE INDEX IF NOT EXISTS idx_customers_userId ON customers(userId);
-  CREATE INDEX IF NOT EXISTS idx_customers_phone  ON customers(phone);
-  CREATE INDEX IF NOT EXISTS idx_convs_userId     ON conversations(userId);
-  CREATE INDEX IF NOT EXISTS idx_logs_userId      ON audit_logs(userId);
-`);
-
-// ── ID generator ──────────────────────────────────────────────
-function uid() { return crypto.randomBytes(8).toString('hex'); }
+function uid() { return crypto.randomUUID(); }
 function now() { return new Date().toISOString(); }
 
-// ── Flat DB API (matches what all routes expect) ──────────────
+// ── Column mappers (snake_case PG → camelCase API) ────────────
+
+function _mapProduct(p) {
+  if (!p) return null;
+  return {
+    id:            p.id,
+    userId:        p.user_id,
+    name:          p.name,
+    description:   p.description   || '',
+    price:         +p.price        || 0,
+    cost:          +p.cost         || 0,
+    stock:         +p.stock        || 0,
+    sku:           p.sku           || '',
+    category:      p.category      || '',
+    emoji:         p.emoji         || '📦',
+    images:        Array.isArray(p.images)       ? p.images       : [],
+    sizes:         Array.isArray(p.sizes)        ? p.sizes        : [],
+    colors:        Array.isArray(p.colors)       ? p.colors       : [],
+    colorImages:   (p.color_images && typeof p.color_images === 'object') ? p.color_images : {},
+    imageUrl:      p.image_url     || '',
+    isForChildren: !!p.is_for_children,
+    ageRange:      p.age_range     || '',
+    sizeType:      p.size_type     || 'adult',
+    views:         +p.views        || 0,
+    sales:         +p.sales        || 0,
+    status:        p.status        || 'draft',
+    type:          p.offer_type    || 'product',
+    offer_type:    p.offer_type    || 'product',
+    duration:      p.duration      || '',
+    workArea:      p.service_area  || '',
+    service_area:  p.service_area  || '',
+    portfolio:     Array.isArray(p.portfolio)    ? p.portfolio    : [],
+    customFields:  Array.isArray(p.custom_fields)? p.custom_fields: [],
+    createdAt:     p.created_at ? new Date(p.created_at).toISOString() : now(),
+  };
+}
+
+function _mapCustomer(c) {
+  if (!c) return null;
+  return {
+    id:            c.id,
+    userId:        c.user_id,
+    name:          c.name,
+    phone:         c.phone           || '',
+    email:         c.email           || '',
+    city:          c.city            || '',
+    address:       c.address         || '',
+    notes:         c.notes           || '',
+    vip:           !!c.vip,
+    source:        c.source          || 'manual',
+    trustScore:    +c.trust_score    || 80,
+    buyerScore:    +c.buyer_score    || 50,
+    totalSpent:    +c.total_spent    || 0,
+    totalOrders:   +c.total_orders   || 0,
+    lastOrderDate: c.last_order_date || '',
+    createdAt:     c.created_at ? new Date(c.created_at).toISOString() : now(),
+  };
+}
+
+function _mapOrder(o) {
+  if (!o) return null;
+  return {
+    id:               o.id,
+    userId:           o.user_id,
+    customerId:       o.customer_id     || '',
+    customerName:     o.customer_name   || '',
+    customerPhone:    o.customer_phone  || '',
+    items:            Array.isArray(o.items) ? o.items : [],
+    total:            +o.total          || 0,
+    status:           o.status          || 'pending',
+    notes:            o.notes           || '',
+    address:          o.address         || '',
+    city:             o.city            || '',
+    source:           o.source          || 'manual',
+    deliveryProvider: o.delivery_provider || '',
+    trackingNumber:   o.tracking_number  || '',
+    needsReview:      !!o.needs_review,
+    reviewReason:     o.review_reason    || '',
+    customerCode:     o.customer_code    || '',
+    createdAt:        o.created_at ? new Date(o.created_at).toISOString() : now(),
+  };
+}
+
+function _mapConv(c) {
+  if (!c) return null;
+  return {
+    id:             c.id,
+    userId:         c.user_id,
+    customerId:     c.customer_id    || '',
+    customerName:   c.customer_name  || '',
+    customerPhone:  c.customer_phone || '',
+    source:         c.source         || 'manual',
+    status:         c.status         || 'active',
+    lastMessage:    c.last_message   || '',
+    messages:       Array.isArray(c.messages) ? c.messages : [],
+    unread:         +c.unread        || 0,
+    priority:       c.priority       || 'medium',
+    mood:           c.mood           || 'neutral',
+    pinned:         !!c.pinned,
+    label:          c.label          || '',
+    createdAt:      c.created_at ? new Date(c.created_at).toISOString() : now(),
+  };
+}
+
+function _mapDelivery(p) {
+  if (!p) return null;
+  return {
+    id:           p.id,
+    userId:       p.user_id,
+    name:         p.name,
+    websiteUrl:   p.website_url    || '',
+    addOrderPage: p.add_order_page || '',
+    trackingUrl:  p.tracking_url   || '',
+    phone:        p.phone          || '',
+    cost:         +p.cost          || 0,
+    enabled:      !!p.enabled,
+    apiType:      p.api_type       || '',
+    apiKey:       p.api_key        || '',
+    apiEndpoint:  p.api_endpoint   || '',
+    webhookUrl:   p.webhook_url    || '',
+    createdAt:    p.created_at ? new Date(p.created_at).toISOString() : now(),
+  };
+}
+
+// ── Flat DB API ───────────────────────────────────────────────
 const db = {
+
   // ── Users ────────────────────────────────────────────────────
-  getUser(id) {
-    return sqlite.prepare('SELECT * FROM users WHERE id = ?').get(id) || null;
+  async getUser(id) {
+    const { rows } = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
+    return rows[0] || null;
   },
-  getUserByEmail(email) {
-    return sqlite.prepare('SELECT * FROM users WHERE email = ?').get((email||'').toLowerCase()) || null;
+  async getUserByEmail(email) {
+    const { rows } = await pool.query('SELECT * FROM users WHERE email = $1', [(email || '').toLowerCase()]);
+    return rows[0] || null;
   },
-  listUsers() {
-    return sqlite.prepare('SELECT * FROM users').all();
+  async listUsers() {
+    const { rows } = await pool.query('SELECT * FROM users');
+    return rows;
   },
-  createUser({ name, email, password, role = 'admin' }) {
-    const user = { id: uid(), name: name.trim(), email: email.toLowerCase().trim(), password, role, createdAt: now() };
-    sqlite.prepare('INSERT INTO users (id, name, email, password, role, createdAt) VALUES (?, ?, ?, ?, ?, ?)').run(user.id, user.name, user.email, user.password, user.role, user.createdAt);
-    return user;
+  async createUser({ name, email, password, role = 'admin' }) {
+    const id = uid();
+    const { rows } = await pool.query(
+      `INSERT INTO users (id, name, email, password, role) VALUES ($1,$2,$3,$4,$5) RETURNING *`,
+      [id, name.trim(), email.toLowerCase().trim(), password, role]
+    );
+    return rows[0];
   },
-  updateUser(id, u) {
+  async updateUser(id, u) {
     const allowed = ['name', 'email', 'password', 'role'];
-    const parts = []; const vals = [];
+    const parts = []; const vals = [id]; let idx = 2;
     for (const k of allowed) {
-      if (u[k] !== undefined) { parts.push(`${k} = ?`); vals.push(u[k]); }
+      if (u[k] !== undefined) { parts.push(`${k} = $${idx++}`); vals.push(u[k]); }
     }
     if (!parts.length) return;
-    vals.push(id);
-    sqlite.prepare(`UPDATE users SET ${parts.join(', ')} WHERE id = ?`).run(...vals);
+    await pool.query(`UPDATE users SET ${parts.join(', ')} WHERE id = $1`, vals);
+  },
+  async updateUserPassword(id, hashed) {
+    await pool.query('UPDATE users SET password = $1 WHERE id = $2', [hashed, id]);
   },
 
   // ── Settings ─────────────────────────────────────────────────
-  getSettings(userId) {
-    const row = sqlite.prepare('SELECT data FROM settings WHERE userId = ?').get(userId);
-    return row ? JSON.parse(row.data) : null;
+  async getSettings(userId) {
+    const { rows } = await pool.query('SELECT data FROM settings WHERE user_id = $1', [userId]);
+    return rows[0] ? rows[0].data : null;
   },
-  saveSettings(userId, data) {
-    const json = JSON.stringify(data);
-    sqlite.prepare('INSERT OR REPLACE INTO settings (userId, data, updatedAt) VALUES (?, ?, ?)').run(userId, json, now());
+  async saveSettings(userId, data) {
+    await pool.query(
+      `INSERT INTO settings (user_id, data, updated_at) VALUES ($1,$2,NOW())
+       ON CONFLICT (user_id) DO UPDATE SET data = $2, updated_at = NOW()`,
+      [userId, JSON.stringify(data)]
+    );
     return data;
   },
 
   // ── Products ─────────────────────────────────────────────────
-  getProducts(userId) {
-    return sqlite.prepare('SELECT * FROM products WHERE userId = ? ORDER BY createdAt DESC').all(userId).map(_parseProduct);
+  async getProducts(userId) {
+    const { rows } = await pool.query(
+      'SELECT * FROM products WHERE user_id = $1 ORDER BY created_at DESC', [userId]
+    );
+    return rows.map(_mapProduct);
   },
-  getProduct(id) {
-    const p = sqlite.prepare('SELECT * FROM products WHERE id = ?').get(id);
-    return p ? _parseProduct(p) : null;
+  async getProduct(id) {
+    const { rows } = await pool.query('SELECT * FROM products WHERE id = $1', [id]);
+    return _mapProduct(rows[0]) || null;
   },
-  createProduct(p) {
+  async createProduct(p) {
     const id = p.id || uid();
-    const product = { id, userId: p.userId, name: p.name, description: p.description||'', price: +p.price||0, cost: +(p.cost||0), stock: +(p.stock||0), category: p.category||'', sizes: JSON.stringify(p.sizes||[]), colors: JSON.stringify(p.colors||[]), status: p.status||'draft', emoji: p.emoji||'📦', imageUrl: p.imageUrl||'', images: JSON.stringify(p.images||[]), isForChildren: p.isForChildren?1:0, ageRange: p.ageRange||'', views: 0, sales: 0, sku: p.sku||id.slice(0,8).toUpperCase(), colorImages: JSON.stringify(p.colorImages||{}), sizeType: p.sizeType||'adult', type: p.type||'product', duration: p.duration||'', workArea: p.workArea||'', portfolio: JSON.stringify(p.portfolio||[]), custom_fields: JSON.stringify(p.customFields||[]), bookingDays: JSON.stringify(p.bookingDays||[]), bookingTime: p.bookingTime||'', bookingLocation: p.bookingLocation||'', bookingMethod: p.bookingMethod||'phone', createdAt: p.createdAt||now() };
-    sqlite.prepare(`INSERT INTO products (id,userId,name,description,price,cost,stock,category,sizes,colors,status,emoji,imageUrl,images,isForChildren,ageRange,views,sales,sku,colorImages,sizeType,type,duration,workArea,portfolio,custom_fields,bookingDays,bookingTime,bookingLocation,bookingMethod,createdAt) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(product.id,product.userId,product.name,product.description,product.price,product.cost,product.stock,product.category,product.sizes,product.colors,product.status,product.emoji,product.imageUrl,product.images,product.isForChildren,product.ageRange,product.views,product.sales,product.sku,product.colorImages,product.sizeType,product.type,product.duration,product.workArea,product.portfolio,product.custom_fields,product.bookingDays,product.bookingTime,product.bookingLocation,product.bookingMethod,product.createdAt);
-    return _parseProduct(product);
+    const { rows } = await pool.query(
+      `INSERT INTO products
+        (id,user_id,name,description,price,cost,stock,sku,category,emoji,
+         images,sizes,colors,color_images,image_url,is_for_children,age_range,
+         size_type,views,sales,status,offer_type,duration,service_area,
+         portfolio,custom_fields)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)
+       RETURNING *`,
+      [
+        id, p.userId, p.name || '', p.description || '',
+        +p.price || 0, +(p.cost || 0), +(p.stock || 0),
+        p.sku || id.slice(0, 8).toUpperCase(),
+        p.category || '', p.emoji || '📦',
+        JSON.stringify(p.images || []),
+        JSON.stringify(p.sizes || []),
+        JSON.stringify(p.colors || []),
+        JSON.stringify(p.colorImages || {}),
+        p.imageUrl || '',
+        p.isForChildren ? true : false,
+        p.ageRange || '',
+        p.sizeType || 'adult',
+        0, 0,
+        p.status || 'draft',
+        p.offer_type || p.type || 'product',
+        p.duration || '',
+        p.service_area || p.workArea || '',
+        JSON.stringify(p.portfolio || []),
+        JSON.stringify(p.customFields || p.custom_fields || []),
+      ]
+    );
+    return _mapProduct(rows[0]);
   },
-  updateProduct(id, u) {
-    const updates = { ...u };
-    if (updates.customFields !== undefined) {
-      updates.custom_fields = updates.customFields;
-      delete updates.customFields;
+  async updateProduct(id, u) {
+    const map = {
+      name:         'name',         description:  'description',  price:   'price',
+      cost:         'cost',         stock:        'stock',        sku:     'sku',
+      category:     'category',     emoji:        'emoji',        status:  'status',
+      imageUrl:     'image_url',    images:       'images',       sizes:   'sizes',
+      colors:       'colors',       colorImages:  'color_images', isForChildren: 'is_for_children',
+      ageRange:     'age_range',    sizeType:     'size_type',    views:   'views',
+      sales:        'sales',        offer_type:   'offer_type',   type:    'offer_type',
+      duration:     'duration',     service_area: 'service_area', workArea: 'service_area',
+      portfolio:    'portfolio',    customFields: 'custom_fields',custom_fields: 'custom_fields',
+    };
+    const parts = []; const vals = [id]; let idx = 2;
+    for (const [jsKey, pgCol] of Object.entries(map)) {
+      if (u[jsKey] === undefined) continue;
+      const v = u[jsKey];
+      parts.push(`${pgCol} = $${idx++}`);
+      vals.push(Array.isArray(v) || (typeof v === 'object' && v !== null) ? JSON.stringify(v) : v);
     }
-    if (Array.isArray(updates.bookingDays)) updates.bookingDays = JSON.stringify(updates.bookingDays);
-    if (Array.isArray(updates.sizes))      updates.sizes       = JSON.stringify(updates.sizes);
-    if (Array.isArray(updates.colors))     updates.colors      = JSON.stringify(updates.colors);
-    if (Array.isArray(updates.images))     updates.images      = JSON.stringify(updates.images);
-    if (Array.isArray(updates.portfolio))  updates.portfolio   = JSON.stringify(updates.portfolio);
-    const allowed = ['name','description','price','cost','stock','category','sizes','colors','status','emoji','imageUrl','images','isForChildren','ageRange','views','sales','sku','colorImages','sizeType','type','duration','workArea','portfolio','custom_fields','bookingDays','bookingTime','bookingLocation','bookingMethod'];
-    _update('products', id, updates, allowed);
+    if (!parts.length) return this.getProduct(id);
+    parts.push(`updated_at = NOW()`);
+    await pool.query(`UPDATE products SET ${parts.join(', ')} WHERE id = $1`, vals);
     return this.getProduct(id);
   },
-  deleteProduct(id) {
-    sqlite.prepare('DELETE FROM products WHERE id = ?').run(id);
+  async deleteProduct(id) {
+    await pool.query('DELETE FROM products WHERE id = $1', [id]);
   },
 
   // ── Customers ────────────────────────────────────────────────
-  getCustomers(userId) {
-    return sqlite.prepare('SELECT * FROM customers WHERE userId = ? ORDER BY totalSpent DESC').all(userId).map(_parseCustomer);
+  async getCustomers(userId) {
+    const { rows } = await pool.query(
+      'SELECT * FROM customers WHERE user_id = $1 ORDER BY total_spent DESC', [userId]
+    );
+    return rows.map(_mapCustomer);
   },
-  getCustomer(id) {
-    const c = sqlite.prepare('SELECT * FROM customers WHERE id = ?').get(id);
-    return c ? _parseCustomer(c) : null;
+  async getCustomer(id) {
+    const { rows } = await pool.query('SELECT * FROM customers WHERE id = $1', [id]);
+    return _mapCustomer(rows[0]) || null;
   },
-  createCustomer(c) {
-    const customer = { id: uid(), userId: c.userId, name: c.name, phone: c.phone||'', city: c.city||'', address: c.address||'', source: c.source||'manual', notes: c.notes||'', vip: c.vip?1:0, trustScore: c.trustScore||80, buyerScore: c.buyerScore||50, totalOrders: 0, totalSpent: 0, lastOrderDate: '', createdAt: now() };
-    sqlite.prepare(`INSERT INTO customers (id,userId,name,phone,city,address,source,notes,vip,trustScore,buyerScore,totalOrders,totalSpent,lastOrderDate,createdAt) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(customer.id,customer.userId,customer.name,customer.phone,customer.city,customer.address,customer.source,customer.notes,customer.vip,customer.trustScore,customer.buyerScore,0,0,'',customer.createdAt);
-    return _parseCustomer(customer);
+  async createCustomer(c) {
+    const id = uid();
+    const { rows } = await pool.query(
+      `INSERT INTO customers
+        (id,user_id,name,phone,email,city,address,notes,vip,source,trust_score,buyer_score)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
+      [
+        id, c.userId, c.name, c.phone || '', c.email || '',
+        c.city || '', c.address || '', c.notes || '',
+        c.vip ? true : false,
+        c.source || 'manual',
+        c.trustScore || 80, c.buyerScore || 50,
+      ]
+    );
+    return _mapCustomer(rows[0]);
   },
-  updateCustomer(id, u) {
-    const allowed = ['name','phone','city','address','source','notes','vip','trustScore','buyerScore','totalOrders','totalSpent','lastOrderDate'];
-    _update('customers', id, u, allowed);
+  async updateCustomer(id, u) {
+    const map = {
+      name: 'name', phone: 'phone', email: 'email', city: 'city',
+      address: 'address', notes: 'notes', vip: 'vip', source: 'source',
+      trustScore: 'trust_score', buyerScore: 'buyer_score',
+      totalOrders: 'total_orders', totalSpent: 'total_spent',
+      lastOrderDate: 'last_order_date',
+    };
+    const parts = []; const vals = [id]; let idx = 2;
+    for (const [jsKey, pgCol] of Object.entries(map)) {
+      if (u[jsKey] === undefined) continue;
+      parts.push(`${pgCol} = $${idx++}`);
+      vals.push(u[jsKey]);
+    }
+    if (!parts.length) return this.getCustomer(id);
+    await pool.query(`UPDATE customers SET ${parts.join(', ')} WHERE id = $1`, vals);
     return this.getCustomer(id);
+  },
+  async deleteCustomer(id) {
+    await pool.query('DELETE FROM customers WHERE id = $1', [id]);
   },
 
   // ── Orders ───────────────────────────────────────────────────
-  getOrders(userId) {
-    return sqlite.prepare('SELECT * FROM orders WHERE userId = ? ORDER BY createdAt DESC').all(userId).map(_parseOrder);
+  async getOrders(userId) {
+    const { rows } = await pool.query(
+      'SELECT * FROM orders WHERE user_id = $1 ORDER BY created_at DESC', [userId]
+    );
+    return rows.map(_mapOrder);
   },
-  getOrder(id) {
-    const o = sqlite.prepare('SELECT * FROM orders WHERE id = ?').get(id);
-    return o ? _parseOrder(o) : null;
+  async getOrder(id) {
+    const { rows } = await pool.query('SELECT * FROM orders WHERE id = $1', [id]);
+    return _mapOrder(rows[0]) || null;
   },
-  createOrder(o) {
-    // crypto already imported at top — randomBytes is brute-force resistant unlike Math.random()
+  async createOrder(o) {
+    const id = uid();
     const customerCode = o.customerCode || crypto.randomBytes(4).toString('hex').toUpperCase();
-    const order = { id: uid(), userId: o.userId, customerId: o.customerId||'', customerName: o.customerName, customerPhone: o.customerPhone||'', city: o.city||'', address: o.address||'', items: JSON.stringify(o.items||[]), total: +o.total||0, status: o.status||'pending', source: o.source||'manual', deliveryProvider: '', trackingNumber: '', notes: o.notes||'', needsReview: 0, reviewReason: '', customerCode, createdAt: now() };
-    sqlite.prepare(`INSERT INTO orders (id,userId,customerId,customerName,customerPhone,city,address,items,total,status,source,deliveryProvider,trackingNumber,notes,needsReview,reviewReason,customerCode,createdAt) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(order.id,order.userId,order.customerId,order.customerName,order.customerPhone,order.city,order.address,order.items,order.total,order.status,order.source,order.deliveryProvider,order.trackingNumber,order.notes,order.needsReview,order.reviewReason,order.customerCode||'',order.createdAt);
-    return _parseOrder(order);
+    const { rows } = await pool.query(
+      `INSERT INTO orders
+        (id,user_id,customer_id,customer_name,customer_phone,city,address,
+         items,total,status,source,notes,customer_code)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
+      [
+        id, o.userId, o.customerId || '', o.customerName || '',
+        o.customerPhone || '', o.city || '', o.address || '',
+        JSON.stringify(o.items || []),
+        +o.total || 0,
+        o.status || 'pending',
+        o.source || 'manual',
+        o.notes || '',
+        customerCode,
+      ]
+    );
+    return _mapOrder(rows[0]);
   },
-  updateOrder(id, u) {
-    const allowed = ['customerId','customerName','customerPhone','city','address','items','total','status','source','deliveryProvider','trackingNumber','notes','needsReview','reviewReason','customerCode'];
-    _update('orders', id, u, allowed);
+  async updateOrder(id, u) {
+    const map = {
+      customerId:       'customer_id',      customerName:    'customer_name',
+      customerPhone:    'customer_phone',   city:            'city',
+      address:          'address',          items:           'items',
+      total:            'total',            status:          'status',
+      source:           'source',           deliveryProvider:'delivery_provider',
+      trackingNumber:   'tracking_number',  notes:           'notes',
+      needsReview:      'needs_review',     reviewReason:    'review_reason',
+      customerCode:     'customer_code',
+    };
+    const parts = []; const vals = [id]; let idx = 2;
+    for (const [jsKey, pgCol] of Object.entries(map)) {
+      if (u[jsKey] === undefined) continue;
+      const v = u[jsKey];
+      parts.push(`${pgCol} = $${idx++}`);
+      vals.push(Array.isArray(v) || (typeof v === 'object' && v !== null) ? JSON.stringify(v) : v);
+    }
+    if (!parts.length) return this.getOrder(id);
+    parts.push(`updated_at = NOW()`);
+    await pool.query(`UPDATE orders SET ${parts.join(', ')} WHERE id = $1`, vals);
     return this.getOrder(id);
   },
+  async deleteOrder(id) {
+    await pool.query('DELETE FROM orders WHERE id = $1', [id]);
+  },
 
-  // Atomic: find-or-create customer + create order in a single SQLite transaction
-  // Prevents orphaned orders if customer insert fails
-  createOrderWithCustomer(orderData, customerData) {
-    return sqlite.transaction(() => {
-      // Find existing customer by phone under same userId
-      const existing = sqlite.prepare(
-        'SELECT * FROM customers WHERE userId = ? AND phone = ?'
-      ).get(customerData.userId, customerData.phone || '');
-
+  // Atomic: find-or-create customer + create order in one transaction
+  async createOrderWithCustomer(orderData, customerData) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const { rows: existing } = await client.query(
+        'SELECT * FROM customers WHERE user_id = $1 AND phone = $2',
+        [customerData.userId, customerData.phone || '']
+      );
       let customer;
-      if (existing) {
-        customer = _parseCustomer(existing);
-        // Update last order date
-        sqlite.prepare("UPDATE customers SET lastOrderDate = ? WHERE id = ?")
-          .run(new Date().toISOString().split('T')[0], customer.id);
+      if (existing.length) {
+        customer = _mapCustomer(existing[0]);
+        await client.query(
+          "UPDATE customers SET last_order_date = $1 WHERE id = $2",
+          [new Date().toISOString().split('T')[0], customer.id]
+        );
       } else {
-        customer = db.createCustomer(customerData);
+        const cid = uid();
+        const { rows: nc } = await client.query(
+          `INSERT INTO customers (id,user_id,name,phone,email,city,address,notes,vip,source,trust_score,buyer_score)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
+          [cid, customerData.userId, customerData.name, customerData.phone || '',
+           customerData.email || '', customerData.city || '', customerData.address || '',
+           customerData.notes || '', false, customerData.source || 'manual', 80, 50]
+        );
+        customer = _mapCustomer(nc[0]);
       }
-
-      const order = db.createOrder({ ...orderData, customerId: customer.id });
+      const oid = uid();
+      const cc = orderData.customerCode || crypto.randomBytes(4).toString('hex').toUpperCase();
+      const { rows: no } = await client.query(
+        `INSERT INTO orders (id,user_id,customer_id,customer_name,customer_phone,city,address,items,total,status,source,notes,customer_code)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
+        [oid, orderData.userId, customer.id, orderData.customerName || '',
+         orderData.customerPhone || '', orderData.city || '', orderData.address || '',
+         JSON.stringify(orderData.items || []),
+         +orderData.total || 0,
+         orderData.status || 'pending',
+         orderData.source || 'manual',
+         orderData.notes || '',
+         cc]
+      );
+      const order = _mapOrder(no[0]);
+      await client.query('COMMIT');
       return { order, customer };
-    })();
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
   },
 
   // ── Conversations ─────────────────────────────────────────────
-  getConversations(userId) {
-    return sqlite.prepare('SELECT * FROM conversations WHERE userId = ? ORDER BY createdAt DESC').all(userId).map(_parseConv);
+  async getConversations(userId) {
+    const { rows } = await pool.query(
+      'SELECT * FROM conversations WHERE user_id = $1 ORDER BY created_at DESC', [userId]
+    );
+    return rows.map(_mapConv);
   },
-  getConversation(id) {
-    const c = sqlite.prepare('SELECT * FROM conversations WHERE id = ?').get(id);
-    return c ? _parseConv(c) : null;
+  async getConversation(id) {
+    const { rows } = await pool.query('SELECT * FROM conversations WHERE id = $1', [id]);
+    return _mapConv(rows[0]) || null;
   },
-  createConversation(c) {
-    const conv = { id: uid(), userId: c.userId, customerId: c.customerId||'', customerName: c.customerName, customerPhone: c.customerPhone||'', source: c.source||'manual', status: c.status||'active', lastMessage: c.lastMessage||'', messages: JSON.stringify(c.messages||[]), unread: c.unread||0, priority: c.priority||'medium', mood: c.mood||'neutral', pinned: c.pinned?1:0, label: c.label||'', createdAt: now() };
-    sqlite.prepare(`INSERT INTO conversations (id,userId,customerId,customerName,customerPhone,source,status,lastMessage,messages,unread,priority,mood,pinned,label,createdAt) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(conv.id,conv.userId,conv.customerId,conv.customerName,conv.customerPhone,conv.source,conv.status,conv.lastMessage,conv.messages,conv.unread,conv.priority,conv.mood,conv.pinned,conv.label,conv.createdAt);
-    return _parseConv(conv);
+  async createConversation(c) {
+    const id = uid();
+    const { rows } = await pool.query(
+      `INSERT INTO conversations
+        (id,user_id,customer_id,customer_name,customer_phone,source,status,
+         last_message,messages,unread,priority,mood,pinned,label)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`,
+      [
+        id, c.userId, c.customerId || '', c.customerName || '',
+        c.customerPhone || '', c.source || 'manual', c.status || 'active',
+        c.lastMessage || '',
+        JSON.stringify(c.messages || []),
+        c.unread || 0, c.priority || 'medium', c.mood || 'neutral',
+        c.pinned ? true : false, c.label || '',
+      ]
+    );
+    return _mapConv(rows[0]);
   },
-  updateConversation(id, u) {
-    const allowed = ['customerId','customerName','customerPhone','source','status','lastMessage','messages','unread','priority','mood','pinned','label'];
-    _update('conversations', id, u, allowed);
+  async updateConversation(id, u) {
+    const map = {
+      customerId: 'customer_id', customerName: 'customer_name',
+      customerPhone: 'customer_phone', source: 'source', status: 'status',
+      lastMessage: 'last_message', messages: 'messages', unread: 'unread',
+      priority: 'priority', mood: 'mood', pinned: 'pinned', label: 'label',
+    };
+    const parts = []; const vals = [id]; let idx = 2;
+    for (const [jsKey, pgCol] of Object.entries(map)) {
+      if (u[jsKey] === undefined) continue;
+      const v = u[jsKey];
+      parts.push(`${pgCol} = $${idx++}`);
+      vals.push(Array.isArray(v) || (typeof v === 'object' && v !== null) ? JSON.stringify(v) : v);
+    }
+    if (!parts.length) return this.getConversation(id);
+    parts.push(`updated_at = NOW()`);
+    await pool.query(`UPDATE conversations SET ${parts.join(', ')} WHERE id = $1`, vals);
     return this.getConversation(id);
   },
-  addMessage(convId, { content, role }) {
-    const conv = this.getConversation(convId);
+  async addMessage(convId, { content, role }) {
+    const conv = await this.getConversation(convId);
     if (!conv) return null;
     const msg = { id: uid(), content, role, timestamp: Date.now() };
     const messages = [...conv.messages, msg];
-    this.updateConversation(convId, { messages, lastMessage: content, unread: role === 'customer' ? (conv.unread || 0) + 1 : conv.unread });
+    await this.updateConversation(convId, {
+      messages,
+      lastMessage: content,
+      unread: role === 'customer' ? (conv.unread || 0) + 1 : conv.unread,
+    });
     return msg;
+  },
+  async deleteConversation(id) {
+    await pool.query('DELETE FROM conversations WHERE id = $1', [id]);
   },
 
   // ── Delivery providers ────────────────────────────────────────
-  getDeliveryProviders(userId) {
-    return sqlite.prepare('SELECT * FROM delivery_providers WHERE userId = ? ORDER BY name').all(userId)
-      .map(p => ({ ...p, enabled: !!p.enabled, cost: +p.cost, apiType: p.apiType||'', apiKey: p.apiKey||'', apiEndpoint: p.apiEndpoint||'', webhookUrl: p.webhookUrl||'' }));
+  async getDeliveryProviders(userId) {
+    const { rows } = await pool.query(
+      'SELECT * FROM delivery_providers WHERE user_id = $1 ORDER BY name', [userId]
+    );
+    return rows.map(_mapDelivery);
   },
-  upsertDeliveryProvider(p) {
-    const existing = p.id ? sqlite.prepare('SELECT id FROM delivery_providers WHERE id = ?').get(p.id) : null;
-    if (existing) {
-      sqlite.prepare(`UPDATE delivery_providers SET name=?,websiteUrl=?,addOrderPage=?,trackingUrl=?,phone=?,cost=?,enabled=?,apiType=?,apiKey=?,apiEndpoint=?,webhookUrl=? WHERE id=?`).run(p.name,p.websiteUrl||'',p.addOrderPage||'',p.trackingUrl||'',p.phone||'',+(p.cost||0),p.enabled?1:0,p.apiType||'',p.apiKey||'',p.apiEndpoint||'',p.webhookUrl||'',p.id);
-    } else {
-      const id = uid();
-      sqlite.prepare(`INSERT INTO delivery_providers (id,userId,name,websiteUrl,addOrderPage,trackingUrl,phone,cost,enabled,apiType,apiKey,apiEndpoint,webhookUrl,createdAt) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(id,p.userId,p.name,p.websiteUrl||'',p.addOrderPage||'',p.trackingUrl||'',p.phone||'',+(p.cost||0),1,p.apiType||'',p.apiKey||'',p.apiEndpoint||'',p.webhookUrl||'',now());
+  async upsertDeliveryProvider(p) {
+    if (p.id) {
+      const { rows: ex } = await pool.query('SELECT id FROM delivery_providers WHERE id = $1', [p.id]);
+      if (ex.length) {
+        await pool.query(
+          `UPDATE delivery_providers SET name=$1,website_url=$2,add_order_page=$3,tracking_url=$4,
+           phone=$5,cost=$6,enabled=$7,api_type=$8,api_key=$9,api_endpoint=$10,webhook_url=$11
+           WHERE id=$12`,
+          [p.name, p.websiteUrl||'', p.addOrderPage||'', p.trackingUrl||'',
+           p.phone||'', +(p.cost||0), p.enabled!==false,
+           p.apiType||'', p.apiKey||'', p.apiEndpoint||'', p.webhookUrl||'', p.id]
+        );
+        return;
+      }
     }
+    const id = uid();
+    await pool.query(
+      `INSERT INTO delivery_providers
+        (id,user_id,name,website_url,add_order_page,tracking_url,phone,cost,enabled,api_type,api_key,api_endpoint,webhook_url)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+      [id, p.userId, p.name, p.websiteUrl||'', p.addOrderPage||'', p.trackingUrl||'',
+       p.phone||'', +(p.cost||0), true,
+       p.apiType||'', p.apiKey||'', p.apiEndpoint||'', p.webhookUrl||'']
+    );
   },
-  deleteDeliveryProvider(id) {
-    sqlite.prepare('DELETE FROM delivery_providers WHERE id = ?').run(id);
+  async deleteDeliveryProvider(id) {
+    await pool.query('DELETE FROM delivery_providers WHERE id = $1', [id]);
   },
 
   // ── Broadcasts ────────────────────────────────────────────────
-  getBroadcasts(userId) {
-    return sqlite.prepare('SELECT * FROM broadcasts WHERE userId = ? ORDER BY createdAt DESC LIMIT 100').all(userId).map(b => ({ ...b, simulated: !!b.simulated }));
+  async getBroadcasts(userId) {
+    const { rows } = await pool.query(
+      'SELECT * FROM broadcasts WHERE user_id = $1 ORDER BY created_at DESC LIMIT 100', [userId]
+    );
+    return rows.map(b => ({
+      id: b.id, userId: b.user_id, message: b.message,
+      target: b.target, sentTo: +b.sent_to, failed: +b.failed,
+      type: b.type, simulated: !!b.simulated,
+      createdAt: new Date(b.created_at).toISOString(),
+    }));
   },
-  saveBroadcast({ userId, message, target, sentTo, failed, type, simulated }) {
-    sqlite.prepare(`INSERT INTO broadcasts (id,userId,message,target,sentTo,failed,type,simulated,createdAt) VALUES (?,?,?,?,?,?,?,?,?)`).run(uid(),userId,message,target||'all',sentTo||0,failed||0,type||'custom',simulated?1:0,now());
+  async saveBroadcast({ userId, message, target, sentTo, failed, type, simulated }) {
+    await pool.query(
+      `INSERT INTO broadcasts (id,user_id,message,target,sent_to,failed,type,simulated)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+      [uid(), userId, message, target||'all', sentTo||0, failed||0, type||'custom', !!simulated]
+    );
   },
 
   // ── Templates ─────────────────────────────────────────────────
-  getTemplates(userId) {
-    const row = sqlite.prepare('SELECT data FROM templates WHERE userId = ?').get(userId);
-    return row ? JSON.parse(row.data) : [];
+  async getTemplates(userId) {
+    const { rows } = await pool.query('SELECT data FROM templates WHERE user_id = $1', [userId]);
+    return rows[0] ? (Array.isArray(rows[0].data) ? rows[0].data : []) : [];
   },
-  saveTemplates(userId, data) {
-    sqlite.prepare('INSERT OR REPLACE INTO templates (userId, data, updatedAt) VALUES (?, ?, ?)').run(userId, JSON.stringify(data), now());
+  async saveTemplates(userId, data) {
+    await pool.query(
+      `INSERT INTO templates (user_id, data, updated_at) VALUES ($1,$2,NOW())
+       ON CONFLICT (user_id) DO UPDATE SET data=$2, updated_at=NOW()`,
+      [userId, JSON.stringify(data)]
+    );
   },
 
-  // ── Logs ─────────────────────────────────────────────────────
-  addLog({ userId, user = 'System', action, details = '', type = 'info', severity = 'info' }) {
-    sqlite.prepare('INSERT INTO audit_logs (userId, timestamp, user, action, details, type, severity) VALUES (?, ?, ?, ?, ?, ?, ?)').run(userId, now(), user, action, details, type, severity);
+  // ── Coupons ───────────────────────────────────────────────────
+  async getCoupons(userId) {
+    const { rows } = await pool.query(
+      'SELECT * FROM coupons WHERE user_id = $1 ORDER BY created_at DESC', [userId]
+    );
+    return rows.map(c => ({
+      id: c.id, userId: c.user_id, code: c.code, type: c.type,
+      value: +c.value, minOrder: +c.min_order, maxUses: +c.max_uses,
+      uses: +c.uses, active: !!c.active,
+      expiresAt: c.expires_at ? new Date(c.expires_at).toISOString() : null,
+      createdAt: new Date(c.created_at).toISOString(),
+    }));
   },
-  getLogs(userId) {
-    return sqlite.prepare('SELECT * FROM audit_logs WHERE userId = ? ORDER BY id DESC LIMIT 500').all(userId);
+  async createCoupon(c) {
+    const id = uid();
+    const { rows } = await pool.query(
+      `INSERT INTO coupons (id,user_id,code,type,value,min_order,max_uses,expires_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+      [id, c.userId, c.code, c.type||'percentage', +c.value||0,
+       +c.minOrder||0, +c.maxUses||0, c.expiresAt||null]
+    );
+    return rows[0];
+  },
+  async updateCoupon(id, u) {
+    const map = { code:'code', type:'type', value:'value', minOrder:'min_order',
+                  maxUses:'max_uses', uses:'uses', active:'active', expiresAt:'expires_at' };
+    const parts = []; const vals = [id]; let idx = 2;
+    for (const [jsKey, pgCol] of Object.entries(map)) {
+      if (u[jsKey] === undefined) continue;
+      parts.push(`${pgCol} = $${idx++}`); vals.push(u[jsKey]);
+    }
+    if (!parts.length) return;
+    await pool.query(`UPDATE coupons SET ${parts.join(', ')} WHERE id = $1`, vals);
+  },
+  async deleteCoupon(id) {
+    await pool.query('DELETE FROM coupons WHERE id = $1', [id]);
   },
 
   // ── Notifications ─────────────────────────────────────────────
-  getNotifications(userId) {
-    return sqlite.prepare('SELECT * FROM notifications WHERE userId = ? ORDER BY timestamp DESC LIMIT 200').all(userId).map(n => ({ ...n, read: !!n.read }));
+  async getNotifications(userId) {
+    const { rows } = await pool.query(
+      `SELECT * FROM notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 200`, [userId]
+    );
+    return rows.map(n => ({
+      id: n.id, userId: n.user_id, type: n.type,
+      message: n.message, read: !!n.read,
+      timestamp: new Date(n.created_at).getTime(),
+      createdAt: new Date(n.created_at).toISOString(),
+    }));
   },
-  addNotification({ userId, type = 'info', message }) {
-    sqlite.prepare('INSERT INTO notifications (id, userId, type, message, timestamp, read) VALUES (?, ?, ?, ?, ?, 0)').run(uid(), userId, type, message, Date.now());
+  async addNotification({ userId, type = 'info', message }) {
+    await pool.query(
+      'INSERT INTO notifications (id,user_id,type,message) VALUES ($1,$2,$3,$4)',
+      [uid(), userId, type, message]
+    );
   },
-  markAllRead(userId) {
-    sqlite.prepare('UPDATE notifications SET read = 1 WHERE userId = ?').run(userId);
+  async markAllRead(userId) {
+    await pool.query('UPDATE notifications SET read = TRUE WHERE user_id = $1', [userId]);
   },
-  clearNotifications(userId) {
-    sqlite.prepare('DELETE FROM notifications WHERE userId = ?').run(userId);
+  async clearNotifications(userId) {
+    await pool.query('DELETE FROM notifications WHERE user_id = $1', [userId]);
   },
-};
 
-// ── Private helpers ───────────────────────────────────────────
-function _update(table, id, u, allowed) {
-  const parts = []; const vals = [];
-  for (const k of allowed) {
-    if (u[k] !== undefined) {
-      parts.push(`${k} = ?`);
-      const v = u[k];
-      vals.push(Array.isArray(v) || (typeof v === 'object' && v !== null) ? JSON.stringify(v) : (typeof v === 'boolean' ? (v ? 1 : 0) : v));
+  // ── Logs ─────────────────────────────────────────────────────
+  async addLog({ userId, user = 'System', action, details = '', type = 'info', severity = 'info' }) {
+    await pool.query(
+      `INSERT INTO audit_logs (user_id,"user",action,details,type,severity) VALUES ($1,$2,$3,$4,$5,$6)`,
+      [userId, user, action, details, type, severity]
+    );
+  },
+  async getLogs(userId) {
+    const { rows } = await pool.query(
+      `SELECT * FROM audit_logs WHERE user_id = $1 ORDER BY id DESC LIMIT 500`, [userId]
+    );
+    return rows.map(r => ({
+      id: r.id, userId: r.user_id, user: r.user,
+      action: r.action, details: r.details, type: r.type,
+      severity: r.severity,
+      timestamp: new Date(r.created_at).toISOString(),
+    }));
+  },
+
+  // ── Loyalty ───────────────────────────────────────────────────
+  async getLoyalty(userId, customerId) {
+    const { rows } = await pool.query(
+      'SELECT * FROM loyalty_points WHERE user_id=$1 AND customer_id=$2', [userId, customerId]
+    );
+    return rows[0] || null;
+  },
+  async getLoyaltyAll(userId) {
+    const { rows } = await pool.query(
+      'SELECT * FROM loyalty_points WHERE user_id=$1 ORDER BY total_earned DESC', [userId]
+    );
+    return rows;
+  },
+  async addLoyaltyPoints(userId, customerId, amount) {
+    const pts = Math.floor(amount / 10);
+    if (pts <= 0) return;
+    const existing = await this.getLoyalty(userId, customerId);
+    if (existing) {
+      const newTotal = (existing.total_earned || 0) + pts;
+      const tier = newTotal >= 5000 ? 'diamond' : newTotal >= 2000 ? 'gold' : 'silver';
+      await pool.query(
+        `UPDATE loyalty_points SET points=points+$1,total_earned=total_earned+$2,tier=$3,updated_at=NOW()
+         WHERE user_id=$4 AND customer_id=$5`,
+        [pts, pts, tier, userId, customerId]
+      );
+    } else {
+      const tier = pts >= 5000 ? 'diamond' : pts >= 2000 ? 'gold' : 'silver';
+      await pool.query(
+        `INSERT INTO loyalty_points (user_id,customer_id,points,total_earned,tier)
+         VALUES ($1,$2,$3,$4,$5) ON CONFLICT (user_id,customer_id) DO UPDATE
+         SET points=loyalty_points.points+$3, total_earned=loyalty_points.total_earned+$4,
+             tier=$5, updated_at=NOW()`,
+        [userId, customerId, pts, pts, tier]
+      );
     }
-  }
-  if (!parts.length) return;
-  vals.push(id);
-  sqlite.prepare(`UPDATE ${table} SET ${parts.join(', ')} WHERE id = ?`).run(...vals);
-}
-
-function _parseProduct(p) {
-  return { ...p, sizes: _json(p.sizes, []), colors: _json(p.colors, []), images: _json(p.images, []), colorImages: _json(p.colorImages, {}), portfolio: _json(p.portfolio, []), isForChildren: !!p.isForChildren, sizeType: p.sizeType||'adult', type: p.type||'product', duration: p.duration||'', workArea: p.workArea||'', customFields: _json(p.custom_fields, []), bookingDays: _json(p.bookingDays, []), bookingTime: p.bookingTime||'', bookingLocation: p.bookingLocation||'', bookingMethod: p.bookingMethod||'phone' };
-}
-function _parseCustomer(c) { return { ...c, vip: !!c.vip }; }
-function _parseOrder(o) { return { ...o, items: _json(o.items, []), needsReview: !!o.needsReview }; }
-function _parseConv(c) { return { ...c, messages: _json(c.messages, []), pinned: !!c.pinned }; }
-function _json(v, def) { try { return v ? JSON.parse(v) : def; } catch { return def; } }
-
-// Also expose nested API for routes that use db.conversations.* (webhooks, conversations route)
-db.users = { listUsers: () => db.listUsers(), get: (id) => db.getUser(id), getByEmail: (e) => db.getUserByEmail(e) };
-db.settings = { get: (uid) => db.getSettings(uid), save: (uid, data) => db.saveSettings(uid, data) };
-db.products = { list: (uid) => db.getProducts(uid), get: (id) => db.getProduct(id) };
-db.conversations = {
-  list: (uid) => db.getConversations(uid),
-  get: (id) => db.getConversation(id),
-  create: (c) => db.createConversation(c),
-  addMessage: (id, msg) => db.addMessage(id, msg),
+  },
+  async redeemLoyaltyPoints(userId, customerId, pts) {
+    await pool.query(
+      `UPDATE loyalty_points SET points=GREATEST(0,points-$1),updated_at=NOW()
+       WHERE user_id=$2 AND customer_id=$3`,
+      [pts, userId, customerId]
+    );
+  },
 };
-db.notifications = { add: (n) => db.addNotification(n) };
+
+// ── Nested aliases for routes that use db.users.*, db.settings.*, etc. ───────
+db.users = {
+  listUsers:   () => db.listUsers(),
+  get:         (id) => db.getUser(id),
+  getByEmail:  (e)  => db.getUserByEmail(e),
+};
+db.settings = {
+  get:  (uid) => db.getSettings(uid),
+  save: (uid, data) => db.saveSettings(uid, data),
+};
+db.products = {
+  list: (uid) => db.getProducts(uid),
+  get:  (id)  => db.getProduct(id),
+};
+db.conversations = {
+  list:       (uid)       => db.getConversations(uid),
+  get:        (id)        => db.getConversation(id),
+  create:     (c)         => db.createConversation(c),
+  addMessage: (id, msg)   => db.addMessage(id, msg),
+};
+db.notifications = {
+  add: (n) => db.addNotification(n),
+};
 
 module.exports = { db };
-
-// ── LOYALTY SYSTEM (new — appended) ──────────────────────────
-sqlite.exec(`
-  CREATE TABLE IF NOT EXISTS loyalty_points (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    userId TEXT NOT NULL,
-    customerId TEXT NOT NULL,
-    points INTEGER NOT NULL DEFAULT 0,
-    totalEarned INTEGER DEFAULT 0,
-    tier TEXT DEFAULT 'silver',
-    updatedAt TEXT NOT NULL,
-    UNIQUE(userId, customerId),
-    FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE
-  );
-`);
-
-db.getLoyalty = function(userId, customerId) {
-  return sqlite.prepare('SELECT * FROM loyalty_points WHERE userId=? AND customerId=?').get(userId, customerId) || null;
-};
-db.getLoyaltyAll = function(userId) {
-  return sqlite.prepare('SELECT * FROM loyalty_points WHERE userId=? ORDER BY totalEarned DESC').all(userId);
-};
-db.addLoyaltyPoints = function(userId, customerId, amount) {
-  const pts = Math.floor(amount / 10); // 10 MAD = 1 point
-  if (pts <= 0) return;
-  const existing = db.getLoyalty(userId, customerId);
-  if (existing) {
-    const newTotal = (existing.totalEarned||0) + pts;
-    const tier = newTotal >= 5000 ? 'diamond' : newTotal >= 2000 ? 'gold' : 'silver';
-    sqlite.prepare('UPDATE loyalty_points SET points=points+?, totalEarned=totalEarned+?, tier=?, updatedAt=? WHERE userId=? AND customerId=?')
-      .run(pts, pts, tier, new Date().toISOString(), userId, customerId);
-  } else {
-    const tier = pts >= 5000 ? 'diamond' : pts >= 2000 ? 'gold' : 'silver';
-    sqlite.prepare('INSERT INTO loyalty_points (userId,customerId,points,totalEarned,tier,updatedAt) VALUES (?,?,?,?,?,?)')
-      .run(userId, customerId, pts, pts, tier, new Date().toISOString());
-  }
-};
-
-db.getUserById = function(id) {
-  return sqlite.prepare('SELECT * FROM users WHERE id = ?').get(id) || null;
-};
-
-db.updateUserPassword = function(id, hashedPassword) {
-  sqlite.prepare('UPDATE users SET password = ?, updatedAt = ? WHERE id = ?').run(hashedPassword, new Date().toISOString(), id);
-};
-
-db.findOrderByCode = function(userId, code) {
-  try {
-    return sqlite.prepare(
-      "SELECT * FROM orders WHERE userId = ? AND UPPER(customerCode) = UPPER(?)"
-    ).get(userId, (code || '').trim()) || null;
-  } catch { return null; }
-};
-
-// ── COUPONS SYSTEM ────────────────────────────────────────────
-sqlite.exec(`
-  CREATE TABLE IF NOT EXISTS coupons (
-    id TEXT PRIMARY KEY,
-    userId TEXT NOT NULL,
-    code TEXT NOT NULL,
-    type TEXT DEFAULT 'percent',
-    value REAL DEFAULT 0,
-    minOrder REAL DEFAULT 0,
-    maxUses INTEGER DEFAULT 0,
-    usedCount INTEGER DEFAULT 0,
-    expiresAt TEXT DEFAULT '',
-    active INTEGER DEFAULT 1,
-    createdAt TEXT NOT NULL,
-    FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE
-  );
-  CREATE UNIQUE INDEX IF NOT EXISTS idx_coupons_code ON coupons(userId, code);
-`);
-
-db.getCoupons = function(userId) {
-  return sqlite.prepare('SELECT * FROM coupons WHERE userId=? ORDER BY createdAt DESC').all(userId)
-    .map(c => ({ ...c, active: !!c.active }));
-};
-db.getCouponByCode = function(userId, code) {
-  return sqlite.prepare('SELECT * FROM coupons WHERE userId=? AND UPPER(code)=UPPER(?)').get(userId, (code||'').trim()) || null;
-};
-db.createCoupon = function(c) {
-  const id = uid();
-  sqlite.prepare(
-    'INSERT INTO coupons (id,userId,code,type,value,minOrder,maxUses,usedCount,expiresAt,active,createdAt) VALUES (?,?,?,?,?,?,?,0,?,1,?)'
-  ).run(id, c.userId, (c.code||'').toUpperCase().trim(), c.type||'percent', +(c.value||0), +(c.minOrder||0), +(c.maxUses||0), c.expiresAt||'', new Date().toISOString());
-  return db.getCoupons(c.userId).find(x => x.id === id);
-};
-db.updateCoupon = function(id, u) {
-  const allowed = ['code','type','value','minOrder','maxUses','expiresAt','active'];
-  _update('coupons', id, u, allowed);
-};
-db.deleteCoupon = function(id) {
-  sqlite.prepare('DELETE FROM coupons WHERE id=?').run(id);
-};
-db.incrementCouponUse = function(id) {
-  sqlite.prepare('UPDATE coupons SET usedCount=usedCount+1 WHERE id=?').run(id);
-};
-db.validateCoupon = function(userId, code, orderTotal) {
-  const c = db.getCouponByCode(userId, code);
-  if (!c) return { valid: false, reason: 'الكود غير موجود' };
-  if (!c.active) return { valid: false, reason: 'الكود غير نشط' };
-  if (c.maxUses > 0 && c.usedCount >= c.maxUses) return { valid: false, reason: 'تم استخدام هذا الكود بالكامل' };
-  if (c.expiresAt && new Date(c.expiresAt) < new Date()) return { valid: false, reason: 'انتهت صلاحية الكود' };
-  if (c.minOrder > 0 && orderTotal < c.minOrder) return { valid: false, reason: `الحد الأدنى للطلب ${c.minOrder} ${c.currency||'MAD'}` };
-  let discount = 0;
-  if (c.type === 'percent') discount = Math.round(orderTotal * c.value / 100);
-  else if (c.type === 'fixed') discount = Math.min(c.value, orderTotal);
-  else if (c.type === 'shipping') discount = 0; // handled on frontend
-  return { valid: true, discount, type: c.type, value: c.value, couponId: c.id };
-};

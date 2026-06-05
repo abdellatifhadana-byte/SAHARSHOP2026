@@ -1,7 +1,7 @@
 import React from 'react';
 import { useStore } from '../store';
 import {
-  ShoppingBag, MessageCircle, Users,
+  ShoppingBag, MessageCircle, Users, TrendingUp,
   ChevronRight, AlertTriangle, ChevronDown, ChevronUp, Bell,
 } from 'lucide-react';
 import { isPushSupported, getPushPermission, subscribeToPush } from '../lib/pushNotifications';
@@ -95,6 +95,11 @@ export default function DashboardPage() {
   const goalPct  = goals.daily>0 ? Math.min(100,Math.round((todayRev/goals.daily)*100)) : 0;
 
   const kpiCards = [
+    {
+      label:'الإيراد', value:revenue.toLocaleString(), unit:currency,
+      sub:`اليوم: ${todayRev.toLocaleString()} ${currency}`,
+      color:'var(--mint)', icon:TrendingUp, page:'analytics' as const,
+    },
     {
       label:'الطلبات', value:String(active.length), unit:'طلب',
       sub:pending>0?`${pending} بانتظار ⚠`:'لا معلقة ✅',
@@ -266,8 +271,8 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* 3 KPI cards — condensed single row */}
-      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8}}>
+      {/* 4 KPI cards — 2×2 grid */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:8}}>
         {kpiCards.map((s,i)=>(
           <button key={i} onClick={()=>setPage(s.page)} className="kpi-card"
             style={{ border: s.alert ? '1px solid rgba(255,106,0,.3)' : undefined,

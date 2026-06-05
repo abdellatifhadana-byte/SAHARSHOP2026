@@ -43,34 +43,35 @@ async function handleIncoming(msg, phoneId) {
   if (!text) return;
 
   // Find user by WhatsApp Phone ID
-  const allUsers = db.listUsers();
+  const allUsers = await db.listUsers();
   let userId = null;
   for (const u of allUsers) {
-    const s = db.getSettings(u.id);
+    const s = await db.getSettings(u.id);
     if (s?.social?.whatsapp?.pageId === phoneId) { userId = u.id; break; }
   }
   if (!userId) return;
 
   // Find or create conversation
-  let conv = db.getConversations(userId).find(c => c.customerPhone === from);
+  const convs = await db.getConversations(userId);
+  let conv = convs.find(c => c.customerPhone === from);
   if (!conv) {
-    conv = db.createConversation({
+    conv = await db.createConversation({
       userId, customerName: from, customerPhone: from,
       source: 'WhatsApp', status: 'active', lastMessage: text, unread: 1,
     });
   }
 
-  db.addMessage(conv.id, { content: text, role: 'customer' });
-  db.addNotification({ userId, type: 'info', message: `💬 رسالة جديدة من ${from}` });
+  await db.addMessage(conv.id, { content: text, role: 'customer' });
+  await db.addNotification({ userId, type: 'info', message: `💬 رسالة جديدة من ${from}` });
 
   // AI reply
-  const settings = db.getSettings(userId);
-  const products = db.getProducts(userId);
+  const settings = await db.getSettings(userId);
+  const products = await db.getProducts(userId);
   const intent   = ai.detectIntent(text);
   const reply    = ai.generateLocalReply(intent, text, products, settings);
 
-  setTimeout(() => {
-    db.addMessage(conv.id, { content: reply, role: 'ai' });
+  setTimeout(async () => {
+    await db.addMessage(conv.id, { content: reply, role: 'ai' });
   }, 2000);
 }
 

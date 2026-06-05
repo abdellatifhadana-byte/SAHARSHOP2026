@@ -840,6 +840,16 @@ export default function SettingsPage() {
       ══════════════════════════════════════════════════════════════════ */}
       {tab === 'security' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={{
+            background: 'rgba(255,106,0,.07)', border: '1px solid rgba(255,106,0,.22)',
+            borderRadius: 12, padding: '12px 16px',
+            display: 'flex', alignItems: 'center', gap: 10,
+          }}>
+            <Shield size={18} style={{ color: 'var(--ember)', flexShrink: 0 }} />
+            <p style={{ fontSize: 12, color: 'var(--ink2)', lineHeight: 1.55 }}>
+              <strong style={{ color: 'var(--ember)' }}>تذكير أمني:</strong> فعّل المصادقة الثنائية واستخدم كلمة مرور قوية لحماية حسابك وبيانات متجرك.
+            </p>
+          </div>
           <Section title="الأمان">
             <Toggle
               on={s.security.twoFactorEnabled}

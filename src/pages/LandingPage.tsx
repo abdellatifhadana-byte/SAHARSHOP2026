@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useStore } from '../store';
 import { t, type Lang } from '../i18n/translations';
+import { Bot, MessageCircle, Truck, BarChart3, ShieldCheck, Sparkles } from 'lucide-react';
 
 const LANGS: { code: Lang; flag: string; label: string }[] = [
   { code: 'ar',     flag: '🇸🇦', label: 'العربية'   },
@@ -10,27 +11,13 @@ const LANGS: { code: Lang; flag: string; label: string }[] = [
 ];
 
 const FEATURES = [
-  { icon: '🤖', key: 'landing.feature.ai'       , color: '#FF6A00' },
-  { icon: '💬', key: 'landing.feature.whatsapp'  , color: '#25D366' },
-  { icon: '🚚', key: 'landing.feature.delivery'  , color: '#00D2B3' },
-  { icon: '📊', key: 'landing.feature.analytics' , color: '#F6C453' },
-  { icon: '🔒', key: 'landing.feature.secure'    , color: '#a78bfa' },
-  { icon: '✨', key: 'landing.feature.banner'     , color: '#60a5fa' },
+  { Icon: Bot,           key: 'landing.feature.ai',       color: '#FF6A00' },
+  { Icon: MessageCircle, key: 'landing.feature.whatsapp',  color: '#25D366' },
+  { Icon: Truck,         key: 'landing.feature.delivery',  color: '#00D2B3' },
+  { Icon: BarChart3,     key: 'landing.feature.analytics', color: '#FF8533' },
+  { Icon: ShieldCheck,   key: 'landing.feature.secure',    color: '#a78bfa' },
+  { Icon: Sparkles,      key: 'landing.feature.banner',    color: '#60a5fa' },
 ];
-
-// Animated SVG orb
-function Orb({ x, y, size, color, delay = 0 }: { x: string; y: string; size: number; color: string; delay?: number }) {
-  return (
-    <div style={{
-      position: 'absolute', left: x, top: y,
-      width: size, height: size, borderRadius: '50%',
-      background: `radial-gradient(circle, ${color}22 0%, ${color}06 50%, transparent 70%)`,
-      filter: `blur(${size * 0.4}px)`,
-      animation: `orbFloat ${6 + delay}s ease-in-out ${delay}s infinite alternate`,
-      pointerEvents: 'none',
-    }} />
-  );
-}
 
 export default function LandingPage() {
   const { token, user, settings, updateSettings } = useStore();
@@ -72,11 +59,9 @@ export default function LandingPage() {
       fontFamily: 'inherit',
     }}>
       <style>{`
-        @keyframes orbFloat { 0%{transform:translate(0,0) scale(1)} 100%{transform:translate(20px,-30px) scale(1.1)} }
         @keyframes fadeUp { from{opacity:0;transform:translateY(24px)} to{opacity:1;transform:translateY(0)} }
         @keyframes shimmer { 0%,100%{opacity:.4} 50%{opacity:1} }
         @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
-        @keyframes countUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
         .land-card-customer { transition: transform .25s ease, box-shadow .25s ease; }
         .land-card-customer:hover { transform: translateY(-6px) scale(1.02); box-shadow: 0 32px 80px rgba(0,210,179,.2), 0 0 0 1px rgba(0,210,179,.35) !important; }
         .land-card-merchant { transition: transform .25s ease, box-shadow .25s ease; }
@@ -87,31 +72,13 @@ export default function LandingPage() {
         .lang-option:hover { background: rgba(255,255,255,.08) !important; }
       `}</style>
 
-      {/* Ambient orbs */}
-      <Orb x="-15%" y="5%"  size={500} color="#FF6A00" delay={0} />
-      <Orb x="60%"  y="-5%" size={600} color="#00D2B3" delay={2} />
-      <Orb x="30%"  y="60%" size={400} color="#F6C453" delay={4} />
-      <Orb x="-5%"  y="70%" size={350} color="#7C3AED" delay={1} />
-
       {/* Grid pattern */}
       <div style={{
         position: 'absolute', inset: 0, zIndex: 1,
-        backgroundImage: 'linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px)',
+        backgroundImage: 'linear-gradient(rgba(255,255,255,.01) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.01) 1px, transparent 1px)',
         backgroundSize: '48px 48px',
         maskImage: 'radial-gradient(ellipse 80% 60% at 50% 0%, black 40%, transparent 100%)',
       }} />
-
-      {/* Zellige top strip */}
-      <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: 28, zIndex: 2, pointerEvents: 'none' }}
-        viewBox="0 0 800 28" preserveAspectRatio="xMidYMid slice">
-        {Array.from({ length: 44 }, (_, i) => (
-          <polygon key={i}
-            points={`${i * 20 - 10},0 ${i * 20},10 ${i * 20 - 10},20 ${i * 20 - 20},10`}
-            fill={['#FF6A00', '#C9954C', '#00D2B3', '#FF6A00', '#F6C453'][i % 5]}
-            opacity={0.5}
-          />
-        ))}
-      </svg>
 
       {/* ── TOP BAR ── */}
       <div style={{
@@ -214,13 +181,16 @@ export default function LandingPage() {
         {/* Main headline */}
         <h1 style={{
           fontSize: 'clamp(28px,6vw,56px)', fontWeight: 900,
-          lineHeight: 1.15, marginBottom: 14,
+          lineHeight: 1.2, marginBottom: 14,
           letterSpacing: '-0.03em',
           maxWidth: 700,
-          background: 'linear-gradient(135deg,#FFFFFF 0%,#E8E4DC 40%,#C9954C 100%)',
-          WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
         }}>
-          {t(lang, 'landing.subtitle')}
+          <span style={{ background: 'linear-gradient(135deg,#FFFFFF 0%,#E8E4DC 40%,#C9954C 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', display: 'block' }}>
+            {t(lang, 'landing.hero.title1')}
+          </span>
+          <span style={{ color: '#00D2B3', display: 'block' }}>
+            {t(lang, 'landing.hero.title2')}
+          </span>
         </h1>
 
         {/* Sub description */}
@@ -369,6 +339,36 @@ export default function LandingPage() {
         </a>
       </div>
 
+      {/* ── HOW IT WORKS ── */}
+      <div style={{
+        position: 'relative', zIndex: 5,
+        maxWidth: 780, margin: '0 auto',
+        padding: '12px clamp(16px,4vw,48px) 0',
+        animationFillMode: 'both',
+        ...(loaded ? { animation: 'fadeUp .7s .3s ease both' } : {}),
+      }}>
+        <p style={{ textAlign: 'center', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.3)', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 12 }}>
+          كيف يعمل؟
+        </p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
+          {([
+            { num: '01', key: 'landing.how.step1', color: '#FF6A00' },
+            { num: '02', key: 'landing.how.step2', color: '#00D2B3' },
+            { num: '03', key: 'landing.how.step3', color: '#FF8533' },
+          ] as const).map(s => (
+            <div key={s.num} style={{
+              padding: '14px 10px', borderRadius: 14,
+              background: 'rgba(255,255,255,.03)',
+              border: '1px solid rgba(255,255,255,.07)',
+              textAlign: 'center',
+            }}>
+              <div style={{ fontSize: 18, fontWeight: 900, color: s.color, marginBottom: 5, letterSpacing: '-0.03em' }}>{s.num}</div>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,.5)', fontWeight: 600, lineHeight: 1.5 }}>{t(lang, s.key)}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* ── FEATURES ── */}
       <div style={{
         position: 'relative', zIndex: 5,
@@ -378,19 +378,22 @@ export default function LandingPage() {
         animation: loaded ? 'fadeUp .7s .35s ease both' : 'none',
         animationFillMode: 'both',
       }}>
-        {FEATURES.map(f => (
-          <div key={f.key} className="feature-chip" style={{
-            display: 'flex', alignItems: 'center', gap: 7,
-            padding: '7px 14px', borderRadius: 99,
-            background: 'rgba(255,255,255,.04)',
-            border: `1px solid ${f.color}28`,
-            color: f.color, fontSize: 12, fontWeight: 700,
-            backdropFilter: 'blur(8px)',
-          }}>
-            <span style={{ fontSize: 14 }}>{f.icon}</span>
-            {t(lang, f.key)}
-          </div>
-        ))}
+        {FEATURES.map(f => {
+          const FIcon = f.Icon;
+          return (
+            <div key={f.key} className="feature-chip" style={{
+              display: 'flex', alignItems: 'center', gap: 7,
+              padding: '7px 14px', borderRadius: 99,
+              background: 'rgba(255,255,255,.04)',
+              border: `1px solid ${f.color}28`,
+              color: f.color, fontSize: 12, fontWeight: 700,
+              backdropFilter: 'blur(8px)',
+            }}>
+              <FIcon size={14} />
+              {t(lang, f.key)}
+            </div>
+          );
+        })}
       </div>
 
       {/* ── STATS ── */}

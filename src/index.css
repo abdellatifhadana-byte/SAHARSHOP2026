@@ -4,7 +4,7 @@
    Spacing · Radius · Shadow · Motion · Typography · Color
    ══════════════════════════════════════════════════════════════════ */
 
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
 /* ═══════════════════════════════════════════════════
@@ -218,7 +218,7 @@ html.light-theme {
 html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 
 body {
-  font-family: 'IBM Plex Sans Arabic', 'Space Grotesk', system-ui, sans-serif;
+  font-family: 'IBM Plex Sans Arabic', 'Plus Jakarta Sans', system-ui, sans-serif;
   background: var(--void);
   color: var(--ink1);
   line-height: 1.55;
@@ -350,6 +350,28 @@ body {
   box-shadow: 0 -8px 30px rgba(0,0,0,.32);
 }
 @media (max-width: 768px) { .mobile-bottom-nav { display: flex; } }
+
+/* ── Desktop nav sidebar (≥1024px) ───────────────── */
+.nav-desktop-sidebar {
+  display: none;
+  position: fixed;
+  top: 56px;
+  right: 0;
+  width: 220px;
+  height: calc(100dvh - 56px);
+  background: var(--panel);
+  border-left: 1px solid var(--border2);
+  flex-direction: column;
+  overflow-y: auto;
+  z-index: 100;
+  padding: 8px 0 16px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border2) transparent;
+}
+@media (min-width: 1024px) {
+  .nav-desktop-sidebar { display: flex; }
+  .main-with-sidebar { margin-right: 220px; }
+}
 
 /* ── Mobile bottom nav button */
 .mob-nav-btn {
@@ -509,7 +531,7 @@ body {
   box-shadow: var(--depth-shadow-hover);
 }
 .stat-card-number {
-  font-family: 'Space Grotesk', monospace;
+  font-family: 'Plus Jakarta Sans', monospace;
   font-size: clamp(28px, 4vw, 40px);
   font-weight: 700; letter-spacing: -.04em; line-height: 1;
   background: linear-gradient(135deg, var(--ink1) 0%, var(--ember2) 100%);
@@ -728,11 +750,11 @@ html.light-theme .glass-input:focus {
 .section-title { font-size: 10px; font-weight: 700; color: var(--ink3); letter-spacing: .1em; text-transform: uppercase; }
 .card-title  { font-size: 15px; font-weight: 700; color: var(--ink1); letter-spacing: -.01em; }
 .card-sub    { font-size: 12px; color: var(--ink3); line-height: 1.5; }
-.num-xl { font-family: 'Space Grotesk', monospace; font-size: 30px; font-weight: 700; letter-spacing: -.04em; line-height: 1; }
-.num-lg { font-family: 'Space Grotesk', monospace; font-size: 22px; font-weight: 700; letter-spacing: -.03em; line-height: 1; }
-.num-md { font-family: 'Space Grotesk', monospace; font-size: 16px; font-weight: 700; letter-spacing: -.02em; }
-.price     { font-family: 'Space Grotesk', monospace; font-weight: 700; color: var(--ember); letter-spacing: -.02em; }
-.price-old { font-family: 'Space Grotesk', monospace; font-weight: 500; color: var(--ink3); text-decoration: line-through; font-size: .85em; }
+.num-xl { font-family: 'Plus Jakarta Sans', monospace; font-size: 30px; font-weight: 700; letter-spacing: -.04em; line-height: 1; }
+.num-lg { font-family: 'Plus Jakarta Sans', monospace; font-size: 22px; font-weight: 700; letter-spacing: -.03em; line-height: 1; }
+.num-md { font-family: 'Plus Jakarta Sans', monospace; font-size: 16px; font-weight: 700; letter-spacing: -.02em; }
+.price     { font-family: 'Plus Jakarta Sans', monospace; font-weight: 700; color: var(--ember); letter-spacing: -.02em; }
+.price-old { font-family: 'Plus Jakarta Sans', monospace; font-weight: 500; color: var(--ink3); text-decoration: line-through; font-size: .85em; }
 
 /* ═══════════════════════════════════════════════════
    8. BADGES & STATUS
@@ -887,34 +909,18 @@ html.light-theme .glass-input:focus {
    ═══════════════════════════════════════════════════ */
 .empty-state {
   display: flex; flex-direction: column; align-items: center;
-  justify-content: center; padding: 48px var(--sp-6);
+  justify-content: center; padding: var(--sp-12) var(--sp-6);
   text-align: center; gap: var(--sp-3);
 }
 .empty-state-icon {
-  width: 100px; height: 100px; border-radius: 28px;
+  width: 72px; height: 72px; border-radius: var(--radius-xl);
   display: flex; align-items: center; justify-content: center;
-  font-size: 44px; margin-bottom: var(--sp-3);
-  background: linear-gradient(145deg, rgba(255,106,0,.08), rgba(255,106,0,.03));
-  border: 1px solid rgba(255,106,0,.18);
-  box-shadow: 0 0 32px rgba(255,106,0,.12), var(--depth-shadow);
-  animation: empty-pulse 3s ease-in-out infinite;
+  font-size: 32px; margin-bottom: var(--sp-2);
+  background: rgba(255,255,255,.04); border: 1px solid var(--border);
+  box-shadow: var(--depth-shadow);
 }
-/* Custom SVG icon in empty state */
-.empty-state-icon img {
-  width: 60px; height: 60px; object-fit: contain;
-  filter: drop-shadow(0 0 16px rgba(255,106,0,.5)) drop-shadow(0 0 6px rgba(255,106,0,.3));
-  animation: empty-float 4s ease-in-out infinite;
-}
-@keyframes empty-pulse {
-  0%, 100% { box-shadow: 0 0 32px rgba(255,106,0,.12), var(--depth-shadow); border-color: rgba(255,106,0,.18); }
-  50%       { box-shadow: 0 0 48px rgba(255,106,0,.22), 0 0 16px rgba(255,106,0,.1), var(--depth-shadow); border-color: rgba(255,106,0,.32); }
-}
-@keyframes empty-float {
-  0%, 100% { transform: translateY(0); }
-  50%       { transform: translateY(-5px); }
-}
-.empty-state-title  { font-size: 18px; font-weight: 800; color: var(--ink1); letter-spacing: -.02em; }
-.empty-state-sub    { font-size: 13px; color: var(--ink3); max-width: 280px; line-height: 1.7; }
+.empty-state-title  { font-size: 17px; font-weight: 700; color: var(--ink2); letter-spacing: -.01em; }
+.empty-state-sub    { font-size: 13px; color: var(--ink3); max-width: 260px; line-height: 1.6; }
 
 /* ═══════════════════════════════════════════════════
    14. SKELETON SYSTEM
@@ -1045,6 +1051,7 @@ html.light-theme .glass-input:focus {
 ::-webkit-scrollbar-thumb:hover { background: var(--panel4); }
 
 :focus-visible { outline: 2px solid var(--ember); outline-offset: 2px; border-radius: 4px; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border-width: 0; }
 button, a, [role="button"] { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
 
 @media (prefers-reduced-motion: reduce) {

@@ -5,6 +5,7 @@ import AuthPage              from './pages/AuthPage';
 import MainLayout            from './pages/MainLayout';
 import LandingPage           from './pages/LandingPage';
 import Storefront            from './pages/Storefront';
+import Onboarding            from './pages/Onboarding';
 import NotificationToast     from './components/NotificationToast';
 import TourGuide             from './components/TourGuide';
 
@@ -75,9 +76,19 @@ function RouterSync() {
 }
 
 function AppShell() {
-  const { token } = useStore();
+  const { token, onboardingCompleted } = useStore();
   const isDemoMode = token === 'demo-token-local';
   const isAuthed   = !!token || isDemoMode;
+
+  if (token && !isDemoMode && !onboardingCompleted) {
+    return (
+      <>
+        <ThemeManager />
+        <NotificationToast />
+        <Onboarding />
+      </>
+    );
+  }
 
   return (
     <>

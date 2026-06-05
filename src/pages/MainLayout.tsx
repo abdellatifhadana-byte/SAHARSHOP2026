@@ -97,7 +97,7 @@ export default function MainLayout() {
         </div>
       )}
       {/* Main content */}
-      <main style={{ flex:1, paddingTop:56, paddingBottom:80, overflowX:'hidden', minHeight:'100dvh' }}>
+      <main className="main-with-sidebar" style={{ flex:1, paddingTop:56, paddingBottom:80, overflowX:'hidden', minHeight:'100dvh' }}>
         <div style={{ maxWidth:1100, margin:'0 auto', padding:'20px 16px' }}>
           <Suspense fallback={<PageSkeleton />}>
             <PageContent />

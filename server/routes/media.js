@@ -35,7 +35,6 @@ const UPLOAD_DIR = path.join(__dirname, '..', 'data', 'uploads');
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 // ── Magic-bytes validator — rejects non-image data regardless of MIME ──
-// Checks the first 12 bytes of the buffer for known image signatures
 const IMAGE_SIGNATURES = [
   { sig: Buffer.from([0xFF, 0xD8, 0xFF]),             ext: 'jpg'  }, // JPEG
   { sig: Buffer.from([0x89, 0x50, 0x4E, 0x47]),       ext: 'png'  }, // PNG
@@ -133,7 +132,7 @@ router.post('/upload', auth, upload.single('image'), async (req, res) => {
     }
 
     // Fallback: check user's DB Cloudinary settings
-    const us = db.getSettings(req.user.id) || {};
+    const us = await db.getSettings(req.user.id) || {};
     if (us.cloudinaryCloudName && us.cloudinaryApiKey && us.cloudinaryApiSecret) {
       const result = await uploadToCloudinaryDynamic(req.file.buffer, us.cloudinaryCloudName, us.cloudinaryApiKey, us.cloudinaryApiSecret);
       return res.json({ url: result.secure_url, filename: result.public_id, size: result.bytes, provider: 'cloudinary' });
@@ -169,7 +168,7 @@ router.post('/upload-base64', auth, async (req, res) => {
     return res.status(400).json({ error: 'Invalid image data — magic bytes mismatch' });
   }
 
-  // Reject oversized images — protects SQLite and memory when Cloudinary is not active
+  // Reject oversized images — protects memory when Cloudinary is not active
   if (buffer.length > 5 * 1024 * 1024) {
     return res.status(413).json({ error: 'الصورة كبيرة جداً (الحد الأقصى 5 ميجا) — يرجى ضغطها أولاً أو استخدام Cloudinary' });
   }
@@ -181,7 +180,7 @@ router.post('/upload-base64', auth, async (req, res) => {
     }
 
     // Fallback: check user's DB Cloudinary settings
-    const us = db.getSettings(req.user.id) || {};
+    const us = await db.getSettings(req.user.id) || {};
     if (us.cloudinaryCloudName && us.cloudinaryApiKey && us.cloudinaryApiSecret) {
       const result = await uploadToCloudinaryDynamic(buffer, us.cloudinaryCloudName, us.cloudinaryApiKey, us.cloudinaryApiSecret);
       return res.json({ url: result.secure_url, filename: result.public_id, provider: 'cloudinary' });

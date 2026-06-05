@@ -163,61 +163,82 @@ app.use((err, req, res, _next) => {
 });
 
 // ── Start ────────────────────────────────────────────────────
-const server = app.listen(PORT, '0.0.0.0', () => {
-  const hasKey = !!(process.env.OPENAI_API_KEY || process.env.GEMINI_API_KEY);
-  const url = process.env.RAILWAY_PUBLIC_DOMAIN 
-    ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` 
-    : `http://localhost:${PORT}`;
-  console.log('\n╔══════════════════════════════════════════╗');
-  console.log('║      AI Commerce OS  — v3.2 Ready       ║');
-  console.log(`║  🌐  ${url}`);
-  console.log(`║  🤖  AI: ${hasKey ? '✅ API key set' : '⚠️  Local AI (no key)'}     ║`);
-  console.log('╚══════════════════════════════════════════╝\n');
-  console.log(`[ENV] NODE_ENV=${process.env.NODE_ENV || 'development'}`);
-  console.log(`[ENV] PORT=${PORT}`);
-  ensureAdmin();
-});
+const migrate = require('./migrate');
 
-// ── WebSocket ────────────────────────────────────────────────
-const WebSocket = require('ws');
-const wss = new WebSocket.Server({ server, path: '/ws' });
-const clients = new Map();
+async function startServer() {
+  try {
+    if (process.env.DATABASE_URL) {
+      await migrate();
+    } else {
+      console.warn('[Server] ⚠️  DATABASE_URL not set — skipping PostgreSQL migration');
+    }
+    const server = app.listen(PORT, '0.0.0.0', () => {
+      const hasKey = !!(process.env.OPENAI_API_KEY || process.env.GEMINI_API_KEY);
+      const url = process.env.RAILWAY_PUBLIC_DOMAIN
+        ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+        : `http://localhost:${PORT}`;
+      console.log('\n╔══════════════════════════════════════════╗');
+      console.log('║      AI Commerce OS  — v3.2 Ready       ║');
+      console.log(`║  🌐  ${url}`);
+      console.log(`║  🤖  AI: ${hasKey ? '✅ API key set' : '⚠️  Local AI (no key)'}     ║`);
+      console.log('╚══════════════════════════════════════════╝\n');
+      console.log(`[ENV] NODE_ENV=${process.env.NODE_ENV || 'development'}`);
+      console.log(`[ENV] PORT=${PORT}`);
+      ensureAdmin();
+    });
 
-wss.on('connection', (ws, req) => {
-  const params = new URLSearchParams((req.url||'').split('?')[1]);
-  const userId = params.get('userId') || 'anon';
-  if (!clients.has(userId)) clients.set(userId, new Set());
-  clients.get(userId).add(ws);
-  ws.send(JSON.stringify({ event: 'connected', userId }));
-  ws.on('close', () => {
-    clients.get(userId)?.delete(ws);
-    if (!clients.get(userId)?.size) clients.delete(userId);
-  });
-  ws.on('error', () => {});
-});
+    // ── WebSocket (moved inside async start) ─────────────────
+    const WebSocket = require('ws');
+    const wss = new WebSocket.Server({ server, path: '/ws' });
+    const clients = new Map();
 
-app.set('broadcast', (userId, event) => {
-  const sockets = clients.get(userId);
-  if (!sockets) return;
-  const msg = JSON.stringify(event);
-  sockets.forEach(ws => { try { if (ws.readyState === 1) ws.send(msg); } catch {} });
-});
+    wss.on('connection', (ws, req) => {
+      const params = new URLSearchParams((req.url||'').split('?')[1]);
+      const userId = params.get('userId') || 'anon';
+      if (!clients.has(userId)) clients.set(userId, new Set());
+      clients.get(userId).add(ws);
+      ws.send(JSON.stringify({ event: 'connected', userId }));
+      ws.on('close', () => {
+        clients.get(userId)?.delete(ws);
+        if (!clients.get(userId)?.size) clients.delete(userId);
+      });
+      ws.on('error', () => {});
+    });
+
+    app.set('broadcast', (userId, event) => {
+      const set = clients.get(userId);
+      if (!set) return;
+      const payload = JSON.stringify(event);
+      set.forEach(ws => { try { ws.send(payload); } catch {} });
+    });
+
+  } catch (err) {
+    console.error('[Server] ❌ Startup failed:', err.message);
+    process.exit(1);
+  }
+}
+
+startServer();
+
+// WebSocket is now initialized inside startServer() above.
 
 // ── Init Supabase sync ───────────────────────────────────────
 require('./sync').ensureTable().catch(() => {});
 
 // ── Auto-create admin ─────────────────────────────────────────
-function ensureAdmin() {
-  const { db } = require('./database');
-  const email = process.env.ADMIN_EMAIL;
-  const pass  = process.env.ADMIN_PASSWORD;
-  if (!email || !pass) return;
-  if (db.getUserByEmail(email)) return;
-  const bcrypt = require('bcryptjs');
-  db.createUser({ name: process.env.ADMIN_NAME || 'Admin', email, password: bcrypt.hashSync(pass, 10), role: 'admin' });
-  const { defaultSettings } = require('./defaults');
-  db.saveSettings(db.getUserByEmail(email).id, { ...defaultSettings, brand: { ...defaultSettings.brand, email } });
-  console.log(`[Admin] Created: ${email}`);
+async function ensureAdmin() {
+  try {
+    const { db } = require('./database');
+    const email = process.env.ADMIN_EMAIL;
+    const pass  = process.env.ADMIN_PASSWORD;
+    if (!email || !pass) return;
+    if (await db.getUserByEmail(email)) return;
+    const bcrypt = require('bcryptjs');
+    const user = await db.createUser({ name: process.env.ADMIN_NAME || 'Admin', email, password: bcrypt.hashSync(pass, 10), role: 'admin' });
+    const { defaultSettings } = require('./defaults');
+    await db.saveSettings(user.id, { ...defaultSettings, brand: { ...defaultSettings.brand, email } });
+    console.log(`[Admin] Created: ${email}`);
+  } catch(e) { console.error('[Admin]', e.message); }
 }
 
 // ── Morning Report Cron ─────────────────────────

@@ -87,11 +87,9 @@ function smartReply(msg, history, products, settings) {
       : `وجدت المنتج:\n\n${p.emoji || '📦'} ${p.name}\n💰 ${p.price} ${cur}\n📏 ${sizes}\n🎨 ${colors}\n\nهل تريد الطلب؟`;
   }
 
-  // Greetings
   if (/(سلام|مرحبا|hello|salut|bonjour|هاي|hi\b|صباح|مساء)/i.test(lo))
     return D ? `مرحباً! 👋 كيداير؟ ${pub.length ? `عندنا ${pub.length} منتج متوفر دابا!` : 'مرحباً بك!'}\nواش بغيتي تشوف المنتجات أو تطلب شي محدد؟` : `مرحباً! 👋 يسعدني مساعدتك. ${pub.length ? `لدينا ${pub.length} منتج متوفر.` : ''}`;
 
-  // Price
   if (/(ثمن|سعر|بكام|prix|price|كم|combien|شحال)/i.test(lo)) {
     if (pub.length === 0) return D ? 'ما كاين منتجات منشورة دابا.' : 'لا منتجات متوفرة حالياً.';
     const p = rand(pub);
@@ -100,19 +98,16 @@ function smartReply(msg, history, products, settings) {
       : `${p.emoji || '📦'} ${p.name} — ${p.price} ${cur}`;
   }
 
-  // Order flow
   if (/(طلب|نطلب|bghit|commander|أبغى|شري|أطلب|اطلب)/i.test(lo))
     return D
       ? `ممتاز! 🎉 باش نكملو الطلب محتاجين:\n1️⃣ الاسم الكامل\n2️⃣ رقم الهاتف 📱\n3️⃣ المدينة والعنوان 🏠\n4️⃣ المقاس واللون\n\nأبدأ بالاسم الكامل 😊`
       : `رائع! 🎉 للطلب أحتاج: الاسم الكامل، رقم الهاتف، المدينة والعنوان، المقاس واللون.`;
 
-  // Delivery
   if (/(توصيل|livraison|delivery|يوصل|فين|wين)/i.test(lo))
     return D
       ? `التوصيل لجميع مدن المغرب 🇲🇦\n⏱️ 24-48 ساعة\n💰 20-40 MAD حسب المدينة:\n• كازا/الرباط: 20 MAD\n• فاس/مراكش/طنجة: 30 MAD\n• باقي المدن: 35-40 MAD\nواش بغيتي تطلب؟`
       : `نوصل لجميع المدن 🇲🇦 في 24-48 ساعة. السعر 20-40 MAD.`;
 
-  // Negotiation
   if (/(غالي|cher|expensive|خصم|discount|نقص|تخفيض|رخص)/i.test(lo)) {
     const max = settings?.ai?.maxDiscount || 15;
     const d   = Math.round(max * 0.7);
@@ -121,23 +116,19 @@ function smartReply(msg, history, products, settings) {
     return D ? `الثمن مناسب جداً للجودة العالية 💎\nوعندنا ضمان كامل + توصيل سريع 🚚` : `السعر مناسب مع ضمان الجودة.`;
   }
 
-  // Sizes
   if (/(مقاس|تاي|taille|size|قياس)/i.test(lo)) {
     const sizes = settings?.products?.defaultSizes?.join(' · ') || 'S · M · L · XL · XXL';
     return D ? `المقاسات المتوفرة: **${sizes}** 📏\nأي مقاس مناسب ليك؟` : `المقاسات: ${sizes}`;
   }
 
-  // Colors
   if (/(لون|ألوان|couleur|color|لونات)/i.test(lo)) {
     const colors = settings?.products?.defaultColors?.join(' · ') || 'أسود · أبيض · أحمر';
     return D ? `الألوان المتوفرة: **${colors}** 🎨\nأي لون تبغي؟` : `الألوان: ${colors}`;
   }
 
-  // Tracking
   if (/(تتبع|tracking|طلبي|وين طلبي|وصل|status)/i.test(lo))
     return D ? `باش تتبع طلبك:\n1️⃣ ابعث رقم هاتفك\n2️⃣ أو رقم الطلب\nنشوف ليك الحالة مباشرة 📦` : `لمتابعة طلبك أرسل رقم هاتفك.`;
 
-  // Phone detected → extract and continue order
   if (/^[\+\d\s\-]{8,15}$/.test(msg.replace(/\s/g, ''))) {
     const extracted = extractOrderData([...( history || []), { content: msg, role: 'customer' }]);
     if (extracted.city)
@@ -145,11 +136,9 @@ function smartReply(msg, history, products, settings) {
     return D ? `شكراً! 📱 دابا عطيني المدينة والعنوان 🏠` : `شكراً! أعطني المدينة والعنوان.`;
   }
 
-  // Thanks
   if (/(شكرا|merci|thanks|بارك الله|يسلمو)/i.test(lo))
     return D ? `العفو! 😊 واش كاين شي آخر نقدر نساعدك فيه؟` : `العفو! هل تحتاج شيئاً آخر؟`;
 
-  // After name in history
   const lastAI = [...(history || [])].reverse().find(m => m.role === 'ai');
   if (lastAI?.content?.includes('الاسم'))
     return D ? `مزيان ${msg}! 😊 دابا عطيني رقم الهاتف 📱` : `شكراً ${msg}! أعطني رقم هاتفك.`;
@@ -166,21 +155,21 @@ function smartReply(msg, history, products, settings) {
 
 // POST /api/ai/reply — main AI endpoint
 router.post('/reply', auth, async (req, res) => {
-  const { message, history, products, settings: reqSettings, systemPrompt } = req.body;
+  try {
+    const { message, history, products, settings: reqSettings, systemPrompt } = req.body;
 
-  // Always merge DB settings as fallback so keys saved via ConnectionsPage work everywhere
-  const dbSettings  = db.getSettings(req.user.id) || {};
-  const openaiKey   = reqSettings?.ai?.apiKey   || dbSettings.ai?.apiKey   || process.env.OPENAI_API_KEY;
-  const geminiKey   = reqSettings?.ai?.geminiKey || dbSettings.ai?.geminiKey || process.env.GEMINI_API_KEY;
-  const provider    = reqSettings?.ai?.provider  || dbSettings.ai?.provider  || 'openai';
-  const mergedSettings = { ...dbSettings, ...reqSettings, ai: { ...dbSettings.ai, ...reqSettings?.ai } };
-  const brand = mergedSettings.brand || {};
-  const delivery = mergedSettings.delivery || {};
-  const cur = brand.currency || 'MAD';
-  const allProds = (products || db.getProducts(req.user.id) || []).slice(0, 30)
-    .filter(p => p.status === 'published' && p.stock > 0)
-    .map(p => `- ${p.emoji||'📦'} ${p.name}: ${p.price} ${cur}${(p.sizes||[]).length?` (${p.sizes.join('/')})`:''}`).join('\n');
-  const autoSysPrompt = `أنت مساعد بيع ذكي لمتجر "${brand.name||'متجر مغربي'}". تتحدث بالدارجة المغربية بأسلوب ودود واحترافي.
+    const dbSettings  = await db.getSettings(req.user.id) || {};
+    const openaiKey   = reqSettings?.ai?.apiKey   || dbSettings.ai?.apiKey   || process.env.OPENAI_API_KEY;
+    const geminiKey   = reqSettings?.ai?.geminiKey || dbSettings.ai?.geminiKey || process.env.GEMINI_API_KEY;
+    const provider    = reqSettings?.ai?.provider  || dbSettings.ai?.provider  || 'openai';
+    const mergedSettings = { ...dbSettings, ...reqSettings, ai: { ...dbSettings.ai, ...reqSettings?.ai } };
+    const brand = mergedSettings.brand || {};
+    const delivery = mergedSettings.delivery || {};
+    const cur = brand.currency || 'MAD';
+    const allProds = (products || (await db.getProducts(req.user.id)) || []).slice(0, 30)
+      .filter(p => p.status === 'published' && p.stock > 0)
+      .map(p => `- ${p.emoji||'📦'} ${p.name}: ${p.price} ${cur}${(p.sizes||[]).length?` (${p.sizes.join('/')})`:''}`).join('\n');
+    const autoSysPrompt = `أنت مساعد بيع ذكي لمتجر "${brand.name||'متجر مغربي'}". تتحدث بالدارجة المغربية بأسلوب ودود واحترافي.
 معلومات المتجر:
 • الهاتف: ${brand.phone||''}
 • الوصف: ${brand.description||''}
@@ -189,214 +178,211 @@ router.post('/reply', auth, async (req, res) => {
 المنتجات المتوفرة:
 ${allProds||'لا منتجات منشورة'}
 قواعد: رد بالدارجة، كن مقنعاً، اطلب الاسم والهاتف والمدينة عند الطلب.`;
-  const sysPrompt = systemPrompt || reqSettings?.ai?.systemPrompt || dbSettings.ai?.systemPrompt || autoSysPrompt;
+    const sysPrompt = systemPrompt || reqSettings?.ai?.systemPrompt || dbSettings.ai?.systemPrompt || autoSysPrompt;
 
-  const temperature = reqSettings?.ai?.temperature || dbSettings.ai?.temperature || 0.7;
-  const model       = reqSettings?.ai?.model       || dbSettings.ai?.model       || 'gpt-4o-mini';
+    const temperature = reqSettings?.ai?.temperature || dbSettings.ai?.temperature || 0.7;
+    const model       = reqSettings?.ai?.model       || dbSettings.ai?.model       || 'gpt-4o-mini';
 
-  // Try OpenAI (skip when provider is explicitly 'gemini')
-  if (openaiKey && provider !== 'gemini') {
-    try {
-      const body = JSON.stringify({
-        model,
-        messages: [
-          { role: 'system', content: sysPrompt },
-          ...(history || []).slice(-10).map(m => ({ role: m.role === 'ai' ? 'assistant' : 'user', content: m.content })),
-          { role: 'user', content: message },
-        ],
-        max_tokens: 400,
-        temperature,
-      });
-      const reply = await _https('api.openai.com', '/v1/chat/completions',
-        { 'Authorization': `Bearer ${openaiKey}` }, body);
-      const parsed = JSON.parse(reply).choices?.[0]?.message?.content;
-      if (parsed) return res.json({ reply: parsed, model: 'openai' });
-    } catch (e) { console.warn('[AI] OpenAI:', e.message); }
-  }
+    if (openaiKey && provider !== 'gemini') {
+      try {
+        const body = JSON.stringify({
+          model,
+          messages: [
+            { role: 'system', content: sysPrompt },
+            ...(history || []).slice(-10).map(m => ({ role: m.role === 'ai' ? 'assistant' : 'user', content: m.content })),
+            { role: 'user', content: message },
+          ],
+          max_tokens: 400,
+          temperature,
+        });
+        const reply = await _https('api.openai.com', '/v1/chat/completions',
+          { 'Authorization': `Bearer ${openaiKey}` }, body);
+        const parsed = JSON.parse(reply).choices?.[0]?.message?.content;
+        if (parsed) return res.json({ reply: parsed, model: 'openai' });
+      } catch (e) { console.warn('[AI] OpenAI:', e.message); }
+    }
 
-  // Try Gemini — ensure history alternates user/model (Gemini API requirement)
-  if (geminiKey) {
-    try {
-      const rawHistory = (history || []).slice(-8).map(m => ({
-        role: m.role === 'ai' ? 'model' : 'user',
-        parts: [{ text: m.content || '...' }],
-      }));
-      // Deduplicate consecutive same-role turns
-      const altHistory = [];
-      for (const turn of rawHistory) {
-        if (altHistory.length === 0 || altHistory[altHistory.length - 1].role !== turn.role) {
-          altHistory.push(turn);
+    if (geminiKey) {
+      try {
+        const rawHistory = (history || []).slice(-8).map(m => ({
+          role: m.role === 'ai' ? 'model' : 'user',
+          parts: [{ text: m.content || '...' }],
+        }));
+        const altHistory = [];
+        for (const turn of rawHistory) {
+          if (altHistory.length === 0 || altHistory[altHistory.length - 1].role !== turn.role) {
+            altHistory.push(turn);
+          }
         }
-      }
-      // Ensure last history turn is not 'user' (we'll add the user message below)
-      while (altHistory.length > 0 && altHistory[altHistory.length - 1].role === 'user') {
-        altHistory.pop();
-      }
-      const body = JSON.stringify({
-        contents: [...altHistory, { role: 'user', parts: [{ text: message }] }],
-        generationConfig: { maxOutputTokens: 400, temperature },
-        systemInstruction: { parts: [{ text: sysPrompt }] },
-      });
-      const reply = await _https('generativelanguage.googleapis.com',
-        `/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`, {}, body);
-      const parsed = JSON.parse(reply).candidates?.[0]?.content?.parts?.[0]?.text;
-      if (parsed) return res.json({ reply: parsed, model: 'gemini' });
-    } catch (e) { console.warn('[AI] Gemini:', e.message); }
-  }
+        while (altHistory.length > 0 && altHistory[altHistory.length - 1].role === 'user') {
+          altHistory.pop();
+        }
+        const body = JSON.stringify({
+          contents: [...altHistory, { role: 'user', parts: [{ text: message }] }],
+          generationConfig: { maxOutputTokens: 400, temperature },
+          systemInstruction: { parts: [{ text: sysPrompt }] },
+        });
+        const reply = await _https('generativelanguage.googleapis.com',
+          `/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`, {}, body);
+        const parsed = JSON.parse(reply).candidates?.[0]?.content?.parts?.[0]?.text;
+        if (parsed) return res.json({ reply: parsed, model: 'gemini' });
+      } catch (e) { console.warn('[AI] Gemini:', e.message); }
+    }
 
-  // Local fallback
-  const allProducts = products || db.getProducts(req.user.id);
-  const allSettings = reqSettings || dbSettings;
-  res.json({ reply: smartReply(message, history, allProducts, allSettings), model: 'local' });
+    const allProducts = products || (await db.getProducts(req.user.id));
+    const allSettings = reqSettings || dbSettings;
+    res.json({ reply: smartReply(message, history, allProducts, allSettings), model: 'local' });
+  } catch (e) { console.error('[ai/reply]', e.message); res.status(500).json({ error: 'Server error' }); }
 });
 
 // POST /api/ai/generate-description — dedicated product description generator
 router.post('/generate-description', auth, async (req, res) => {
-  const { name, category, price, sizes, colors } = req.body;
-  if (!name) return res.status(400).json({ error: 'name required' });
+  try {
+    const { name, category, price, sizes, colors } = req.body;
+    if (!name) return res.status(400).json({ error: 'name required' });
 
-  const dbSettings = db.getSettings(req.user.id) || {};
-  const openaiKey  = dbSettings.ai?.apiKey   || process.env.OPENAI_API_KEY;
-  const geminiKey  = dbSettings.ai?.geminiKey || process.env.GEMINI_API_KEY;
-  const provider   = dbSettings.ai?.provider  || 'openai';
+    const dbSettings = await db.getSettings(req.user.id) || {};
+    const openaiKey  = dbSettings.ai?.apiKey   || process.env.OPENAI_API_KEY;
+    const geminiKey  = dbSettings.ai?.geminiKey || process.env.GEMINI_API_KEY;
+    const provider   = dbSettings.ai?.provider  || 'openai';
 
-  const prompt = `اكتب وصفاً تسويقياً قصيراً (جملتين إلى ثلاث جمل) بالدارجة المغربية لمنتج: "${name}" من فئة "${category || 'ملابس'}".${price ? ` السعر: ${price} درهم.` : ''}${sizes?.length ? ` المقاسات: ${sizes.join('، ')}.` : ''}${colors?.length ? ` الألوان: ${colors.join('، ')}.` : ''} الوصف يكون جذاباً، يبرز الجودة ويشجع على الشراء. أعطِ الوصف مباشرة بدون مقدمات.`;
+    const prompt = `اكتب وصفاً تسويقياً قصيراً (جملتين إلى ثلاث جمل) بالدارجة المغربية لمنتج: "${name}" من فئة "${category || 'ملابس'}".${price ? ` السعر: ${price} درهم.` : ''}${sizes?.length ? ` المقاسات: ${sizes.join('، ')}.` : ''}${colors?.length ? ` الألوان: ${colors.join('، ')}.` : ''} الوصف يكون جذاباً، يبرز الجودة ويشجع على الشراء. أعطِ الوصف مباشرة بدون مقدمات.`;
+    const sysPrompt = 'أنت خبير كتابة إعلانية لمتجر مغربي. اكتب وصفاً جذاباً مباشراً فقط.';
 
-  const sysPrompt = 'أنت خبير كتابة إعلانية لمتجر مغربي. اكتب وصفاً جذاباً مباشراً فقط.';
+    if (openaiKey && provider !== 'gemini') {
+      try {
+        const body = JSON.stringify({
+          model: dbSettings.ai?.model || 'gpt-4o-mini',
+          messages: [{ role: 'system', content: sysPrompt }, { role: 'user', content: prompt }],
+          max_tokens: 200, temperature: 0.8,
+        });
+        const r = await _https('api.openai.com', '/v1/chat/completions', { 'Authorization': `Bearer ${openaiKey}` }, body);
+        const text = JSON.parse(r).choices?.[0]?.message?.content;
+        if (text) return res.json({ description: text.trim(), model: 'openai' });
+      } catch (e) { console.warn('[desc] OpenAI:', e.message); }
+    }
 
-  if (openaiKey && provider !== 'gemini') {
-    try {
-      const body = JSON.stringify({
-        model: dbSettings.ai?.model || 'gpt-4o-mini',
-        messages: [{ role: 'system', content: sysPrompt }, { role: 'user', content: prompt }],
-        max_tokens: 200, temperature: 0.8,
-      });
-      const r = await _https('api.openai.com', '/v1/chat/completions', { 'Authorization': `Bearer ${openaiKey}` }, body);
-      const text = JSON.parse(r).choices?.[0]?.message?.content;
-      if (text) return res.json({ description: text.trim(), model: 'openai' });
-    } catch (e) { console.warn('[desc] OpenAI:', e.message); }
-  }
+    if (geminiKey) {
+      try {
+        const body = JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          generationConfig: { maxOutputTokens: 200, temperature: 0.8 },
+          systemInstruction: { parts: [{ text: sysPrompt }] },
+        });
+        const r = await _https('generativelanguage.googleapis.com', `/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`, {}, body);
+        const text = JSON.parse(r).candidates?.[0]?.content?.parts?.[0]?.text;
+        if (text) return res.json({ description: text.trim(), model: 'gemini' });
+      } catch (e) { console.warn('[desc] Gemini:', e.message); }
+    }
 
-  if (geminiKey) {
-    try {
-      const body = JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: { maxOutputTokens: 200, temperature: 0.8 },
-        systemInstruction: { parts: [{ text: sysPrompt }] },
-      });
-      const r = await _https('generativelanguage.googleapis.com', `/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`, {}, body);
-      const text = JSON.parse(r).candidates?.[0]?.content?.parts?.[0]?.text;
-      if (text) return res.json({ description: text.trim(), model: 'gemini' });
-    } catch (e) { console.warn('[desc] Gemini:', e.message); }
-  }
-
-  // Local fallback
-  const desc = `${name} — منتج مميز من فئة ${category || 'الملابس'} بجودة عالية. ${sizes?.length ? `متوفر بمقاسات ${sizes.join('، ')}.` : ''} سارع بالطلب قبل نفاد الكمية! 🛒`;
-  res.json({ description: desc, model: 'local' });
+    const desc = `${name} — منتج مميز من فئة ${category || 'الملابس'} بجودة عالية. ${sizes?.length ? `متوفر بمقاسات ${sizes.join('، ')}.` : ''} سارع بالطلب قبل نفاد الكمية! 🛒`;
+    res.json({ description: desc, model: 'local' });
+  } catch (e) { console.error('[ai/generate-description]', e.message); res.status(500).json({ error: 'Server error' }); }
 });
 
 // POST /api/ai/generate-hashtags — generate social media hashtags
 router.post('/generate-hashtags', auth, async (req, res) => {
-  const { name, category, description, storeName } = req.body;
-  if (!name) return res.status(400).json({ error: 'name required' });
+  try {
+    const { name, category, description, storeName } = req.body;
+    if (!name) return res.status(400).json({ error: 'name required' });
 
-  const dbSettings = db.getSettings(req.user.id) || {};
-  const openaiKey  = dbSettings.ai?.apiKey   || process.env.OPENAI_API_KEY;
-  const geminiKey  = dbSettings.ai?.geminiKey || process.env.GEMINI_API_KEY;
-  const provider   = dbSettings.ai?.provider  || 'openai';
+    const dbSettings = await db.getSettings(req.user.id) || {};
+    const openaiKey  = dbSettings.ai?.apiKey   || process.env.OPENAI_API_KEY;
+    const geminiKey  = dbSettings.ai?.geminiKey || process.env.GEMINI_API_KEY;
+    const provider   = dbSettings.ai?.provider  || 'openai';
 
-  const prompt = `Generate 15 social media hashtags for a Moroccan online store product.
+    const prompt = `Generate 15 social media hashtags for a Moroccan online store product.
 Product: "${name}"${category ? `\nCategory: ${category}` : ''}${description ? `\nDescription: ${description.slice(0,100)}` : ''}${storeName ? `\nStore: ${storeName}` : ''}
 Return ONLY a valid JSON object: {"hashtags":["#tag1","#tag2",...]}
 Include: Arabic hashtags for Morocco (#تسوق_المغرب etc.), English hashtags, product-specific, and trending e-commerce tags.`;
 
-  if (openaiKey && provider !== 'gemini') {
-    try {
-      const body = JSON.stringify({
-        model: dbSettings.ai?.model || 'gpt-4o-mini',
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 250, temperature: 0.7,
-        response_format: { type: 'json_object' },
-      });
-      const r = await _https('api.openai.com', '/v1/chat/completions', { 'Authorization': `Bearer ${openaiKey}` }, body);
-      const content = JSON.parse(r).choices?.[0]?.message?.content;
-      if (content) {
-        const parsed = JSON.parse(content);
-        const tags = parsed.hashtags || parsed;
-        if (Array.isArray(tags) && tags.length) return res.json({ hashtags: tags, model: 'openai' });
-      }
-    } catch (e) { console.warn('[hashtags] OpenAI:', e.message); }
-  }
-
-  if (geminiKey) {
-    try {
-      const body = JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: { maxOutputTokens: 250, temperature: 0.7 },
-      });
-      const r = await _https('generativelanguage.googleapis.com', `/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`, {}, body);
-      const text = JSON.parse(r).candidates?.[0]?.content?.parts?.[0]?.text;
-      if (text) {
-        const match = text.match(/\{[\s\S]*\}/);
-        if (match) {
-          const parsed = JSON.parse(match[0]);
+    if (openaiKey && provider !== 'gemini') {
+      try {
+        const body = JSON.stringify({
+          model: dbSettings.ai?.model || 'gpt-4o-mini',
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: 250, temperature: 0.7,
+          response_format: { type: 'json_object' },
+        });
+        const r = await _https('api.openai.com', '/v1/chat/completions', { 'Authorization': `Bearer ${openaiKey}` }, body);
+        const content = JSON.parse(r).choices?.[0]?.message?.content;
+        if (content) {
+          const parsed = JSON.parse(content);
           const tags = parsed.hashtags || parsed;
-          if (Array.isArray(tags) && tags.length) return res.json({ hashtags: tags, model: 'gemini' });
+          if (Array.isArray(tags) && tags.length) return res.json({ hashtags: tags, model: 'openai' });
         }
-      }
-    } catch (e) { console.warn('[hashtags] Gemini:', e.message); }
-  }
+      } catch (e) { console.warn('[hashtags] OpenAI:', e.message); }
+    }
 
-  // Local fallback
-  const safeStore = (storeName || 'متجر').replace(/\s+/g, '_');
-  const safeName  = name.replace(/\s+/g, '_');
-  const localTags = [
-    '#تسوق_اونلاين', '#متجر_مغربي', '#شحن_لجميع_المدن', '#جودة_عالية',
-    '#توصيل_سريع', `#${safeName}`, `#${safeStore}`,
-    '#المغرب', '#Maroc', '#MarocShopping', '#MoroccanBusiness',
-    '#دفع_عند_الاستلام', '#COD', '#تسوق_المغرب', '#منتجات_مغربية',
-  ];
-  res.json({ hashtags: localTags, model: 'local' });
+    if (geminiKey) {
+      try {
+        const body = JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          generationConfig: { maxOutputTokens: 250, temperature: 0.7 },
+        });
+        const r = await _https('generativelanguage.googleapis.com', `/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`, {}, body);
+        const text = JSON.parse(r).candidates?.[0]?.content?.parts?.[0]?.text;
+        if (text) {
+          const match = text.match(/\{[\s\S]*\}/);
+          if (match) {
+            const parsed = JSON.parse(match[0]);
+            const tags = parsed.hashtags || parsed;
+            if (Array.isArray(tags) && tags.length) return res.json({ hashtags: tags, model: 'gemini' });
+          }
+        }
+      } catch (e) { console.warn('[hashtags] Gemini:', e.message); }
+    }
+
+    const safeStore = (storeName || 'متجر').replace(/\s+/g, '_');
+    const safeName  = name.replace(/\s+/g, '_');
+    const localTags = [
+      '#تسوق_اونلاين', '#متجر_مغربي', '#شحن_لجميع_المدن', '#جودة_عالية',
+      '#توصيل_سريع', `#${safeName}`, `#${safeStore}`,
+      '#المغرب', '#Maroc', '#MarocShopping', '#MoroccanBusiness',
+      '#دفع_عند_الاستلام', '#COD', '#تسوق_المغرب', '#منتجات_مغربية',
+    ];
+    res.json({ hashtags: localTags, model: 'local' });
+  } catch (e) { console.error('[ai/generate-hashtags]', e.message); res.status(500).json({ error: 'Server error' }); }
 });
 
 // POST /api/ai/design-product-image — AI product image via DALL-E 3
 router.post('/design-product-image', auth, async (req, res) => {
-  const { productName, price, storeName, description, category, colors, sizes } = req.body;
-  if (!productName) return res.status(400).json({ error: 'productName required' });
-
-  const dbSettings = db.getSettings(req.user.id) || {};
-  const openaiKey  = dbSettings.ai?.apiKey || process.env.OPENAI_API_KEY;
-
-  if (!openaiKey) {
-    return res.status(400).json({
-      error: 'يجب ربط OpenAI أولاً من صفحة الاتصالات لاستخدام توليد الصور',
-      needsKey: true,
-    });
-  }
-
-  const cur   = dbSettings.brand?.currency || 'MAD';
-  const store = storeName || dbSettings.brand?.name || 'متجر';
-  const prompt = [
-    `Professional Moroccan e-commerce product marketing photo for Instagram/Facebook.`,
-    `Product: "${productName}"`,
-    description  ? `Description: ${description.slice(0, 120)}` : '',
-    category     ? `Category: ${category}` : '',
-    colors?.length ? `Colors: ${colors.slice(0,4).join(', ')}` : '',
-    sizes?.length  ? `Sizes: ${sizes.slice(0,4).join(', ')}` : '',
-    `Price: ${price} ${cur}`,
-    `Store: ${store}`,
-    ``,
-    `Create a stunning commercial product photo:`,
-    `- Clean white or soft gradient background`,
-    `- Product displayed prominently and clearly`,
-    `- Professional studio lighting, sharp focus`,
-    `- Price tag "${price} ${cur}" tastefully shown`,
-    `- Store name "${store}" in elegant corner branding`,
-    `- Modern Moroccan aesthetic, suitable for social media marketing`,
-    `- No busy backgrounds, no clutter`,
-  ].filter(Boolean).join('\n');
-
   try {
+    const { productName, price, storeName, description, category, colors, sizes } = req.body;
+    if (!productName) return res.status(400).json({ error: 'productName required' });
+
+    const dbSettings = await db.getSettings(req.user.id) || {};
+    const openaiKey  = dbSettings.ai?.apiKey || process.env.OPENAI_API_KEY;
+
+    if (!openaiKey) {
+      return res.status(400).json({
+        error: 'يجب ربط OpenAI أولاً من صفحة الاتصالات لاستخدام توليد الصور',
+        needsKey: true,
+      });
+    }
+
+    const cur   = dbSettings.brand?.currency || 'MAD';
+    const store = storeName || dbSettings.brand?.name || 'متجر';
+    const prompt = [
+      `Professional Moroccan e-commerce product marketing photo for Instagram/Facebook.`,
+      `Product: "${productName}"`,
+      description  ? `Description: ${description.slice(0, 120)}` : '',
+      category     ? `Category: ${category}` : '',
+      colors?.length ? `Colors: ${colors.slice(0,4).join(', ')}` : '',
+      sizes?.length  ? `Sizes: ${sizes.slice(0,4).join(', ')}` : '',
+      `Price: ${price} ${cur}`,
+      `Store: ${store}`,
+      ``,
+      `Create a stunning commercial product photo:`,
+      `- Clean white or soft gradient background`,
+      `- Product displayed prominently and clearly`,
+      `- Professional studio lighting, sharp focus`,
+      `- Price tag "${price} ${cur}" tastefully shown`,
+      `- Store name "${store}" in elegant corner branding`,
+      `- Modern Moroccan aesthetic, suitable for social media marketing`,
+      `- No busy backgrounds, no clutter`,
+    ].filter(Boolean).join('\n');
+
     const body = JSON.stringify({ model: 'dall-e-3', prompt, n: 1, size: '1024x1024', quality: 'standard', style: 'natural' });
     const r    = await _https('api.openai.com', '/v1/images/generations', { 'Authorization': `Bearer ${openaiKey}` }, body);
     const data = JSON.parse(r);
@@ -412,43 +398,44 @@ router.post('/design-product-image', auth, async (req, res) => {
 
 // POST /api/ai/product-search — search product by name/sku/description
 router.post('/product-search', async (req, res) => {
-  const { query, userId } = req.body;
-  if (!query || !userId) return res.status(400).json({ error: 'query and userId required' });
-  const products = db.getProducts(userId);
-  const results  = searchProducts(query, products);
-  res.json({ results, found: results.length > 0 });
+  try {
+    const { query, userId } = req.body;
+    if (!query || !userId) return res.status(400).json({ error: 'query and userId required' });
+    const products = await db.getProducts(userId);
+    const results  = searchProducts(query, products);
+    res.json({ results, found: results.length > 0 });
+  } catch (e) { res.status(500).json({ error: 'Server error' }); }
 });
 
 // POST /api/ai/extract-order — extract order data from conversation
 router.post('/extract-order', async (req, res) => {
-  const { history } = req.body;
-  res.json(extractOrderData(history));
+  res.json(extractOrderData(req.body.history));
 });
 
 // POST /api/ai/public-reply — for storefront (no auth)
 router.post('/public-reply', async (req, res) => {
-  const { message, history, userId } = req.body;
-  if (!userId) return res.status(400).json({ error: 'userId required' });
-  const products = db.getProducts(userId);
-  const settings = db.getSettings(userId) || {};
-  const openaiKey = settings?.ai?.apiKey || process.env.OPENAI_API_KEY;
-  const geminiKey = settings?.ai?.geminiKey || process.env.GEMINI_API_KEY;
+  try {
+    const { message, history, userId } = req.body;
+    if (!userId) return res.status(400).json({ error: 'userId required' });
+    const products = await db.getProducts(userId);
+    const settings = await db.getSettings(userId) || {};
+    const openaiKey = settings?.ai?.apiKey || process.env.OPENAI_API_KEY;
+    const geminiKey = settings?.ai?.geminiKey || process.env.GEMINI_API_KEY;
 
-  // Product search first
-  const found = searchProducts(message, products);
-  if (found.length > 0 && /(عندكم|كاين|منتج|بغيت|سعر|ثمن|بكام|هاد)/i.test(message)) {
-    const p = found[0];
-    const reply = `وجدت المنتج! 🎉\n\n${p.emoji||'📦'} **${p.name}**\n💰 السعر: ${p.price} ${settings?.brand?.currency||'MAD'}\n📏 المقاسات: ${(p.sizes||[]).join(' · ')||'S M L XL'}\n🎨 الألوان: ${(p.colors||[]).join(' · ')||'—'}\n📦 المخزون: ${p.stock} قطعة\n\nواش بغيت هاد المنتج؟`;
-    return res.json({ reply, model: 'product-search', product: p });
-  }
+    // Product search first
+    const found = searchProducts(message, products);
+    if (found.length > 0 && /(عندكم|كاين|منتج|بغيت|سعر|ثمن|بكام|هاد)/i.test(message)) {
+      const p = found[0];
+      const reply = `وجدت المنتج! 🎉\n\n${p.emoji||'📦'} **${p.name}**\n💰 السعر: ${p.price} ${settings?.brand?.currency||'MAD'}\n📏 المقاسات: ${(p.sizes||[]).join(' · ')||'S M L XL'}\n🎨 الألوان: ${(p.colors||[]).join(' · ')||'—'}\n📦 المخزون: ${p.stock} قطعة\n\nواش بغيت هاد المنتج؟`;
+      return res.json({ reply, model: 'product-search', product: p });
+    }
 
-  // Try remote AI
-  if (openaiKey || geminiKey) {
-    const cur = settings?.brand?.currency || 'MAD';
-    const allProds = products.slice(0, 40).map(p =>
-      `- ${p.emoji||'📦'} ${p.name}: ${p.price} ${cur}${p.description ? ' — ' + p.description.slice(0, 80) : ''}${(p.sizes||[]).length ? ' (مقاسات: ' + p.sizes.join('/') + ')' : ''}${(p.colors||[]).length ? ' (ألوان: ' + p.colors.join('/') + ')' : ''} [مخزون: ${p.stock}]`
-    ).join('\n');
-    const sysPrompt = settings?.ai?.systemPrompt || `أنت ${settings?.brand?.name||'صاحب المتجر'} تبيع مباشرة للزبائن بالدارجة المغربية. أنت الشخص المسؤول عن المتجر وتتكلم معهم كأنك أنت صاحب المتجر.
+    if (openaiKey || geminiKey) {
+      const cur = settings?.brand?.currency || 'MAD';
+      const allProds = products.slice(0, 40).map(p =>
+        `- ${p.emoji||'📦'} ${p.name}: ${p.price} ${cur}${p.description ? ' — ' + p.description.slice(0, 80) : ''}${(p.sizes||[]).length ? ' (مقاسات: ' + p.sizes.join('/') + ')' : ''}${(p.colors||[]).length ? ' (ألوان: ' + p.colors.join('/') + ')' : ''} [مخزون: ${p.stock}]`
+      ).join('\n');
+      const sysPrompt = settings?.ai?.systemPrompt || `أنت ${settings?.brand?.name||'صاحب المتجر'} تبيع مباشرة للزبائن بالدارجة المغربية. أنت الشخص المسؤول عن المتجر وتتكلم معهم كأنك أنت صاحب المتجر.
 
 معلومات متجرك:
 • اسم المتجر: ${settings?.brand?.name||'متجر'}
@@ -467,135 +454,139 @@ ${allProds || 'لا منتجات متوفرة حالياً'}
 - إذا أراد الطلب: اطلب الاسم الكامل، رقم الهاتف، المدينة، العنوان
 - كن إيجابياً، مقنعاً، ومشجعاً على الشراء
 - إذا لم يكن المنتج متوفراً، اعتذر بأدب واقترح بديلاً`;
-    try {
-      if (openaiKey) {
-        const body = JSON.stringify({
-          model: settings?.ai?.model || 'gpt-4o-mini',
-          messages: [{ role:'system', content:sysPrompt }, ...(history||[]).slice(-6).map(m=>({ role:m.role==='ai'?'assistant':'user', content:m.content })), { role:'user', content:message }],
-          max_tokens: 300, temperature: 0.8,
-        });
-        const r = await _https('api.openai.com','/v1/chat/completions',{ 'Authorization':`Bearer ${openaiKey}` },body);
-        const reply = JSON.parse(r).choices?.[0]?.message?.content;
-        if (reply) return res.json({ reply, model:'openai' });
-      }
-    } catch {}
-    try {
-      if (geminiKey) {
-        const body = JSON.stringify({ contents:[{ role:'user', parts:[{ text:message }] }], generationConfig:{ maxOutputTokens:300 }, systemInstruction:{ parts:[{ text:sysPrompt }] } });
-        const r = await _https('generativelanguage.googleapis.com',`/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,{},body);
-        const reply = JSON.parse(r).candidates?.[0]?.content?.parts?.[0]?.text;
-        if (reply) return res.json({ reply, model:'gemini' });
-      }
-    } catch {}
-  }
+      try {
+        if (openaiKey) {
+          const body = JSON.stringify({
+            model: settings?.ai?.model || 'gpt-4o-mini',
+            messages: [{ role:'system', content:sysPrompt }, ...(history||[]).slice(-6).map(m=>({ role:m.role==='ai'?'assistant':'user', content:m.content })), { role:'user', content:message }],
+            max_tokens: 300, temperature: 0.8,
+          });
+          const r = await _https('api.openai.com','/v1/chat/completions',{ 'Authorization':`Bearer ${openaiKey}` },body);
+          const reply = JSON.parse(r).choices?.[0]?.message?.content;
+          if (reply) return res.json({ reply, model:'openai' });
+        }
+      } catch {}
+      try {
+        if (geminiKey) {
+          const body = JSON.stringify({ contents:[{ role:'user', parts:[{ text:message }] }], generationConfig:{ maxOutputTokens:300 }, systemInstruction:{ parts:[{ text:sysPrompt }] } });
+          const r = await _https('generativelanguage.googleapis.com',`/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,{},body);
+          const reply = JSON.parse(r).candidates?.[0]?.content?.parts?.[0]?.text;
+          if (reply) return res.json({ reply, model:'gemini' });
+        }
+      } catch {}
+    }
 
-  res.json({ reply: smartReply(message, history, products, settings), model: 'local' });
+    res.json({ reply: smartReply(message, history, products, settings), model: 'local' });
+  } catch (e) { console.error('[ai/public-reply]', e.message); res.status(500).json({ error: 'Server error' }); }
 });
 
 // POST /api/ai/whatsapp-confirm — send WhatsApp confirmation
 router.post('/whatsapp-confirm', auth, async (req, res) => {
-  const { orderId, to, type } = req.body; // type: 'customer' | 'merchant'
-  const order = db.getOrder(orderId);
-  if (!order || order.userId !== req.user.id) return res.status(404).json({ error: 'Order not found' });
-  const settings = db.getSettings(req.user.id) || {};
-  const waToken  = settings.social?.whatsapp?.accessToken;
-  const waPhoneId= settings.social?.whatsapp?.pageId;
-  const cur = settings.brand?.currency || 'MAD';
+  try {
+    const { orderId, to, type } = req.body;
+    const order = await db.getOrder(orderId);
+    if (!order || order.userId !== req.user.id) return res.status(404).json({ error: 'Order not found' });
+    const settings = await db.getSettings(req.user.id) || {};
+    const waToken  = settings.social?.whatsapp?.accessToken;
+    const waPhoneId= settings.social?.whatsapp?.pageId;
+    const cur = settings.brand?.currency || 'MAD';
 
-  let msg = '';
-  if (type === 'customer') {
-    const items = (order.items || []).map(i => `• ${i.productName} x${i.quantity||1} — ${i.price} ${cur}`).join('\n');
-    msg = `مرحباً ${order.customerName}! 👋\n\n✅ تم تأكيد طلبك بنجاح!\n\n${items}\n\n💰 الإجمالي: ${order.total} ${cur}\n🚚 التوصيل: 24-48 ساعة\n\nسنبلغك عند الشحن. شكراً لثقتك بنا! 🙏`;
-  } else {
-    const items = (order.items || []).map(i => `• ${i.productName} (${i.size||''} ${i.color||''}) x${i.quantity||1}`).join('\n');
-    msg = `🔔 طلب جديد يحتاج موافقتك!\n\n👤 ${order.customerName}\n📱 ${order.customerPhone}\n📍 ${order.city} — ${order.address||''}\n\n${items}\n\n💰 الإجمالي: ${order.total} ${cur}\n\nرد بـ ✅ للموافقة أو ❌ للرفض`;
-  }
+    let msg = '';
+    if (type === 'customer') {
+      const items = (order.items || []).map(i => `• ${i.productName} x${i.quantity||1} — ${i.price} ${cur}`).join('\n');
+      msg = `مرحباً ${order.customerName}! 👋\n\n✅ تم تأكيد طلبك بنجاح!\n\n${items}\n\n💰 الإجمالي: ${order.total} ${cur}\n🚚 التوصيل: 24-48 ساعة\n\nسنبلغك عند الشحن. شكراً لثقتك بنا! 🙏`;
+    } else {
+      const items = (order.items || []).map(i => `• ${i.productName} (${i.size||''} ${i.color||''}) x${i.quantity||1}`).join('\n');
+      msg = `🔔 طلب جديد يحتاج موافقتك!\n\n👤 ${order.customerName}\n📱 ${order.customerPhone}\n📍 ${order.city} — ${order.address||''}\n\n${items}\n\n💰 الإجمالي: ${order.total} ${cur}\n\nرد بـ ✅ للموافقة أو ❌ للرفض`;
+    }
 
-  if (waToken && waPhoneId && to) {
-    try {
-      const body = JSON.stringify({ messaging_product:'whatsapp', to:to.replace(/\s/g,''), type:'text', text:{ body:msg } });
-      const https2 = require('https');
-      await new Promise((resolve,reject) => {
-        const r = https2.request({ hostname:'graph.facebook.com', path:`/v19.0/${waPhoneId}/messages`, method:'POST', headers:{ 'Content-Type':'application/json', 'Authorization':`Bearer ${waToken}`, 'Content-Length':Buffer.byteLength(body) } }, res => { res.resume(); resolve(res.statusCode < 300); });
-        r.on('error', reject); r.write(body); r.end();
-      });
-      return res.json({ sent: true, via: 'whatsapp_api', message: msg });
-    } catch (e) { console.warn('[WhatsApp]', e.message); }
-  }
+    if (waToken && waPhoneId && to) {
+      try {
+        const body = JSON.stringify({ messaging_product:'whatsapp', to:to.replace(/\s/g,''), type:'text', text:{ body:msg } });
+        const https2 = require('https');
+        await new Promise((resolve,reject) => {
+          const r = https2.request({ hostname:'graph.facebook.com', path:`/v19.0/${waPhoneId}/messages`, method:'POST', headers:{ 'Content-Type':'application/json', 'Authorization':`Bearer ${waToken}`, 'Content-Length':Buffer.byteLength(body) } }, res => { res.resume(); resolve(res.statusCode < 300); });
+          r.on('error', reject); r.write(body); r.end();
+        });
+        return res.json({ sent: true, via: 'whatsapp_api', message: msg });
+      } catch (e) { console.warn('[WhatsApp]', e.message); }
+    }
 
-  // Fallback: return wa.me URL
-  const phone = (to || settings.brand?.phone || '').replace(/\D/g,'');
-  res.json({ sent: false, via: 'wa_me', url: `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, message: msg });
+    const phone = (to || settings.brand?.phone || '').replace(/\D/g,'');
+    res.json({ sent: false, via: 'wa_me', url: `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, message: msg });
+  } catch (e) { console.error('[ai/whatsapp-confirm]', e.message); res.status(500).json({ error: 'Server error' }); }
 });
 
 // POST /api/ai/publish — post to social media
 router.post('/publish', auth, async (req, res) => {
-  const { platform, message, imageUrl, productId } = req.body;
-  const settings = db.getSettings(req.user.id) || {};
-  const social   = settings.social || {};
+  try {
+    const { platform, message, imageUrl } = req.body;
+    const settings = await db.getSettings(req.user.id) || {};
+    const social   = settings.social || {};
 
-  if (platform === 'facebook') {
-    const token  = social.facebook?.accessToken;
-    const pageId = social.facebook?.pageId;
-    if (!token || !pageId) return res.status(400).json({ error: 'Facebook غير مربوط. اذهب لصفحة الربط أولاً.' });
-    try {
-      const body = imageUrl
-        ? JSON.stringify({ message, url: imageUrl, access_token: token })
-        : JSON.stringify({ message, access_token: token });
-      const endpoint = imageUrl ? `/v19.0/${pageId}/photos` : `/v19.0/${pageId}/feed`;
-      const resp = await _https('graph.facebook.com', endpoint, {}, body);
-      const data = JSON.parse(resp);
-      if (data.error) return res.status(400).json({ error: data.error.message });
-      db.addLog({ userId: req.user.id, user: 'System', action: `Published to Facebook`, details: message.slice(0,50), type: 'notification', severity: 'success' });
-      return res.json({ success: true, postId: data.id });
-    } catch (e) { return res.status(500).json({ error: e.message }); }
-  }
+    if (platform === 'facebook') {
+      const token  = social.facebook?.accessToken;
+      const pageId = social.facebook?.pageId;
+      if (!token || !pageId) return res.status(400).json({ error: 'Facebook غير مربوط. اذهب لصفحة الربط أولاً.' });
+      try {
+        const body = imageUrl
+          ? JSON.stringify({ message, url: imageUrl, access_token: token })
+          : JSON.stringify({ message, access_token: token });
+        const endpoint = imageUrl ? `/v19.0/${pageId}/photos` : `/v19.0/${pageId}/feed`;
+        const resp = await _https('graph.facebook.com', endpoint, {}, body);
+        const data = JSON.parse(resp);
+        if (data.error) return res.status(400).json({ error: data.error.message });
+        await db.addLog({ userId: req.user.id, user: 'System', action: `Published to Facebook`, details: message.slice(0,50), type: 'notification', severity: 'success' });
+        return res.json({ success: true, postId: data.id });
+      } catch (e) { return res.status(500).json({ error: e.message }); }
+    }
 
-  if (platform === 'instagram') {
-    const token  = social.instagram?.accessToken;
-    const accId  = social.instagram?.pageId;
-    if (!token || !accId) return res.status(400).json({ error: 'Instagram غير مربوط.' });
-    if (!imageUrl) return res.status(400).json({ error: 'Instagram يتطلب صورة للنشر.' });
-    try {
-      // Step 1: create container
-      const container = await _https('graph.facebook.com', `/v19.0/${accId}/media`,
-        {}, JSON.stringify({ image_url: imageUrl, caption: message, access_token: token }));
-      const { id: containerId } = JSON.parse(container);
-      if (!containerId) return res.status(500).json({ error: 'فشل إنشاء المحتوى.' });
-      // Step 2: publish
-      const publish = await _https('graph.facebook.com', `/v19.0/${accId}/media_publish`,
-        {}, JSON.stringify({ creation_id: containerId, access_token: token }));
-      const { id: mediaId } = JSON.parse(publish);
-      db.addLog({ userId: req.user.id, user: 'System', action: `Published to Instagram`, details: message.slice(0,50), type: 'notification', severity: 'success' });
-      return res.json({ success: true, mediaId });
-    } catch (e) { return res.status(500).json({ error: e.message }); }
-  }
+    if (platform === 'instagram') {
+      const token  = social.instagram?.accessToken;
+      const accId  = social.instagram?.pageId;
+      if (!token || !accId) return res.status(400).json({ error: 'Instagram غير مربوط.' });
+      if (!imageUrl) return res.status(400).json({ error: 'Instagram يتطلب صورة للنشر.' });
+      try {
+        const container = await _https('graph.facebook.com', `/v19.0/${accId}/media`,
+          {}, JSON.stringify({ image_url: imageUrl, caption: message, access_token: token }));
+        const { id: containerId } = JSON.parse(container);
+        if (!containerId) return res.status(500).json({ error: 'فشل إنشاء المحتوى.' });
+        const publish = await _https('graph.facebook.com', `/v19.0/${accId}/media_publish`,
+          {}, JSON.stringify({ creation_id: containerId, access_token: token }));
+        const { id: mediaId } = JSON.parse(publish);
+        await db.addLog({ userId: req.user.id, user: 'System', action: `Published to Instagram`, details: message.slice(0,50), type: 'notification', severity: 'success' });
+        return res.json({ success: true, mediaId });
+      } catch (e) { return res.status(500).json({ error: e.message }); }
+    }
 
-  res.status(400).json({ error: `Platform "${platform}" غير مدعوم بعد.` });
+    res.status(400).json({ error: `Platform "${platform}" غير مدعوم بعد.` });
+  } catch (e) { console.error('[ai/publish]', e.message); res.status(500).json({ error: 'Server error' }); }
 });
 
 // GET /api/ai/comments/:platform — get comments from posts
 router.get('/comments/:platform', auth, async (req, res) => {
-  const settings = db.getSettings(req.user.id) || {};
-  const { platform } = req.params;
+  try {
+    const settings = await db.getSettings(req.user.id) || {};
+    const { platform } = req.params;
 
-  if (platform === 'facebook') {
-    const token  = settings.social?.facebook?.accessToken;
-    const pageId = settings.social?.facebook?.pageId;
-    if (!token || !pageId) return res.json({ comments: [] });
-    try {
-      const data = await _https('graph.facebook.com', `/v19.0/${pageId}/feed?fields=id,message,comments{message,from,created_time}&access_token=${token}&limit=10`, {}, null, 'GET');
-      const posts = JSON.parse(data).data || [];
-      const comments = [];
-      posts.forEach(post => {
-        (post.comments?.data || []).forEach(c => {
-          comments.push({ id: c.id, text: c.message, from: c.from?.name, time: c.created_time, postId: post.id, platform: 'facebook' });
+    if (platform === 'facebook') {
+      const token  = settings.social?.facebook?.accessToken;
+      const pageId = settings.social?.facebook?.pageId;
+      if (!token || !pageId) return res.json({ comments: [] });
+      try {
+        const data = await _https('graph.facebook.com', `/v19.0/${pageId}/feed?fields=id,message,comments{message,from,created_time}&access_token=${token}&limit=10`, {}, null, 'GET');
+        const posts = JSON.parse(data).data || [];
+        const comments = [];
+        posts.forEach(post => {
+          (post.comments?.data || []).forEach(c => {
+            comments.push({ id: c.id, text: c.message, from: c.from?.name, time: c.created_time, postId: post.id, platform: 'facebook' });
+          });
         });
-      });
-      return res.json({ comments });
-    } catch (e) { return res.json({ comments: [], error: e.message }); }
-  }
-  res.json({ comments: [] });
+        return res.json({ comments });
+      } catch (e) { return res.json({ comments: [], error: e.message }); }
+    }
+    res.json({ comments: [] });
+  } catch (e) { console.error('[ai/comments]', e.message); res.status(500).json({ error: 'Server error' }); }
 });
 
 function _https(hostname, path, extraHeaders, body, method = 'POST') {

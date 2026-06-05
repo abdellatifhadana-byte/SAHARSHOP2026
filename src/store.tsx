@@ -24,6 +24,7 @@ interface StoreValue {
   isLoading: boolean;
   isOnline: boolean;
   sidebarOpen: boolean;
+  onboardingCompleted: boolean;
 
   // Auth
   login: (email: string, password: string) => Promise<void>;
@@ -73,6 +74,7 @@ interface StoreValue {
   importData: (json: string) => { ok: boolean; errors?: string[]; stats?: { products: number; orders: number; customers: number } };
   resetToDemo: () => void;
   refreshData: () => Promise<void>;
+  setOnboardingCompleted: (val: boolean) => void;
 }
 
 const StoreCtx = createContext<StoreValue | null>(null);
@@ -122,6 +124,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     isOnline: false,
     isLoading: !!storedToken && !isDemo, // true only for real logged-in users pending first fetch
     sidebarOpen: false,
+    onboardingCompleted: (() => { try { const u = localStorage.getItem('ai_commerce_user'); return u ? JSON.parse(u).onboardingCompleted === true : false; } catch { return false; } })(),
   });
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -132,6 +135,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const log = useCallback((user: string, action: string, details: string, type: LogType, severity: LogSeverity) => {
     setState(s => ({ ...s, auditLogs: [{ id: Date.now(), timestamp: nowStr(), user, action, details, type, severity }, ...s.auditLogs].slice(0, 300) }));
+  }, []);
+
+  const setOnboardingCompleted = useCallback((val: boolean) => {
+    setState(s => ({ ...s, onboardingCompleted: val }));
+    try {
+      const u = localStorage.getItem('ai_commerce_user');
+      if (u) { const parsed = JSON.parse(u); localStorage.setItem('ai_commerce_user', JSON.stringify({ ...parsed, onboardingCompleted: val })); }
+    } catch {}
   }, []);
 
   // Full data sync from backend
@@ -177,6 +188,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         customers: (customers as any)?.data ?? customers ?? s.customers,
         settings: (settings && settings.brand) ? { ...s.settings, ...settings } : s.settings,
         conversations: convs || s.conversations,
+        onboardingCompleted: (settings && settings.brand) ? (settings.onboardingDone === true) : s.onboardingCompleted,
         isOnline: true,
         isLoading: false,
       }));
@@ -259,7 +271,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const { token, user } = await api.authAPI.register({ name, email, password, storeName });
     api.setToken(token);
     try { localStorage.setItem('ai_commerce_user', JSON.stringify(user)); } catch {}
-    setState(s => ({ ...s, token, user, currentPage: 'dashboard', settings: { ...s.settings, onboardingDone: false as any } }));
+    setState(s => ({ ...s, token, user, currentPage: 'dashboard', settings: { ...s.settings, onboardingDone: false as any }, onboardingCompleted: false }));
     setTimeout(() => refreshData(), 100);
     if (window.location.pathname === '/' || window.location.pathname === '/login' || window.location.pathname === '/register') {
       window.history.pushState({}, '', '/dashboard');
@@ -620,7 +632,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       addTemplate, updateTemplate, deleteTemplate,
       notify, clearNotifications, markNotifRead, log,
       resetToDemo, exportData, importData, refreshData,
-      deleteConversation,
+      deleteConversation, setOnboardingCompleted,
     }}>
       {children}
     </StoreCtx.Provider>

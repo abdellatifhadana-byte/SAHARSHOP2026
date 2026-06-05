@@ -32,16 +32,16 @@ router.get('/vapid-key', (req, res) => {
 });
 
 // POST /api/push/subscribe  — saves user's push subscription
-router.post('/subscribe', auth, (req, res) => {
+router.post('/subscribe', auth, async (req, res) => {
   const { subscription } = req.body;
   if (!subscription?.endpoint) return res.status(400).json({ error: 'Invalid subscription object' });
   try {
-    const settings = db.getSettings(req.user.id) || {};
+    const settings = await db.getSettings(req.user.id) || {};
     const subs = settings.pushSubscriptions || [];
     // Avoid duplicates (same endpoint)
     const already = subs.some(s => s.endpoint === subscription.endpoint);
     if (!already) subs.push(subscription);
-    db.saveSettings(req.user.id, { ...settings, pushSubscriptions: subs });
+    await db.saveSettings(req.user.id, { ...settings, pushSubscriptions: subs });
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -49,13 +49,13 @@ router.post('/subscribe', auth, (req, res) => {
 });
 
 // POST /api/push/unsubscribe  — removes a push subscription
-router.post('/unsubscribe', auth, (req, res) => {
+router.post('/unsubscribe', auth, async (req, res) => {
   const { endpoint } = req.body;
   if (!endpoint) return res.status(400).json({ error: 'endpoint required' });
   try {
-    const settings = db.getSettings(req.user.id) || {};
+    const settings = await db.getSettings(req.user.id) || {};
     const subs = (settings.pushSubscriptions || []).filter(s => s.endpoint !== endpoint);
-    db.saveSettings(req.user.id, { ...settings, pushSubscriptions: subs });
+    await db.saveSettings(req.user.id, { ...settings, pushSubscriptions: subs });
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -64,7 +64,7 @@ router.post('/unsubscribe', auth, (req, res) => {
 
 // Helper — send a push notification to all subscriptions of a user
 async function notifyUser(userId, title, body, data = {}) {
-  const settings = db.getSettings(userId) || {};
+  const settings = await db.getSettings(userId) || {};
   const subs = settings.pushSubscriptions || [];
   if (!subs.length) return;
 
@@ -82,7 +82,7 @@ async function notifyUser(userId, title, body, data = {}) {
   // Clean up dead subscriptions (unsubscribed browsers)
   if (dead.length) {
     const alive = subs.filter((_, i) => !dead.includes(i));
-    db.saveSettings(userId, { ...settings, pushSubscriptions: alive });
+    await db.saveSettings(userId, { ...settings, pushSubscriptions: alive });
   }
 }
 
