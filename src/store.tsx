@@ -112,7 +112,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState({
     token: storedToken,
     user: (() => { try { const u = localStorage.getItem('ai_commerce_user'); return u ? JSON.parse(u) : null; } catch { return null; } })(),
-    settings: defaultSettings,
+    settings: (() => {
+      try {
+        const t = localStorage.getItem('ai_commerce_theme');
+        if (t === 'light' || t === 'dark') return { ...defaultSettings, design: { ...defaultSettings.design, theme: t as 'dark' | 'light' } };
+      } catch {}
+      return defaultSettings;
+    })(),
     products:      isDemo ? seedProducts      : [] as typeof seedProducts,
     customers:     isDemo ? seedCustomers     : [] as typeof seedCustomers,
     orders:        isDemo ? seedOrders        : [] as typeof seedOrders,
@@ -186,7 +192,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         products: products || s.products,
         orders: orders || s.orders,
         customers: (customers as any)?.data ?? customers ?? s.customers,
-        settings: (settings && settings.brand) ? { ...s.settings, ...settings } : s.settings,
+        settings: (settings && settings.brand) ? (() => {
+            if (settings.design?.theme) { try { localStorage.setItem('ai_commerce_theme', settings.design.theme); } catch {} }
+            return { ...s.settings, ...settings };
+          })() : s.settings,
         conversations: convs || s.conversations,
         onboardingCompleted: (settings && settings.brand) ? (settings.onboardingDone === true) : s.onboardingCompleted,
         isOnline: true,
@@ -256,8 +265,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   // ── AUTH ──────────────────────────────────────────────────
   const login = async (email: string, password: string) => {
-    const { token, user } = await api.authAPI.login({ email, password });
+    const { token, refreshToken, user } = await api.authAPI.login({ email, password });
     api.setToken(token);
+    api.setRefreshToken(refreshToken);
     try { localStorage.setItem('ai_commerce_user', JSON.stringify(user)); } catch {}
     setState(s => ({ ...s, token, user, currentPage: 'dashboard' }));
     setTimeout(() => refreshData(), 100);
@@ -268,8 +278,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   };
 
   const register = async (name: string, email: string, password: string, storeName?: string) => {
-    const { token, user } = await api.authAPI.register({ name, email, password, storeName });
+    const { token, refreshToken, user } = await api.authAPI.register({ name, email, password, storeName });
     api.setToken(token);
+    api.setRefreshToken(refreshToken);
     try { localStorage.setItem('ai_commerce_user', JSON.stringify(user)); } catch {}
     setState(s => ({ ...s, token, user, currentPage: 'dashboard', settings: { ...s.settings, onboardingDone: false as any }, onboardingCompleted: false }));
     setTimeout(() => refreshData(), 100);
@@ -279,7 +290,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = () => {
+    api.authAPI.logout().catch(() => {});
     api.setToken(null);
+    api.setRefreshToken(null);
     api.disconnectWS();
     try { localStorage.removeItem('ai_commerce_user'); } catch {}
     setState(s => ({ ...s, token: null, user: null, currentPage: 'dashboard', products: seedProducts, orders: seedOrders, customers: seedCustomers, conversations: seedConversations }));
@@ -289,6 +302,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   // ── SETTINGS ──────────────────────────────────────────────
   const updateSettings = async (key: keyof AppSettings, val: any) => {
     setState(s => ({ ...s, settings: { ...s.settings, [key]: val } }));
+    if (key === 'design' && (val as any)?.theme) {
+      try { localStorage.setItem('ai_commerce_theme', (val as any).theme); } catch {}
+    }
     if (state.isOnline && api.getToken()) {
       try { await api.settingsAPI.save({ [key]: val }); } catch {}
     }

@@ -3,26 +3,26 @@ const { validateAuth, sanitizeBody } = require('../middleware/validate');
 const router  = require('express').Router();
 const auth    = require('../middleware/auth');
 const bcrypt  = require('bcryptjs');
+const crypto  = require('crypto');
 const jwt     = require('jsonwebtoken');
 const { db }  = require('../database');
 
-const SECRET  = process.env.JWT_SECRET;
-const EXPIRES = '7d';
-
-if (!SECRET) {
-  if (process.env.NODE_ENV === 'production') {
-    console.error('[Auth] ❌ FATAL: JWT_SECRET not set in production. Exiting.');
-    process.exit(1);
-  } else {
-    console.warn('[Auth] ⚠️  JWT_SECRET not set — dev only insecure default in use. NEVER use in production.');
-  }
-}
-const _secret = SECRET || 'dev-only-never-use-in-production';
+const { JWT_SECRET: _secret, JWT_EXPIRES: EXPIRES, REFRESH_EXPIRES: REXP, REFRESH_EXPIRES_MS: REXP_MS } = require('../lib/config');
+const { sendOTP, verifyOTP } = require('../lib/otp');
 
 function sign(user) {
   return jwt.sign({ id: user.id, email: user.email, role: user.role }, _secret, { expiresIn: EXPIRES });
 }
 function safe(user) { const { password: _, ...rest } = user; return rest; }
+
+// Generate a secure random refresh token — store only its SHA-256 hash in DB
+async function issueRefreshToken(userId) {
+  const raw   = crypto.randomBytes(40).toString('hex');
+  const hash  = crypto.createHash('sha256').update(raw).digest('hex');
+  const expAt = new Date(Date.now() + REXP_MS).toISOString();
+  await db.createRefreshToken(userId, hash, expAt);
+  return raw;
+}
 
 // POST /api/auth/register
 router.post('/register', sanitizeBody, validateAuth, async (req, res) => {
@@ -44,7 +44,9 @@ router.post('/register', sanitizeBody, validateAuth, async (req, res) => {
     await db.saveSettings(user.id, { ...defaultSettings, brand: { ...defaultSettings.brand, name: storeName || `${name}'s Store`, email: user.email } });
     await db.addLog({ userId: user.id, user: 'System', action: 'Account registered', details: user.email, type: 'auth', severity: 'info' });
 
-    res.status(201).json({ token: sign(user), user: safe(user) });
+    const token        = sign(user);
+    const refreshToken = await issueRefreshToken(user.id);
+    res.status(201).json({ token, refreshToken, user: safe(user) });
   } catch (e) { console.error('[Auth register]', e); res.status(500).json({ error: 'Server error' }); }
 });
 
@@ -58,7 +60,9 @@ router.post('/login', sanitizeBody, validateAuth, async (req, res) => {
       return res.status(401).json({ error: 'Incorrect email or password' });
     }
     await db.addLog({ userId: user.id, user: user.name, action: 'Login', details: '', type: 'auth', severity: 'info' });
-    res.json({ token: sign(user), user: safe(user) });
+    const token        = sign(user);
+    const refreshToken = await issueRefreshToken(user.id);
+    res.json({ token, refreshToken, user: safe(user) });
   } catch (e) { res.status(500).json({ error: 'Server error' }); }
 });
 
@@ -71,63 +75,132 @@ router.get('/me', auth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: 'Server error' }); }
 });
 
-
-// In-memory OTP store (in production use Redis)
-const otpStore = new Map(); // email -> { code, expires }
-
-// POST /api/auth/request-otp — send OTP for 2FA
-router.post('/request-otp', auth, async (req, res) => {
+// POST /api/auth/refresh — exchange refresh token for a new access token (rotation)
+router.post('/refresh', async (req, res) => {
+  const { refreshToken } = req.body;
+  if (!refreshToken || typeof refreshToken !== 'string') {
+    return res.status(401).json({ error: 'Refresh token required' });
+  }
   try {
-  const user = await db.getUser(req.user.id);
-  if (!user) return res.status(404).json({ error: 'User not found' });
-  
-  const buf = Buffer.alloc(3);
-  require('crypto').randomFillSync(buf);
-  const code = (100000 + (buf.readUIntBE(0, 3) % 900000)).toString();
-  const expires = Date.now() + 5 * 60 * 1000; // 5 minutes
-  otpStore.set(user.email, { code, expires });
-  
-  // Security: OTP logged server-side ONLY — never returned to client
-  // TODO v3.3: replace console.log with nodemailer/SMS service
-  console.log(`[2FA] OTP for ${user.email}: ${code}`);
+    const hash   = crypto.createHash('sha256').update(refreshToken).digest('hex');
+    const record = await db.getRefreshToken(hash);
+    if (!record) return res.status(401).json({ error: 'Invalid or expired refresh token' });
 
-  res.json({
-    sent: true,
-    email: user.email.replace(/(.{2}).*(@)/, '$1***$2'),
-    // 'code' intentionally omitted from response regardless of NODE_ENV
-  });
-  } catch (e) { res.status(500).json({ error: 'Server error' }); }
+    // Revoke old token (rotation — single-use)
+    await db.revokeRefreshToken(hash);
+
+    const user = await db.getUser(record.user_id);
+    if (!user) return res.status(401).json({ error: 'User not found' });
+
+    const token      = sign(user);
+    const newRefresh = await issueRefreshToken(user.id);
+    res.json({ token, refreshToken: newRefresh });
+  } catch (e) { console.error('[Auth refresh]', e); res.status(500).json({ error: 'Server error' }); }
 });
 
-// POST /api/auth/verify-otp — verify OTP
+// POST /api/auth/logout — revoke refresh token
+router.post('/logout', async (req, res) => {
+  const { refreshToken } = req.body;
+  if (refreshToken && typeof refreshToken === 'string') {
+    try {
+      const hash = crypto.createHash('sha256').update(refreshToken).digest('hex');
+      await db.revokeRefreshToken(hash);
+    } catch {}
+  }
+  res.json({ ok: true });
+});
+
+// POST /api/auth/request-otp — send OTP for 2FA (DB-backed + email delivery)
+router.post('/request-otp', auth, async (req, res) => {
+  try {
+    const user = await db.getUser(req.user.id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const settings  = await db.getSettings(req.user.id) || {};
+    const storeName = settings.brand?.name || 'SAHAR Shop';
+    const result    = await sendOTP(user.email, storeName);
+
+    res.json({
+      sent:   result.sent,
+      method: result.method,
+      email:  user.email.replace(/(.{2}).*(@)/, '$1***$2'),
+    });
+  } catch (e) { console.error('[OTP request]', e); res.status(500).json({ error: 'Server error' }); }
+});
+
+// POST /api/auth/verify-otp — verify OTP (single-use, DB-backed)
 router.post('/verify-otp', auth, async (req, res) => {
   try {
     const { code } = req.body;
+    if (!code) return res.status(400).json({ error: 'الرمز مطلوب' });
     const user = await db.getUser(req.user.id);
     if (!user) return res.status(404).json({ error: 'User not found' });
-    const stored = otpStore.get(user.email);
-    if (!stored) return res.status(400).json({ error: 'لم يتم طلب رمز التحقق' });
-    if (Date.now() > stored.expires) { otpStore.delete(user.email); return res.status(400).json({ error: 'انتهت صلاحية الرمز — اطلب رمزاً جديداً' }); }
-    if (stored.code !== code) return res.status(400).json({ error: 'رمز غير صحيح' });
-    otpStore.delete(user.email);
+
+    const result = await verifyOTP(user.email, String(code).trim());
+    if (!result.valid) {
+      const msg = result.reason === 'expired'
+        ? 'انتهت صلاحية الرمز — اطلب رمزاً جديداً'
+        : 'رمز غير صحيح';
+      return res.status(400).json({ error: msg });
+    }
     res.json({ verified: true, message: 'تم التحقق بنجاح' });
-  } catch (e) { res.status(500).json({ error: 'Server error' }); }
+  } catch (e) { console.error('[OTP verify]', e); res.status(500).json({ error: 'Server error' }); }
+});
+
+// POST /api/auth/forgot-password — public: send OTP to user's email for reset
+router.post('/forgot-password', sanitizeBody, async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ error: 'بريد إلكتروني غير صالح' });
+    }
+    const user = await db.getUserByEmail(email.toLowerCase().trim());
+    // Always return success — prevents user enumeration
+    if (!user) return res.json({ sent: true });
+    const settings  = await db.getSettings(user.id) || {};
+    const storeName = settings.brand?.name || 'SAHAR Shop';
+    await sendOTP(user.email, storeName);
+    await db.addLog({ userId: user.id, user: 'System', action: 'Password reset requested', details: user.email, type: 'auth', severity: 'warning' });
+    res.json({ sent: true, email: user.email.replace(/(.{2}).*(@)/, '$1***$2') });
+  } catch (e) { console.error('[Auth forgot]', e); res.status(500).json({ error: 'Server error' }); }
+});
+
+// POST /api/auth/reset-password — public: verify OTP then set new password
+router.post('/reset-password', sanitizeBody, async (req, res) => {
+  try {
+    const { email, code, newPassword } = req.body;
+    if (!email || !code || !newPassword) return res.status(400).json({ error: 'جميع الحقول مطلوبة' });
+    if (newPassword.length < 6) return res.status(400).json({ error: 'كلمة المرور يجب أن تكون 6 أحرف على الأقل' });
+    const user = await db.getUserByEmail(email.toLowerCase().trim());
+    if (!user) return res.status(400).json({ error: 'رمز التحقق غير صحيح' });
+    const result = await verifyOTP(user.email, String(code).trim());
+    if (!result.valid) {
+      const msg = result.reason === 'expired'
+        ? 'انتهت صلاحية الرمز — اطلب رمزاً جديداً'
+        : 'رمز التحقق غير صحيح';
+      return res.status(400).json({ error: msg });
+    }
+    await db.updateUserPassword(user.id, await bcrypt.hash(newPassword, 10));
+    await db.revokeAllRefreshTokens(user.id);
+    await db.addLog({ userId: user.id, user: 'System', action: 'Password reset completed', details: user.email, type: 'auth', severity: 'warning' });
+    res.json({ success: true, message: 'تم إعادة تعيين كلمة المرور — يمكنك الدخول الآن' });
+  } catch (e) { console.error('[Auth reset]', e); res.status(500).json({ error: 'Server error' }); }
 });
 
 // POST /api/auth/change-password — change password (requires old password)
 router.post('/change-password', auth, async (req, res) => {
-  // Accept both naming conventions: {oldPassword/newPassword} or {current/next}
   const oldPassword = req.body.oldPassword || req.body.current;
   const newPassword = req.body.newPassword || req.body.next;
   if (!oldPassword || !newPassword) return res.status(400).json({ error: 'كلا الحقلين مطلوبان' });
   if (newPassword.length < 6) return res.status(400).json({ error: 'كلمة المرور يجب أن تكون 6 أحرف على الأقل' });
-  
+
   const user = await db.getUser(req.user.id);
   if (!user) return res.status(404).json({ error: 'Not found' });
   const match = await bcrypt.compare(oldPassword, user.password);
   if (!match) return res.status(400).json({ error: 'كلمة المرور الحالية غير صحيحة' });
   const hashed = await bcrypt.hash(newPassword, 10);
   await db.updateUserPassword(req.user.id, hashed);
+  await db.revokeAllRefreshTokens(req.user.id);
   res.json({ success: true, message: 'تم تغيير كلمة المرور' });
 });
 

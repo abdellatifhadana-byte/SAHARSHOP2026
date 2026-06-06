@@ -1,5 +1,6 @@
-import { useState, useMemo, lazy, Suspense } from 'react';
+import { useState, useMemo, lazy, Suspense, useEffect } from 'react';
 import { useStore } from '../store';
+import { analyticsAPI } from '../services/api';
 import Sparkline from '../components/Sparkline';
 import { Download, TrendingUp, BarChart3 } from 'lucide-react';
 
@@ -62,17 +63,25 @@ const STATUS_AR: Record<string, string> = {
 };
 
 export default function AnalyticsPage() {
-  const { orders, products, customers, settings } = useStore();
+  const { orders, products, customers, settings, isOnline } = useStore();
   const [months, setMonths] = useState<Period>(6);
+  const [serverData, setServerData] = useState<any>(null);
   const { currency } = settings.brand;
 
+  useEffect(() => {
+    if (!isOnline) return;
+    Promise.all([analyticsAPI.get(), analyticsAPI.funnel()]).then(([ana, funnel]) => {
+      setServerData({ ...ana, funnel });
+    }).catch(() => {});
+  }, [isOnline]);
+
   const active    = orders.filter(o => o.status !== 'cancelled');
-  const revenue   = active.reduce((s, o) => s + o.total, 0);
+  const revenue   = serverData?.revenue   ?? active.reduce((s, o) => s + o.total, 0);
   const costTotal = active.reduce((s, o) => s + o.items.reduce((ss, item) => { const p = products.find(x => x.id === item.productId); return ss + (p?.cost || 0) * item.quantity; }, 0), 0);
-  const profit    = revenue - costTotal;
-  const avgOrder  = active.length ? Math.round(revenue / active.length) : 0;
+  const profit    = serverData?.profit    ?? (revenue - costTotal);
+  const avgOrder  = serverData?.avgOrder  ?? (active.length ? Math.round(revenue / active.length) : 0);
   const margin    = revenue > 0 ? Math.round((profit / revenue) * 100) : 0;
-  const dlvRate   = orders.length ? Math.round((orders.filter(o => o.status === 'delivered').length / orders.length) * 100) : 0;
+  const dlvRate   = serverData?.dlvRate   ?? (orders.length ? Math.round((orders.filter(o => o.status === 'delivered').length / orders.length) * 100) : 0);
 
   const now = new Date();
   const monthly = useMemo(() => Array.from({ length: months }, (_, i) => {

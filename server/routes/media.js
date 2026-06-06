@@ -49,12 +49,15 @@ function isValidImageBuffer(buf) {
 }
 
 // ── Cloudinary upload helper (stream-based, no tmp file) ──────
+const UPLOAD_TIMEOUT_MS = 30000;
 function uploadToCloudinary(buffer, options = {}) {
   return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('Cloudinary upload timed out (30s)')), UPLOAD_TIMEOUT_MS);
     const stream = cloudinary.uploader.upload_stream(
       { folder: 'sahar-shop', resource_type: 'image', ...options },
-      (err, result) => err ? reject(err) : resolve(result)
+      (err, result) => { clearTimeout(timer); err ? reject(err) : resolve(result); }
     );
+    stream.on('error', (e) => { clearTimeout(timer); reject(e); });
     stream.end(buffer);
   });
 }

@@ -182,38 +182,56 @@ async function startServer() {
     // ── WebSocket (moved inside async start) ─────────────────
     const WebSocket = require('ws');
     const jwt       = require('jsonwebtoken');
+    const { JWT_SECRET: _wsSecret } = require('./lib/config');
     const wss = new WebSocket.Server({ server, path: '/ws' });
     const clients = new Map();
-    const _wsSecret = process.env.JWT_SECRET || 'dev-only-never-use-in-production';
 
     wss.on('connection', (ws, req) => {
-      const params = new URLSearchParams((req.url||'').split('?')[1]);
-      const token  = params.get('token');
-      let userId   = 'anon';
+      const params  = new URLSearchParams((req.url||'').split('?')[1]);
+      const hintId  = params.get('userId') || 'anon';
+      let userId    = null;
+      let authTimer = null;
 
-      // Verify JWT when provided; reject unauthenticated connections in production
-      if (token) {
+      const authenticate = (token) => {
         try {
           const decoded = jwt.verify(token, _wsSecret);
-          userId = decoded.id || 'anon';
-        } catch {
-          ws.close(4001, 'Unauthorized');
-          return;
-        }
-      } else if (process.env.NODE_ENV === 'production') {
-        ws.close(4001, 'Unauthorized');
-        return;
+          userId = decoded.id || hintId;
+          if (authTimer) { clearTimeout(authTimer); authTimer = null; }
+          if (!clients.has(userId)) clients.set(userId, new Set());
+          clients.get(userId).add(ws);
+          ws.send(JSON.stringify({ event: 'connected', userId }));
+          return true;
+        } catch { return false; }
+      };
+
+      // Give client 5 s in production to send auth message; allow dev without auth
+      if (process.env.NODE_ENV === 'production') {
+        authTimer = setTimeout(() => {
+          if (!userId) { ws.close(4001, 'Auth timeout'); }
+        }, 5000);
       } else {
-        // Dev-only: allow unauthenticated with explicit userId param
-        userId = params.get('userId') || 'anon';
+        // Dev: auto-auth with hintId so existing tests/demos work
+        userId = hintId;
+        if (!clients.has(userId)) clients.set(userId, new Set());
+        clients.get(userId).add(ws);
+        ws.send(JSON.stringify({ event: 'connected', userId }));
       }
 
-      if (!clients.has(userId)) clients.set(userId, new Set());
-      clients.get(userId).add(ws);
-      ws.send(JSON.stringify({ event: 'connected', userId }));
+      ws.on('message', (raw) => {
+        try {
+          const msg = JSON.parse(raw.toString());
+          if (msg.type === 'auth' && msg.token) {
+            if (!authenticate(msg.token)) ws.close(4001, 'Unauthorized');
+          }
+        } catch {}
+      });
+
       ws.on('close', () => {
-        clients.get(userId)?.delete(ws);
-        if (!clients.get(userId)?.size) clients.delete(userId);
+        if (authTimer) clearTimeout(authTimer);
+        if (userId) {
+          clients.get(userId)?.delete(ws);
+          if (!clients.get(userId)?.size) clients.delete(userId);
+        }
       });
       ws.on('error', () => {});
     });

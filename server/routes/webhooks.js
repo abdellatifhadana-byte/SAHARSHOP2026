@@ -64,11 +64,31 @@ async function handleIncoming(msg, phoneId) {
   await db.addMessage(conv.id, { content: text, role: 'customer' });
   await db.addNotification({ userId, type: 'info', message: `💬 رسالة جديدة من ${from}` });
 
-  // AI reply
-  const settings = await db.getSettings(userId);
-  const products = await db.getProducts(userId);
-  const intent   = ai.detectIntent(text);
-  const reply    = ai.generateLocalReply(intent, text, products, settings);
+  const settings  = await db.getSettings(userId) || {};
+  const products  = await db.getProducts(userId);
+  const openaiKey = settings.ai?.apiKey    || process.env.OPENAI_API_KEY;
+  const geminiKey = settings.ai?.geminiKey || process.env.GEMINI_API_KEY;
+  const aiProvider = settings.ai?.provider  || 'openai';
+  const model     = settings.ai?.model     || 'gpt-4o-mini';
+
+  const storeName  = settings.brand?.name || 'متجر SAHAR';
+  const sysPrompt  = `أنت مساعد بيع ذكي لمتجر "${storeName}". تحدث بالدارجة المغربية بأسلوب ودي واحترافي. المنتجات المتاحة:\n${(products||[]).filter(p=>p.status==='published'&&p.stock>0).map(p=>`- ${p.name}: ${p.price} ${settings.brand?.currency||'MAD'}`).join('\n')}`;
+
+  let reply = null;
+
+  if (openaiKey && aiProvider !== 'gemini') {
+    try {
+      reply = await ai.getRemoteAI('openai', openaiKey, model, sysPrompt, [{ role: 'user', content: text }]);
+    } catch (e) { console.warn('[Webhook/OpenAI]', e.message); }
+  }
+
+  if (!reply && geminiKey) {
+    try {
+      reply = await ai.getRemoteAI('gemini', geminiKey, null, sysPrompt, [{ role: 'user', content: text }]);
+    } catch (e) { console.warn('[Webhook/Gemini]', e.message); }
+  }
+
+  if (!reply) reply = ai.generateLocalReply(ai.detectIntent(text), text, products, settings);
 
   setTimeout(async () => {
     await db.addMessage(conv.id, { content: reply, role: 'ai' });

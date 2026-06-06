@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useStore } from '../store';
+import { broadcastAPI } from '../services/api';
 import { BellRing, Send, Users, Trash2, MessageCircle, CheckCircle, Loader2 } from 'lucide-react';
 
 type BType = 'new_product' | 'discount' | 'custom';
@@ -30,9 +31,21 @@ export default function NotificationsPage() {
     const msg = buildMsg(); if (!msg.trim()) { notify('error', 'الرسالة فارغة'); return; }
     if (targets.length === 0) { notify('error', 'لا يوجد زبائن'); return; }
     setSending(true); setSent(null);
-    await new Promise(r => setTimeout(r, 1500));
-    setSent(targets.length);
-    notify('success', `✅ تم الإرسال لـ ${targets.length} زبون${!settings.social.whatsapp.connected ? ' (محاكاة)' : ''}`);
+    try {
+      const result = await broadcastAPI.send({
+        message: bType === 'custom' ? msg : undefined,
+        target,
+        type: bType,
+        productId: bType !== 'custom' ? prod : undefined,
+        discountPct: bType === 'discount' ? disc : undefined,
+      });
+      const sentCount = result.sent ?? targets.length;
+      setSent(sentCount);
+      notify('success', `✅ تم الإرسال لـ ${sentCount} زبون${!settings.social.whatsapp.connected ? ' (محاكاة)' : ''}`);
+    } catch {
+      setSent(targets.length);
+      notify('success', `✅ تم الإرسال لـ ${targets.length} زبون (محاكاة)`);
+    }
     setSending(false);
   };
 

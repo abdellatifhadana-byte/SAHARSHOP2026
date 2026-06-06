@@ -212,6 +212,60 @@ async function migrate() {
     ];
     for (const sql of indexes) await client.query(sql);
 
+    // OTP tokens table (Fix #3)
+    await client.query(`CREATE TABLE IF NOT EXISTS otp_tokens (
+      id BIGSERIAL PRIMARY KEY,
+      email TEXT NOT NULL,
+      code TEXT NOT NULL,
+      expires_at TIMESTAMPTZ NOT NULL,
+      used BOOLEAN DEFAULT FALSE,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_otp_email ON otp_tokens(email)`);
+
+    // Refresh tokens table (Fix #12)
+    await client.query(`CREATE TABLE IF NOT EXISTS refresh_tokens (
+      id BIGSERIAL PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      token_hash TEXT NOT NULL UNIQUE,
+      expires_at TIMESTAMPTZ NOT NULL,
+      revoked BOOLEAN DEFAULT FALSE,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_refresh_user ON refresh_tokens(user_id)`);
+
+    // Fix conversation.status default (Fix #13)
+    await client.query(`ALTER TABLE conversations ALTER COLUMN status SET DEFAULT 'active'`);
+    await client.query(`UPDATE conversations SET status='active' WHERE status='open'`);
+
+    // FK fixes: loyalty_points.customer_id → customers(id) ON DELETE CASCADE
+    await client.query(`
+      DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.table_constraints
+          WHERE constraint_name = 'loyalty_points_customer_id_fkey'
+        ) THEN
+          ALTER TABLE loyalty_points
+            ADD CONSTRAINT loyalty_points_customer_id_fkey
+            FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE;
+        END IF;
+      END $$
+    `).catch(() => {});
+
+    // FK fix: audit_logs.user_id → users(id) ON DELETE SET NULL
+    await client.query(`
+      DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.table_constraints
+          WHERE constraint_name = 'audit_logs_user_id_fkey'
+        ) THEN
+          ALTER TABLE audit_logs
+            ADD CONSTRAINT audit_logs_user_id_fkey
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL;
+        END IF;
+      END $$
+    `).catch(() => {});
+
     await client.query('COMMIT');
     console.log('[DB] ✅ Migrations complete');
   } catch (err) {

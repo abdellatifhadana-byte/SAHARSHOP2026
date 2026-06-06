@@ -20,7 +20,7 @@ router.post('/', auth, async (req, res) => {
 
 router.delete('/:id', auth, async (req, res) => {
   try {
-    await db.deleteDeliveryProvider(req.params.id);
+    await db.deleteDeliveryProvider(req.params.id, req.user.id);
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: 'Server error' }); }
 });
@@ -95,6 +95,12 @@ router.post('/create/:orderId', auth, async (req, res) => {
     if (prov.webhookUrl) {
       try {
         const u = new URL(prov.webhookUrl);
+        const host = u.hostname;
+        const BLOCKED = /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|169\.254\.|::1|0\.0\.0\.0|metadata\.google|169\.254\.169\.254)/i;
+        if (u.protocol !== 'https:' || BLOCKED.test(host)) {
+          console.warn('[Delivery/Webhook] Blocked SSRF attempt to:', prov.webhookUrl);
+          throw new Error('Blocked: internal or non-HTTPS URL');
+        }
         const payload = JSON.stringify({
           event: 'order.created',
           orderId: order.id,
@@ -144,6 +150,8 @@ router.post('/test-connection', auth, async (req, res) => {
   let parsed;
   try { parsed = new URL(url); } catch { return res.json({ ok: false, error: 'صيغة الرابط غير صحيحة' }); }
   if (!['http:', 'https:'].includes(parsed.protocol)) return res.json({ ok: false, error: 'البروتوكول غير مدعوم' });
+  const BLOCKED_TEST = /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|169\.254\.|::1|0\.0\.0\.0|metadata\.google)/i;
+  if (BLOCKED_TEST.test(parsed.hostname)) return res.json({ ok: false, error: 'عنوان IP داخلي غير مسموح به' });
   const start = Date.now();
   try {
     const mod = parsed.protocol === 'https:' ? require('https') : require('http');

@@ -10,13 +10,19 @@ const fs      = require('fs');
 const VAPID_FILE = path.join(__dirname, '..', 'data', 'vapid.json');
 
 function getVapidKeys() {
+  if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+    console.log('[Push] Using VAPID keys from environment variables (persistent)');
+    return { publicKey: process.env.VAPID_PUBLIC_KEY, privateKey: process.env.VAPID_PRIVATE_KEY };
+  }
   if (fs.existsSync(VAPID_FILE)) {
-    try { return JSON.parse(fs.readFileSync(VAPID_FILE, 'utf8')); } catch {}
+    try { const keys = JSON.parse(fs.readFileSync(VAPID_FILE, 'utf8')); if (keys.publicKey && keys.privateKey) return keys; } catch {}
   }
   const keys = webpush.generateVAPIDKeys();
-  fs.mkdirSync(path.dirname(VAPID_FILE), { recursive: true });
-  fs.writeFileSync(VAPID_FILE, JSON.stringify(keys));
-  console.log('[Push] Generated new VAPID keys');
+  try { fs.mkdirSync(path.dirname(VAPID_FILE), { recursive: true }); fs.writeFileSync(VAPID_FILE, JSON.stringify(keys)); } catch (e) { console.warn('[Push] Could not write vapid.json:', e.message); }
+  console.log('[Push] ⚠️  Generated new VAPID keys — existing subscriptions are now invalid.');
+  console.log('[Push] 📋 Add these to Railway env vars:');
+  console.log(`[Push]    VAPID_PUBLIC_KEY=${keys.publicKey}`);
+  console.log(`[Push]    VAPID_PRIVATE_KEY=${keys.privateKey}`);
   return keys;
 }
 

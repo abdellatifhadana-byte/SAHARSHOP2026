@@ -14,11 +14,12 @@ const BASE_URL = (() => {
 })();
 
 let _token: string | null = null;
+let _refreshToken: string | null = null;
 let _isOnline = false;
+let _refreshing = false;
 
-try {
-  _token = localStorage.getItem('ai_commerce_token');
-} catch {}
+try { _token = localStorage.getItem('ai_commerce_token'); } catch {}
+try { _refreshToken = localStorage.getItem('ai_commerce_refresh'); } catch {}
 
 export function getToken()  { return _token; }
 export function isOnline()  { return _isOnline; }
@@ -28,6 +29,14 @@ export function setToken(t: string | null) {
   try {
     if (t) localStorage.setItem('ai_commerce_token', t);
     else localStorage.removeItem('ai_commerce_token');
+  } catch {}
+}
+
+export function setRefreshToken(t: string | null) {
+  _refreshToken = t;
+  try {
+    if (t) localStorage.setItem('ai_commerce_refresh', t);
+    else localStorage.removeItem('ai_commerce_refresh');
   } catch {}
 }
 
@@ -45,23 +54,56 @@ export async function checkBackend(): Promise<boolean> {
   return _isOnline;
 }
 
+// ── Raw fetch helper ─────────────────────────────────────────
+async function _doFetch(method: string, path: string, body?: unknown): Promise<Response> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (_token) headers['Authorization'] = `Bearer ${_token}`;
+  return fetch(`${BASE_URL}${path}`, {
+    method, headers,
+    body: body ? JSON.stringify(body) : undefined,
+    signal: AbortSignal.timeout(10000),
+  });
+}
+
+// ── Refresh access token using stored refresh token ───────────
+async function _tryRefresh(): Promise<boolean> {
+  if (!_refreshToken || _refreshing) return false;
+  _refreshing = true;
+  try {
+    const res = await fetch(`${BASE_URL}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken: _refreshToken }),
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) { setRefreshToken(null); return false; }
+    const data = await res.json();
+    setToken(data.token);
+    setRefreshToken(data.refreshToken);
+    return true;
+  } catch { return false; }
+  finally { _refreshing = false; }
+}
+
 // ── Generic request ───────────────────────────────────────────
 async function request<T>(
   method: string,
   path: string,
   body?: unknown
 ): Promise<T> {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  };
-  if (_token) headers['Authorization'] = `Bearer ${_token}`;
+  const isAuthRoute = path.startsWith('/auth/');
+  let res = await _doFetch(method, path, body);
 
-  const res = await fetch(`${BASE_URL}${path}`, {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
-    signal: AbortSignal.timeout(10000),
-  });
+  if (res.status === 401 && !isAuthRoute && _refreshToken) {
+    const refreshed = await _tryRefresh();
+    if (refreshed) {
+      res = await _doFetch(method, path, body);
+    } else {
+      try { localStorage.removeItem('ai_commerce_token'); localStorage.removeItem('ai_commerce_refresh'); } catch {}
+      window.location.href = '/login';
+      throw new Error('Session expired — please log in again');
+    }
+  }
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
@@ -73,15 +115,26 @@ async function request<T>(
 // ── Auth ──────────────────────────────────────────────────────
 export const authAPI = {
   register: (data: { name: string; email: string; password: string; storeName?: string }) =>
-    request<{ token: string; user: any }>('POST', '/auth/register', data),
+    request<{ token: string; refreshToken: string; user: any }>('POST', '/auth/register', data),
 
   login: (data: { email: string; password: string }) =>
-    request<{ token: string; user: any }>('POST', '/auth/login', data),
+    request<{ token: string; refreshToken: string; user: any }>('POST', '/auth/login', data),
 
   me: () => request<{ user: any }>('GET', '/auth/me'),
 
+  logout: (refreshToken?: string) =>
+    request<{ ok: boolean }>('POST', '/auth/logout', { refreshToken: refreshToken || _refreshToken }),
+
+  refresh: () => _tryRefresh(),
+
   changePassword: (data: { current: string; next: string }) =>
     request<{ success: boolean }>('POST', '/auth/change-password', data),
+
+  forgotPassword: (email: string) =>
+    request<{ sent: boolean; email?: string }>('POST', '/auth/forgot-password', { email }),
+
+  resetPassword: (email: string, code: string, newPassword: string) =>
+    request<{ success: boolean; message: string }>('POST', '/auth/reset-password', { email, code, newPassword }),
 };
 
 // ── Products ──────────────────────────────────────────────────
@@ -161,7 +214,8 @@ export const settingsAPI = {
 
 // ── Analytics ─────────────────────────────────────────────────
 export const analyticsAPI = {
-  get: () => request<any>('GET', '/analytics'),
+  get:    () => request<any>('GET', '/analytics'),
+  funnel: () => request<any>('GET', '/analytics/funnel'),
 };
 
 // ── Broadcast ─────────────────────────────────────────────────
@@ -214,8 +268,10 @@ export function connectWS(userId: string) {
   if (_ws && _ws.readyState < 2) return;
   try {
     const wsBase = BASE_URL.replace(/^http/, 'ws').replace('/api', '');
-    const authParam = _token ? `&token=${encodeURIComponent(_token)}` : '';
-    _ws = new WebSocket(`${wsBase}/ws?userId=${userId}${authParam}`);
+    _ws = new WebSocket(`${wsBase}/ws?userId=${userId}`);
+    _ws.onopen = () => {
+      if (_token && _ws) _ws.send(JSON.stringify({ type: 'auth', token: _token }));
+    };
     _ws.onmessage = (e) => {
       try {
         const { event, data } = JSON.parse(e.data);

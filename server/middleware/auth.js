@@ -1,7 +1,6 @@
 'use strict';
 const jwt = require('jsonwebtoken');
-
-const SECRET = process.env.JWT_SECRET || 'ai-commerce-default-secret-change-me-NOW';
+const { JWT_SECRET: SECRET } = require('../lib/config');
 
 module.exports = function auth(req, res, next) {
   const h = req.headers.authorization;
