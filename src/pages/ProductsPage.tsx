@@ -10,15 +10,15 @@ import type { Product, ProductStatus, CustomFieldDef, CustomFieldType } from '..
 
 // Image files in /public/categories/ — PNG with transparent background preferred
 const CAT_IMG: Record<string, string> = {
-  men:    '/categories/men',
-  women:  '/categories/women',
-  kids:   '/categories/kids',
-  shoes:  '/categories/shoes',
-  access: '/categories/accessories',
-  home:   '/categories/decoration',
-  service:'/categories/service',
-  digital:'/categories/digital',
-  other:  '/categories/other',
+  men:    '/categories/men.png',
+  women:  '/categories/women.png',
+  kids:   '/categories/kids.png',
+  shoes:  '/categories/shoes2.png',
+  access: '/categories/accessories.png',
+  home:   '/categories/decoration.svg',
+  service:'/categories/service.svg',
+  digital:'/categories/digital.svg',
+  other:  '/categories/other.svg',
 };
 
 const CATS = [
@@ -996,11 +996,10 @@ export default function ProductsPage() {
                           {imgBase ? (
                             <>
                               <img
-                                src={`${imgBase}.png`}
+                                src={imgBase}
                                 onError={e => {
-                                  const t = e.currentTarget;
-                                  if (!t.dataset.tried) { t.dataset.tried = '1'; t.src = `${imgBase}.svg`; }
-                                  else { t.style.display = 'none'; (t.nextElementSibling as HTMLElement).style.display = 'block'; }
+                                  const t = e.currentTarget as HTMLImageElement;
+                                  t.style.display = 'none';
                                 }}
                                 alt={cat.label}
                                 style={{ width: 110, height: 110, objectFit: 'contain', display: 'block', filter: 'drop-shadow(0 4px 14px rgba(0,0,0,0.4))' }}

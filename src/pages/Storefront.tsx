@@ -159,12 +159,12 @@ function ProductCard({ p, onAdd, onView, currency }: { p:SProduct; onAdd:(p:SPro
 
         {/* Top badges */}
         <div style={{ position:'absolute',top:10,right:10,display:'flex',flexDirection:'column',gap:4,alignItems:'flex-end' }}>
-          {p.type === 'service' && <span style={{ background:'rgba(139,92,246,.9)',backdropFilter:'blur(4px)',color:'#fff',fontSize:9,fontWeight:800,padding:'3px 8px',borderRadius:99 }}>🔧 خدمة</span>}
-          {p.type === 'digital' && <span style={{ background:'rgba(14,165,233,.9)',backdropFilter:'blur(4px)',color:'#fff',fontSize:9,fontWeight:800,padding:'3px 8px',borderRadius:99 }}>💻 رقمي</span>}
-          {(!p.type || p.type === 'product') && isNew && <span style={{ background:'rgba(0,200,150,.9)',backdropFilter:'blur(4px)',color:'#fff',fontSize:9,fontWeight:800,padding:'3px 8px',borderRadius:99,letterSpacing:'.05em' }}>✨ جديد</span>}
-          {(!p.type || p.type === 'product') && p.stock <= 5 && p.stock > 0 && <span style={{ background:'rgba(245,158,11,.9)',backdropFilter:'blur(4px)',color:'#fff',fontSize:9,fontWeight:800,padding:'3px 8px',borderRadius:99 }}>⚡ آخر {p.stock}</span>}
-          {p.sales > 10 && <span style={{ background:'rgba(255,106,0,.9)',backdropFilter:'blur(4px)',color:'#fff',fontSize:9,fontWeight:800,padding:'3px 8px',borderRadius:99 }}>🔥 الأكثر طلباً</span>}
-          {(!p.type || p.type === 'product') && p.stock === 0 && <span style={{ background:'rgba(0,0,0,.7)',backdropFilter:'blur(4px)',color:'#fff',fontSize:9,fontWeight:800,padding:'3px 8px',borderRadius:99 }}>نفذ المخزون</span>}
+          {p.type === 'service' && <span style={{ background:'rgba(139,92,246,.9)',backdropFilter:'blur(4px)',color:'#fff',fontSize:12,fontWeight:800,padding:'3px 10px',borderRadius:99,minHeight:22,display:'inline-flex',alignItems:'center' }}>🔧 خدمة</span>}
+          {p.type === 'digital' && <span style={{ background:'rgba(14,165,233,.9)',backdropFilter:'blur(4px)',color:'#fff',fontSize:12,fontWeight:800,padding:'3px 10px',borderRadius:99,minHeight:22,display:'inline-flex',alignItems:'center' }}>💻 رقمي</span>}
+          {(!p.type || p.type === 'product') && isNew && <span style={{ background:'rgba(0,200,150,.9)',backdropFilter:'blur(4px)',color:'#fff',fontSize:12,fontWeight:800,padding:'3px 10px',borderRadius:99,minHeight:22,display:'inline-flex',alignItems:'center',letterSpacing:'.05em' }}>✨ جديد</span>}
+          {(!p.type || p.type === 'product') && p.stock <= 5 && p.stock > 0 && <span style={{ background:'rgba(245,158,11,.9)',backdropFilter:'blur(4px)',color:'#fff',fontSize:12,fontWeight:800,padding:'3px 10px',borderRadius:99,minHeight:22,display:'inline-flex',alignItems:'center' }}>⚡ آخر {p.stock}</span>}
+          {p.sales > 10 && <span style={{ background:'rgba(255,106,0,.9)',backdropFilter:'blur(4px)',color:'#fff',fontSize:12,fontWeight:800,padding:'3px 10px',borderRadius:99,minHeight:22,display:'inline-flex',alignItems:'center' }}>🔥 الأكثر طلباً</span>}
+          {(!p.type || p.type === 'product') && p.stock === 0 && <span style={{ background:'rgba(0,0,0,.7)',backdropFilter:'blur(4px)',color:'#fff',fontSize:12,fontWeight:800,padding:'3px 10px',borderRadius:99,minHeight:22,display:'inline-flex',alignItems:'center' }}>نفذ المخزون</span>}
         </div>
 
         {/* Like + Share */}
@@ -757,7 +757,7 @@ function FloatingChat({ userId, storeInfo }: { userId:string; storeInfo:StoreInf
       }}>
         {open ? <X size={22}/> : <Bot size={22}/>}
         {unread > 0 && !open && (
-          <div style={{ position:'absolute',top:-4,right:-4,width:18,height:18,background:'var(--mint)',borderRadius:'50%',fontSize:9,fontWeight:900,display:'flex',alignItems:'center',justifyContent:'center',border:'2px solid var(--void)' }}>{unread}</div>
+          <div style={{ position:'absolute',top:-4,right:-4,width:18,height:18,background:'var(--mint)',borderRadius:'50%',fontSize:11,fontWeight:900,display:'flex',alignItems:'center',justifyContent:'center',border:'2px solid var(--void)' }}>{unread}</div>
         )}
       </button>
 
@@ -1173,7 +1173,7 @@ export default function Storefront() {
           }}>
             <ShoppingCart size={18}/>
             {cart.count > 0 && (
-              <span style={{ position:'absolute',top:-5,left:-5,width:18,height:18,background:'var(--ember)',borderRadius:'50%',fontSize:9,fontWeight:900,color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',border:'2px solid var(--void)' }}>{cart.count}</span>
+              <span style={{ position:'absolute',top:-5,left:-5,width:18,height:18,background:'var(--ember)',borderRadius:'50%',fontSize:11,fontWeight:900,color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',border:'2px solid var(--void)' }}>{cart.count}</span>
             )}
           </button>
         </div>

@@ -4,6 +4,7 @@ import {
   LayoutDashboard, BarChart3, Settings, Tag,
   Search, LogOut, ExternalLink, Sun, Moon, Plus,
   Users, Bell, Download, Layers,
+  Package, Wrench, UserPlus, MoreHorizontal, X as XIcon,
 } from 'lucide-react';
 import { NavIconCart, NavIconTruck, NavIconBrain, NavIconPackage, NavIconMessage } from '../components/icons';
 import React from 'react';
@@ -141,6 +142,7 @@ export default function NavBar() {
   const [showSearch, setShowSearch] = React.useState(false);
   const [fabOpen, setFabOpen] = React.useState(false);
   const [navHidden, setNavHidden] = React.useState(false);
+  const [showMore, setShowMore] = React.useState(false);
 
   React.useEffect(() => {
     const h = (e: KeyboardEvent) => {
@@ -425,9 +427,9 @@ export default function NavBar() {
         padding: '0 24px 8px',
       }}>
         {[
-          { emoji: '📦', label: 'إضافة منتج',  action: 'addProduct',  page: 'products'  as Page },
-          { emoji: '🔧', label: 'إضافة خدمة',  action: 'addService',  page: 'products'  as Page },
-          { emoji: '👤', label: 'إضافة زبون',  action: 'addCustomer', page: 'customers' as Page },
+          { icon: Package,  label: 'إضافة منتج',  action: 'addProduct',  page: 'products'  as Page },
+          { icon: Wrench,   label: 'إضافة خدمة',  action: 'addService',  page: 'products'  as Page },
+          { icon: UserPlus, label: 'إضافة زبون',  action: 'addCustomer', page: 'customers' as Page },
         ].map((item, i) => (
           <button
             key={item.action}
@@ -453,7 +455,7 @@ export default function NavBar() {
               transition: `transform 0.2s cubic-bezier(.4,0,.2,1) ${i * 0.04}s, opacity 0.16s ease ${i * 0.04}s`,
             }}
           >
-            <span style={{ fontSize: 20 }}>{item.emoji}</span>
+            <item.icon size={22} />
             <span>{item.label}</span>
           </button>
         ))}
@@ -513,10 +515,9 @@ export default function NavBar() {
           </button>
         </div>
 
-        {/* Right 2: الرسائل + الإعدادات */}
+        {/* Right 2: الرسائل + المزيد */}
         {[
-          { page: 'conversations' as Page, icon: NavIconMessage, label: 'الرسائل'   },
-          { page: 'settings'      as Page, icon: Settings,       label: 'الإعدادات' },
+          { page: 'conversations' as Page, icon: NavIconMessage, label: 'الرسائل' },
         ].map(item => {
           const active = currentPage === item.page;
           const b = badge(item.page);
@@ -534,7 +535,64 @@ export default function NavBar() {
             </button>
           );
         })}
+        <button className={`mob-nav-btn${showMore ? ' active' : ''}`} onClick={() => setShowMore(v => !v)} style={{ flex: 1 }}>
+          <MoreHorizontal size={22} strokeWidth={1.8} />
+        </button>
       </nav>
+
+      {/* ── MORE SHEET ── */}
+      {showMore && (
+        <>
+          <div
+            style={{ position: 'fixed', inset: 0, zIndex: 399, background: 'rgba(0,0,0,.5)', backdropFilter: 'blur(6px)' }}
+            onClick={() => setShowMore(false)}
+          />
+          <div style={{
+            position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 400,
+            background: 'var(--panel)',
+            borderRadius: '20px 20px 0 0',
+            border: '1px solid var(--border2)',
+            padding: '20px 16px 36px',
+            boxShadow: '0 -16px 48px rgba(0,0,0,.4)',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+              <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--ink1)' }}>المزيد</span>
+              <button onClick={() => setShowMore(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink3)', padding: 4, display: 'flex' }}>
+                <XIcon size={20} />
+              </button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+              {([
+                { page: 'analytics'     as Page, icon: BarChart3,      label: 'التحليلات'  },
+                { page: 'customers'     as Page, icon: Users,           label: 'العملاء'    },
+                { page: 'delivery'      as Page, icon: NavIconTruck,    label: 'التوصيل'    },
+                { page: 'notifications' as Page, icon: Bell,            label: 'الإشعارات'  },
+                { page: 'settings'      as Page, icon: Settings,        label: 'الإعدادات'  },
+              ] as { page: Page; icon: React.ElementType; label: string }[]).map(item => {
+                const active = currentPage === item.page;
+                return (
+                  <button
+                    key={item.page}
+                    onClick={() => { go(item.page); setShowMore(false); }}
+                    style={{
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+                      padding: '16px 8px', borderRadius: 14,
+                      background: active ? 'var(--ember-soft)' : 'rgba(255,255,255,.04)',
+                      border: `1px solid ${active ? 'rgba(255,106,0,.3)' : 'var(--border)'}`,
+                      color: active ? 'var(--ember)' : 'var(--ink2)',
+                      cursor: 'pointer', fontFamily: 'inherit',
+                      fontSize: 11, fontWeight: 600,
+                    }}
+                  >
+                    <item.icon size={22} strokeWidth={1.8} />
+                    <span>{item.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </>
+      )}
 
     </>
   );

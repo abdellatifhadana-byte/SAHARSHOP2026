@@ -26,8 +26,8 @@
   --ember2:     #FF8533;
   --ember3:     #FFA366;
   --ember-dim:  #CC5500;
-  --ember-glow: rgba(255,106,0,.22);
-  --ember-soft: rgba(255,106,0,.08);
+  --ember-glow: rgba(255,106,0,.18);
+  --ember-soft: rgba(255,106,0,.06);
 
   /* ── Color: Gold premium ─────────────────────────── */
   --gold:      #F6C453;
@@ -129,7 +129,7 @@
   --shadow-xl: 0 20px 60px rgba(0,0,0,.6), 0 4px 16px rgba(0,0,0,.4);
 
   /* Colored shadows */
-  --shadow-ember: 0 4px 20px rgba(255,106,0,.32), 0 1px 4px rgba(0,0,0,.3);
+  --shadow-ember: 0 4px 20px rgba(255,106,0,.22), 0 1px 4px rgba(0,0,0,.3);
   --shadow-mint:  0 4px 20px rgba(0,210,179,.22), 0 1px 4px rgba(0,0,0,.25);
   --shadow-gold:  0 4px 20px rgba(246,196,83,.2),  0 1px 4px rgba(0,0,0,.25);
 
@@ -202,7 +202,7 @@ html.light-theme {
   --border3: rgba(0,0,0,.20);
   --glass:  rgba(255,255,255,.82);
   --glass2: rgba(255,255,255,.72);
-  --ember-soft: rgba(255,106,0,.08);
+  --ember-soft: rgba(255,106,0,.06);
   --ember-glow: rgba(255,106,0,.16);
   --mint-soft:  rgba(0,210,179,.07);
   --gold-soft:  rgba(246,196,83,.07);

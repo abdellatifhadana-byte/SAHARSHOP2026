@@ -164,6 +164,21 @@ const ar: T = {
   'landing.feature.delivery': 'توصيل ذكي', 'landing.feature.analytics': 'تحليلات',
   'landing.feature.secure': 'آمن 100٪', 'landing.feature.banner': 'بنر AI',
   'landing.stats.merchants': 'تاجر نشط', 'landing.stats.products': 'منتج', 'landing.stats.orders': 'طلب يومياً',
+  'landing.demo': 'جرّب بدون تسجيل',
+
+  // Pricing
+  'pricing.badge': 'الأسعار',
+  'pricing.title': 'ابدأ مجاناً، طوّر حسب نموّك',
+  'pricing.sub': 'لا بطاقة بنكية — الخطة المجانية للأبد',
+  'pricing.free.name': 'مجاني', 'pricing.free.price': '0 درهم',
+  'pricing.free.desc': 'للمتاجر الناشئة',
+  'pricing.free.f1': 'حتى 10 منتجات', 'pricing.free.f2': 'متجر رقمي كامل',
+  'pricing.free.f3': 'ذكاء اصطناعي أساسي', 'pricing.free.cta': 'ابدأ الآن مجاناً',
+  'pricing.pro.name': 'برو', 'pricing.pro.price': '99 درهم / شهر',
+  'pricing.pro.desc': 'للمتاجر المتنامية',
+  'pricing.pro.f1': 'منتجات غير محدودة', 'pricing.pro.f2': 'ذكاء اصطناعي متقدم',
+  'pricing.pro.f3': 'تحليلات + واتساب', 'pricing.pro.cta': 'جرّب 14 يوماً مجاناً',
+  'pricing.demo.cta': '👨‍💼 جرّب Demo مجاناً',
 
   // Tour guide
   'tour.skip': 'تخطي', 'tour.next': 'التالي', 'tour.prev': 'السابق',
@@ -282,6 +297,21 @@ const darija: T = {
   'landing.merchant.title': 'أنا تاجر', 'landing.merchant.desc': 'زيد بضايعك وسيّر الكوماندات بالذكاء الاصطناعي',
   'landing.merchant.ctaNew': 'ابدأ بالمجان', 'landing.merchant.ctaExisting': 'الداشبور',
   'landing.merchant.f1': 'ذكاء اصطناعي', 'landing.merchant.f2': 'سيّر الكوماندات', 'landing.merchant.f3': 'إحصائيات',
+  'landing.demo': 'جرّب بدون تسجيل',
+
+  // Pricing
+  'pricing.badge': 'الأثمنة',
+  'pricing.title': 'بدأ بالمجان، طوّر مع المتجر ديالك',
+  'pricing.sub': 'ما كاينش بطاقة بنكية — المجاني للأبد',
+  'pricing.free.name': 'مجاني', 'pricing.free.price': '0 درهم',
+  'pricing.free.desc': 'للمتاجر الجديدة',
+  'pricing.free.f1': 'حتى 10 بضايع', 'pricing.free.f2': 'متجر رقمي كامل',
+  'pricing.free.f3': 'ذكاء اصطناعي أساسي', 'pricing.free.cta': 'بدأ دابا بالمجان',
+  'pricing.pro.name': 'برو', 'pricing.pro.price': '99 درهم / شهر',
+  'pricing.pro.desc': 'للمتاجر اللي كتكبر',
+  'pricing.pro.f1': 'بضايع بلا حدود', 'pricing.pro.f2': 'ذكاء اصطناعي متقدم',
+  'pricing.pro.f3': 'إحصائيات + واتساب', 'pricing.pro.cta': 'جرّب 14 يوم بالمجان',
+  'pricing.demo.cta': '👨‍💼 جرّب الديمو',
 
   'tour.skip': 'تخطّ', 'tour.next': 'التالي', 'tour.prev': 'السابق',
   'tour.finish': 'بدأ تستعمل ✨', 'tour.step': '{cur} / {total}',
@@ -402,6 +432,21 @@ const fr: T = {
   'landing.merchant.title': 'Je suis vendeur', 'landing.merchant.desc': 'Ajoutez vos produits et gérez vos commandes avec l\'IA',
   'landing.merchant.ctaNew': 'Commencer gratuitement', 'landing.merchant.ctaExisting': 'Tableau de bord',
   'landing.merchant.f1': 'Intelligence artificielle', 'landing.merchant.f2': 'Gestion commandes', 'landing.merchant.f3': 'Analytiques',
+  'landing.demo': 'Essayer sans inscription',
+
+  // Pricing
+  'pricing.badge': 'Tarifs',
+  'pricing.title': 'Commencez gratuitement, évoluez à votre rythme',
+  'pricing.sub': 'Aucune carte bancaire — plan gratuit à vie',
+  'pricing.free.name': 'Gratuit', 'pricing.free.price': '0 MAD',
+  'pricing.free.desc': 'Pour démarrer',
+  'pricing.free.f1': "Jusqu'à 10 produits", 'pricing.free.f2': 'Boutique digitale complète',
+  'pricing.free.f3': 'IA de base', 'pricing.free.cta': 'Commencer gratuitement',
+  'pricing.pro.name': 'Pro', 'pricing.pro.price': '99 MAD / mois',
+  'pricing.pro.desc': 'Pour les boutiques en croissance',
+  'pricing.pro.f1': 'Produits illimités', 'pricing.pro.f2': 'IA avancée',
+  'pricing.pro.f3': 'Analytiques + WhatsApp', 'pricing.pro.cta': 'Essai 14 jours gratuit',
+  'pricing.demo.cta': '👨‍💼 Essayer le Demo',
 
   'tour.skip': 'Ignorer', 'tour.next': 'Suivant', 'tour.prev': 'Précédent',
   'tour.finish': 'Commencer ✨', 'tour.step': '{cur} / {total}',
@@ -518,6 +563,21 @@ const en: T = {
   'landing.merchant.title': 'I\'m a Merchant', 'landing.merchant.desc': 'Add products and manage orders with AI',
   'landing.merchant.ctaNew': 'Start Free', 'landing.merchant.ctaExisting': 'Dashboard',
   'landing.merchant.f1': 'AI-powered', 'landing.merchant.f2': 'Order management', 'landing.merchant.f3': 'Analytics',
+  'landing.demo': 'Try without signup',
+
+  // Pricing
+  'pricing.badge': 'Pricing',
+  'pricing.title': 'Start free, scale as you grow',
+  'pricing.sub': 'No credit card — free plan forever',
+  'pricing.free.name': 'Free', 'pricing.free.price': '0 MAD',
+  'pricing.free.desc': 'For new stores',
+  'pricing.free.f1': 'Up to 10 products', 'pricing.free.f2': 'Full digital storefront',
+  'pricing.free.f3': 'Basic AI assistant', 'pricing.free.cta': 'Start free now',
+  'pricing.pro.name': 'Pro', 'pricing.pro.price': '99 MAD / month',
+  'pricing.pro.desc': 'For growing stores',
+  'pricing.pro.f1': 'Unlimited products', 'pricing.pro.f2': 'Advanced AI',
+  'pricing.pro.f3': 'Analytics + WhatsApp', 'pricing.pro.cta': 'Try 14 days free',
+  'pricing.demo.cta': '👨‍💼 Try Demo',
 
   'tour.skip': 'Skip tour', 'tour.next': 'Next', 'tour.prev': 'Previous',
   'tour.finish': 'Get started ✨', 'tour.step': '{cur} / {total}',

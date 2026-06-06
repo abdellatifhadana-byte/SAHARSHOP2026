@@ -128,6 +128,7 @@ export default function DashboardPage() {
     {label:'توصيل',done:orders.some(o=>['shipped','delivered'].includes(o.status))},
   ];
   const wfPct = Math.round((workflowSteps.filter(s=>s.done).length/workflowSteps.length)*100);
+  const showWorkflow = wfPct < 100;
 
   const recentOrders = [...orders]
     .sort((a,b)=>new Date(b.createdAt).getTime()-new Date(a.createdAt).getTime())
@@ -308,7 +309,8 @@ export default function DashboardPage() {
           <div style={{borderTop:'1px solid var(--border)',padding:'14px 14px 16px',
             display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
 
-            {/* Workflow */}
+            {/* Workflow — hidden when 100% complete */}
+            {showWorkflow && (
             <div>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
                 <div className="section-title" style={{fontSize:12}}>مسار البيع</div>
@@ -342,6 +344,7 @@ export default function DashboardPage() {
                 ))}
               </div>
             </div>
+            )}
 
             {/* Mini morning report */}
             <div>

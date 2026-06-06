@@ -214,8 +214,7 @@ export default function LandingPage() {
 
         {/* CUSTOMER CARD */}
         <a
-          href={storeUrl || '#'}
-          onClick={e => { if (!storeUrl) { e.preventDefault(); alert(t(lang, 'landing.customer.noLink') || 'اطلب من التاجر رابط متجره'); } }}
+          href={storeUrl || '/auth'}
           className="land-card-customer"
           style={{
             display: 'flex', flexDirection: 'column',
@@ -278,6 +277,7 @@ export default function LandingPage() {
         {/* MERCHANT CARD */}
         <a
           href={isAuthed ? '/dashboard' : '/login'}
+          data-cta="merchant"
           className="land-card-merchant"
           style={{
             display: 'flex', flexDirection: 'column',
@@ -336,6 +336,18 @@ export default function LandingPage() {
             {isAuthed ? t(lang, 'landing.merchant.ctaExisting') : t(lang, 'landing.merchant.ctaNew')}
             <span style={{ fontSize: 16 }}>→</span>
           </div>
+          <button
+            type="button"
+            onClick={e => { e.preventDefault(); e.stopPropagation(); localStorage.setItem('ai_commerce_token','demo-token-local'); window.location.href='/dashboard'; }}
+            style={{
+              marginTop: 10, width: '100%', padding: '10px', borderRadius: 12,
+              background: 'rgba(255,106,0,.06)', border: '1px solid rgba(255,106,0,.15)',
+              color: '#FF9A55', cursor: 'pointer', fontWeight: 700, fontSize: 13,
+              fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            }}
+          >
+            {t(lang, 'landing.demo')}
+          </button>
         </a>
       </div>
 
@@ -396,29 +408,70 @@ export default function LandingPage() {
         })}
       </div>
 
-      {/* ── STATS ── */}
+      {/* ── PRICING ── */}
       <div style={{
         position: 'relative', zIndex: 5,
-        display: 'flex', justifyContent: 'center', gap: 'clamp(16px,4vw,48px)',
-        padding: '0 24px clamp(24px,4vh,48px)',
-        animation: loaded ? 'fadeUp .7s .45s ease both' : 'none',
-        animationFillMode: 'both',
-        flexWrap: 'wrap',
+        maxWidth: 780, margin: '0 auto',
+        padding: '32px clamp(16px,4vw,48px) 0',
       }}>
-        {[
-          { num: '500+', key: 'landing.stats.merchants', color: '#FF6A00' },
-          { num: '10K+', key: 'landing.stats.products',  color: '#00D2B3' },
-          { num: '1K+',  key: 'landing.stats.orders',    color: '#F6C453' },
-        ].map(s => (
-          <div key={s.key} style={{ textAlign: 'center', padding: '0 8px' }}>
-            <div style={{ fontSize: 'clamp(22px,5vw,36px)', fontWeight: 900, color: s.color, letterSpacing: '-0.03em', lineHeight: 1.1 }}>
-              {s.num}
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10 }}>
+          <span style={{
+            fontSize: 11, fontWeight: 800, color: '#FF6A00',
+            background: 'rgba(255,106,0,.1)', border: '1px solid rgba(255,106,0,.2)',
+            borderRadius: 99, padding: '4px 14px', letterSpacing: '.06em', textTransform: 'uppercase',
+          }}>{t(lang, 'pricing.badge')}</span>
+        </div>
+        <h2 style={{ textAlign: 'center', fontSize: 'clamp(18px,3vw,22px)', fontWeight: 900, color: '#E8E4DC', marginBottom: 4 }}>
+          {t(lang, 'pricing.title')}
+        </h2>
+        <p style={{ textAlign: 'center', fontSize: 13, color: 'rgba(255,255,255,.3)', marginBottom: 24 }}>
+          {t(lang, 'pricing.sub')}
+        </p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
+          {/* Free */}
+          <div style={{ background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.09)', borderRadius: 20, padding: '22px 18px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 800, color: '#00C896', marginBottom: 3 }}>{t(lang, 'pricing.free.name')}</div>
+              <div style={{ fontSize: 24, fontWeight: 900, color: '#E8E4DC' }}>{t(lang, 'pricing.free.price')}</div>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,.3)', marginTop: 2 }}>{t(lang, 'pricing.free.desc')}</div>
             </div>
-            <div style={{ fontSize: 11, color: 'rgba(255,255,255,.35)', fontWeight: 600, marginTop: 3 }}>
-              {t(lang, s.key)}
-            </div>
+            {(['pricing.free.f1','pricing.free.f2','pricing.free.f3'] as const).map(k => (
+              <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, color: 'rgba(255,255,255,.5)' }}>
+                <span style={{ color: '#00C896', fontWeight: 800 }}>✓</span> {t(lang, k)}
+              </div>
+            ))}
+            <a href="/login" style={{ marginTop: 'auto', display: 'block', textAlign: 'center', padding: '10px', borderRadius: 11, background: 'rgba(0,200,150,.1)', border: '1px solid rgba(0,200,150,.25)', color: '#00C896', fontWeight: 700, fontSize: 13, textDecoration: 'none' }}>
+              {t(lang, 'pricing.free.cta')}
+            </a>
           </div>
-        ))}
+          {/* Pro */}
+          <div style={{ background: 'linear-gradient(135deg, rgba(255,106,0,.09) 0%, rgba(255,106,0,.03) 100%)', border: '1px solid rgba(255,106,0,.28)', borderRadius: 20, padding: '22px 18px', display: 'flex', flexDirection: 'column', gap: 10, position: 'relative', overflow: 'hidden' }}>
+            <div style={{ position: 'absolute', top: 14, left: isRtl ? 'auto' : 14, right: isRtl ? 14 : 'auto' }}>
+              <span style={{ fontSize: 10, fontWeight: 800, color: '#fff', background: '#FF6A00', borderRadius: 99, padding: '2px 8px' }}>⭐ Pro</span>
+            </div>
+            <div style={{ marginTop: 20 }}>
+              <div style={{ fontSize: 12, fontWeight: 800, color: '#FF6A00', marginBottom: 3 }}>{t(lang, 'pricing.pro.name')}</div>
+              <div style={{ fontSize: 24, fontWeight: 900, color: '#E8E4DC' }}>{t(lang, 'pricing.pro.price')}</div>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,.3)', marginTop: 2 }}>{t(lang, 'pricing.pro.desc')}</div>
+            </div>
+            {(['pricing.pro.f1','pricing.pro.f2','pricing.pro.f3'] as const).map(k => (
+              <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, color: 'rgba(255,255,255,.5)' }}>
+                <span style={{ color: '#FF6A00', fontWeight: 800 }}>✓</span> {t(lang, k)}
+              </div>
+            ))}
+            <a href="/login" style={{ marginTop: 'auto', display: 'block', textAlign: 'center', padding: '10px', borderRadius: 11, background: 'rgba(255,106,0,.15)', border: '1px solid rgba(255,106,0,.35)', color: '#FF6A00', fontWeight: 700, fontSize: 13, textDecoration: 'none' }}>
+              {t(lang, 'pricing.pro.cta')}
+            </a>
+          </div>
+        </div>
+        <div style={{ textAlign: 'center', marginTop: 18 }}>
+          <button
+            onClick={() => { localStorage.setItem('ai_commerce_token','demo-token-local'); window.location.href='/dashboard'; }}
+            style={{ padding: '11px 26px', borderRadius: 13, background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.1)', color: 'rgba(255,255,255,.45)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
+          >
+            {t(lang, 'pricing.demo.cta')}
+          </button>
+        </div>
       </div>
 
       {/* ── FOOTER ── */}
