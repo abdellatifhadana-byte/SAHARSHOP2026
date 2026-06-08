@@ -1,6 +1,17 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useStore } from '../store';
 import { Eye, EyeOff, User, Mail, Lock, Store } from 'lucide-react';
+
+function loadScript(src: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (document.querySelector(`script[src="${src}"]`)) return resolve();
+    const s = document.createElement('script');
+    s.src = src; s.async = true; s.defer = true;
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error('script load failed'));
+    document.head.appendChild(s);
+  });
+}
 
 export default function AuthPage() {
   const { login, register } = useStore();
@@ -10,8 +21,64 @@ export default function AuthPage() {
   const [showPwd, setShowPwd]   = useState(false);
   const [logoErr, setLogoErr]   = useState(false);
   const [form, setForm] = useState({ name:'', email:'', password:'', storeName:'' });
+  const [socialCfg, setSocialCfg] = useState<{ googleClientId: string; facebookAppId: string }>({ googleClientId: '', facebookAppId: '' });
+  const [socialBusy, setSocialBusy] = useState(false);
 
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
+
+  // Load which social providers are configured on the server
+  useEffect(() => {
+    fetch('/api/auth/config').then(r => r.json()).then(c =>
+      setSocialCfg({ googleClientId: c.googleClientId || '', facebookAppId: c.facebookAppId || '' })
+    ).catch(() => {});
+  }, []);
+
+  const finishSocial = async (provider: string, payload: Record<string, string>) => {
+    try {
+      const r = await fetch('/api/auth/social', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider, ...payload }),
+      });
+      const j = await r.json();
+      if (j.token) {
+        localStorage.setItem('ai_commerce_token', j.token);
+        if (j.refreshToken) localStorage.setItem('ai_commerce_refresh', j.refreshToken);
+        localStorage.setItem('ai_commerce_user', JSON.stringify(j.user));
+        window.location.href = '/dashboard';
+      } else {
+        setError(j.error || 'فشل تسجيل الدخول');
+      }
+    } catch { setError('تعذّر الاتصال بالخادم'); }
+    setSocialBusy(false);
+  };
+
+  const googleLogin = async () => {
+    if (!socialCfg.googleClientId) { setError('تسجيل الدخول بـ Google يتطلب إعداد GOOGLE_CLIENT_ID في الخادم'); return; }
+    setError(''); setSocialBusy(true);
+    try {
+      await loadScript('https://accounts.google.com/gsi/client');
+      const g = (window as any).google;
+      g.accounts.id.initialize({
+        client_id: socialCfg.googleClientId,
+        callback: (resp: any) => { if (resp?.credential) finishSocial('google', { credential: resp.credential }); else setSocialBusy(false); },
+      });
+      g.accounts.id.prompt();
+    } catch { setError('تعذّر تحميل Google'); setSocialBusy(false); }
+  };
+
+  const facebookLogin = async () => {
+    if (!socialCfg.facebookAppId) { setError('تسجيل الدخول بـ Facebook يتطلب إعداد FACEBOOK_APP_ID في الخادم'); return; }
+    setError(''); setSocialBusy(true);
+    try {
+      await loadScript('https://connect.facebook.net/en_US/sdk.js');
+      const FB = (window as any).FB;
+      FB.init({ appId: socialCfg.facebookAppId, version: 'v19.0', cookie: true, xfbml: false });
+      FB.login((resp: any) => {
+        if (resp?.authResponse?.accessToken) finishSocial('facebook', { accessToken: resp.authResponse.accessToken });
+        else setSocialBusy(false);
+      }, { scope: 'email,public_profile' });
+    } catch { setError('تعذّر تحميل Facebook'); setSocialBusy(false); }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,7 +104,7 @@ export default function AuthPage() {
         position:'absolute', inset:0, zIndex:0,
         backgroundImage:'url(/sahar-banner-wide.png)',
         backgroundSize:'cover', backgroundPosition:'center',
-        opacity:.07, filter:'blur(3px)', transform:'scale(1.05)',
+        opacity:.18, filter:'blur(2px)', transform:'scale(1.05)',
       }}/>
 
       {/* Overlay */}
@@ -133,6 +200,24 @@ export default function AuthPage() {
               </button>
             </div>
 
+            {isLogin && (
+              <div style={{ textAlign:'left', marginTop:-4 }}>
+                <button type="button"
+                  onClick={() => {
+                    const email = form.email.trim();
+                    if (!email) { setError('أدخل بريدك الإلكتروني أولاً'); return; }
+                    setError('');
+                    fetch('/api/auth/forgot-password', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ email }) })
+                      .then(r => r.json())
+                      .then(() => setError('✅ تم إرسال رابط إعادة التعيين إلى بريدك الإلكتروني'))
+                      .catch(() => setError('✅ إذا كان البريد مسجلاً سيصلك رابط إعادة التعيين'));
+                  }}
+                  style={{ background:'none',border:'none',color:'rgba(255,106,0,.7)',fontSize:12,cursor:'pointer',fontFamily:'inherit',padding:0,textDecoration:'underline' }}>
+                  نسيت كلمة المرور؟
+                </button>
+              </div>
+            )}
+
             {error && (
               <div style={{ background:'rgba(255,106,0,.1)',border:'1px solid rgba(255,106,0,.25)',borderRadius:10,padding:'10px 14px',fontSize:13,color:'#FF6B47',textAlign:'center' }}>
                 {error}
@@ -143,6 +228,27 @@ export default function AuthPage() {
               style={{ width:'100%',padding:'14px',borderRadius:12,background:loading?'rgba(255,106,0,.5)':'#FF6A00',border:'none',color:'#fff',fontSize:15,fontWeight:700,cursor:loading?'not-allowed':'pointer',marginTop:4,boxShadow:loading?'none':'0 4px 20px rgba(255,106,0,.4)',transition:'all .2s' }}>
               {loading ? '...' : isLogin ? '🔑 دخول' : '🚀 إنشاء الحساب'}
             </button>
+
+            {/* Divider */}
+            <div style={{ display:'flex', alignItems:'center', gap:10, margin:'6px 0 2px' }}>
+              <div style={{ flex:1, height:1, background:'rgba(255,255,255,.1)' }}/>
+              <span style={{ fontSize:11, color:'rgba(255,255,255,.3)' }}>أو</span>
+              <div style={{ flex:1, height:1, background:'rgba(255,255,255,.1)' }}/>
+            </div>
+
+            {/* Social login */}
+            <div style={{ display:'flex', gap:8 }}>
+              <button type="button" onClick={googleLogin} disabled={socialBusy}
+                style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'11px', borderRadius:12, background:'#fff', border:'none', color:'#3c4043', fontSize:13, fontWeight:700, cursor:socialBusy?'wait':'pointer', fontFamily:'inherit' }}>
+                <svg width="16" height="16" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.6 2.4 30.2 0 24 0 14.6 0 6.4 5.4 2.5 13.3l7.9 6.1C12.3 13.2 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.5 3-2.2 5.5-4.7 7.2l7.3 5.7c4.3-4 6.8-9.9 6.8-17.4z"/><path fill="#FBBC05" d="M10.4 28.6c-.5-1.5-.8-3-.8-4.6s.3-3.1.8-4.6l-7.9-6.1C.9 16.5 0 20.1 0 24s.9 7.5 2.5 10.7l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.2 0 11.5-2 15.3-5.5l-7.3-5.7c-2 1.4-4.7 2.3-8 2.3-6.3 0-11.7-3.7-13.6-9.4l-7.9 6.1C6.4 42.6 14.6 48 24 48z"/></svg>
+                Google
+              </button>
+              <button type="button" onClick={facebookLogin} disabled={socialBusy}
+                style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'11px', borderRadius:12, background:'#1877f2', border:'none', color:'#fff', fontSize:13, fontWeight:700, cursor:socialBusy?'wait':'pointer', fontFamily:'inherit' }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="#fff"><path d="M24 12.07C24 5.4 18.63 0 12 0S0 5.4 0 12.07C0 18.1 4.39 23.1 10.13 24v-8.44H7.08v-3.49h3.05V9.41c0-3.02 1.79-4.69 4.53-4.69 1.31 0 2.68.24 2.68.24v2.97h-1.51c-1.49 0-1.96.93-1.96 1.89v2.25h3.33l-.53 3.49h-2.8V24C19.61 23.1 24 18.1 24 12.07z"/></svg>
+                Facebook
+              </button>
+            </div>
 
             <div style={{ display:'flex', gap:8, marginTop:4 }}>
               <button type="button" onClick={() => { localStorage.setItem('ai_commerce_token','demo-token-local'); window.location.href='/dashboard'; }}

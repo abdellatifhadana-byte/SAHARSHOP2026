@@ -199,6 +199,43 @@ router.post('/upload-base64', auth, async (req, res) => {
   }
 });
 
+// ── Video uploader (MP4 / MOV / WEBM) ─────────────────────────
+const uploadVideo = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50 MB
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('video/')) cb(null, true);
+    else cb(new Error('Only video files allowed'));
+  },
+});
+
+// POST /api/media/upload-video  (multipart/form-data, field "video")
+router.post('/upload-video', auth, uploadVideo.single('video'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No video uploaded' });
+  const okExt = ['mp4', 'mov', 'webm', 'quicktime'];
+  const mime = (req.file.mimetype || '').toLowerCase();
+  if (!okExt.some(e => mime.includes(e))) {
+    return res.status(400).json({ error: 'صيغة الفيديو غير مدعومة — استخدم MP4 أو MOV أو WEBM' });
+  }
+  try {
+    if (CLOUDINARY_CONFIGURED) {
+      const result = await uploadToCloudinary(req.file.buffer, {
+        public_id: `${req.user.id}-vid-${Date.now()}`,
+        resource_type: 'video',
+      });
+      return res.json({ url: result.secure_url, filename: result.public_id, size: result.bytes, provider: 'cloudinary' });
+    }
+    // Local fallback (ephemeral)
+    const ext      = path.extname(req.file.originalname) || '.mp4';
+    const filename = `${req.user.id}-vid-${Date.now()}${ext}`;
+    fs.writeFileSync(path.join(UPLOAD_DIR, filename), req.file.buffer);
+    res.json({ url: `/api/media/files/${filename}`, filename, size: req.file.size, provider: 'local' });
+  } catch (e) {
+    console.error('[Media] video upload error:', e.message);
+    res.status(500).json({ error: 'فشل رفع الفيديو' });
+  }
+});
+
 // GET /api/media/files/:filename  (serve local uploads — no-op when Cloudinary is active)
 router.get('/files/:filename', (req, res) => {
   // Sanitise filename — prevent path traversal

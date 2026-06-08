@@ -143,6 +143,7 @@ type WizardData = {
   bookingMethod: string;
   images: string[];
   imageUrl: string;
+  videoUrl: string;
   status: ProductStatus;
   variants: ColorVariant[];
   customFields: CustomFieldDef[];
@@ -160,7 +161,7 @@ const initData = (): WizardData => ({
   category: '', type: 'product', name: '', description: '',
   price: '', cost: '', stock: '', duration: '', workArea: '',
   portfolio: [], bookingDays: [], bookingTime: '', bookingLocation: '', bookingMethod: 'phone',
-  images: [], imageUrl: '', status: 'draft',
+  images: [], imageUrl: '', videoUrl: '', status: 'draft',
   variants: [], customFields: [],
   designOpts: { showName: false, showPrice: false, watermark: false, textColor: '#ffffff' },
   processedImages: [],
@@ -280,12 +281,15 @@ export default function ProductsPage() {
   const [hashtags, setHashtags] = useState<string[]>([]);
   const [aiDesignLoading, setAiDesignLoading] = useState(false);
   const [aiDesignUrl, setAiDesignUrl] = useState('');
+  const [aiDesignPrompt, setAiDesignPrompt] = useState('');
+  const [videoUploading, setVideoUploading] = useState(false);
   const [saving,     setSaving]     = useState(false);
   const [designing,  setDesigning]  = useState(false);
 
   // Hidden file inputs
   const cameraRef  = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
+  const videoRef   = useRef<HTMLInputElement>(null);
   const variantCameraRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const variantGalleryRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const urlInputRef = useRef<HTMLInputElement>(null);
@@ -396,16 +400,27 @@ export default function ProductsPage() {
   };
 
   const openEdit = (p: Product) => {
-    const catId = (Object.entries(CAT_CFG).find(([, v]) => v.emoji === p.emoji)?.[0]) || 'other';
+    const catId = (Object.entries(CAT_CFG).find(([, v]) => v.emoji === p.emoji)?.[0]) ||
+      ((p as any).type === 'service' ? 'service' : 'other');
     setData({
       ...initData(),
-      category: catId, name: p.name, description: p.description,
-      price: String(p.price), cost: String(p.cost), stock: String(p.stock),
-      images: p.images || (p.imageUrl ? [p.imageUrl] : []),
+      category: catId,
+      type: (p as any).type || 'product',
+      name: p.name,
+      description: p.description || '',
+      price: String(p.price || ''),
+      cost: String(p.cost || ''),
+      stock: String(p.stock || ''),
+      images: p.images?.length ? p.images : (p.imageUrl ? [p.imageUrl] : []),
       imageUrl: p.imageUrl || '',
-      status: p.status,
+      videoUrl: (p as any).videoUrl || '',
+      status: p.status || 'draft',
       variants: (p as any).variants || [],
       customFields: (p as any).customFields || [],
+      duration: (p as any).duration || '',
+      workArea: (p as any).workArea || '',
+      portfolio: (p as any).portfolio || [],
+      designOpts: (p as any).designOpts || initData().designOpts,
     });
     setStep(2); setEditProd(p); setShowWizard(true);
     setHashtags([]); setAiDesignUrl('');
@@ -420,9 +435,21 @@ export default function ProductsPage() {
     setEditProd(null);
   };
 
+  // ── AI settings from store (sent to backend so the key works even before DB sync) ──
+  const aiCreds = () => ({
+    apiKey:    settings.ai?.apiKey    || '',
+    geminiKey: (settings.ai as any)?.geminiKey || '',
+    provider:  settings.ai?.provider  || 'openai',
+    model:     settings.ai?.model     || 'gpt-4o-mini',
+  });
+
   // ── AI description ───────────────────────────────────────────
   const generateAI = async () => {
     if (!data.name) return;
+    const creds = aiCreds();
+    if (!creds.apiKey && !creds.geminiKey) {
+      notify('warning', '⚠️ لم يتم ربط الذكاء الاصطناعي — أضف مفتاح OpenAI أو Gemini من الإعدادات. سيُستخدم وصف تلقائي مؤقت.');
+    }
     setAiLoading(true);
     try {
       const cat = CATS.find(c => c.id === data.category);
@@ -432,14 +459,20 @@ export default function ProductsPage() {
         body: JSON.stringify({
           name: data.name,
           category: cat?.label || data.category,
+          type: data.type,
           price: data.price,
-          sizes: data.sizes,
-          colors: data.colors,
+          sizes: data.variants.flatMap(v => v.sizes.map(s => s.name)),
+          colors: data.variants.map(v => v.color),
+          ...creds,
         }),
       });
       const j = await r.json();
-      if (j.description) setData(d => ({ ...d, description: j.description }));
-    } catch { /* silent */ }
+      if (j.description) {
+        setData(d => ({ ...d, description: j.description }));
+        if (j.model === 'local') notify('info', 'ℹ️ تم توليد وصف تلقائي (الذكاء الاصطناعي غير مربوط). اربط OpenAI لوصف أذكى.');
+        else notify('success', `✅ تم توليد الوصف بـ ${j.model === 'openai' ? 'OpenAI' : 'Gemini'}`);
+      }
+    } catch { notify('error', '❌ تعذّر توليد الوصف'); }
     setAiLoading(false);
   };
 
@@ -456,6 +489,7 @@ export default function ProductsPage() {
           category: cat?.label || data.category,
           description: data.description,
           storeName: settings.brand.name,
+          ...aiCreds(),
         }),
       });
       const j = await r.json();
@@ -466,6 +500,8 @@ export default function ProductsPage() {
 
   const designWithAI = async () => {
     if (!data.name) return notify('warning', 'أدخل اسم المنتج أولاً');
+    const creds = aiCreds();
+    if (!creds.apiKey) { notify('error', '⚠️ توليد الصور يتطلب مفتاح OpenAI — أضفه من الإعدادات'); return; }
     setAiDesignLoading(true);
     try {
       const cat = CATS.find(c => c.id === data.category);
@@ -478,8 +514,11 @@ export default function ProductsPage() {
           storeName: settings.brand.name,
           description: data.description,
           category: cat?.label || data.category,
-          colors: data.colors,
-          sizes: data.sizes,
+          colors: data.variants.map(v => v.color),
+          sizes: data.variants.flatMap(v => v.sizes.map(s => s.name)),
+          customPrompt: aiDesignPrompt.trim(),
+          baseImage: data.images[0] || '',
+          ...creds,
         }),
       });
       const j = await r.json();
@@ -536,6 +575,34 @@ export default function ProductsPage() {
       const next = [...d.images, url.trim()];
       return { ...d, images: next, imageUrl: next[0] || d.imageUrl };
     });
+  };
+
+  // ── Video upload (MP4 / MOV / WEBM) ───────────────────────────
+  const handleVideo = async (files: FileList | null) => {
+    const f = files?.[0];
+    if (!f) return;
+    if (!f.type.startsWith('video/')) { notify('error', '❌ يرجى اختيار ملف فيديو (MP4 / MOV / WEBM)'); return; }
+    if (f.size > 50 * 1024 * 1024) { notify('error', '❌ حجم الفيديو يتجاوز 50 ميجا'); return; }
+    setVideoUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append('video', f);
+      const r = await fetch('/api/media/upload-video', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: fd,
+      });
+      const j = await r.json();
+      if (j.url) {
+        setData(d => ({ ...d, videoUrl: j.url }));
+        notify('success', '✅ تم رفع الفيديو');
+      } else {
+        notify('error', `❌ ${j.error || 'فشل رفع الفيديو'}`);
+      }
+    } catch {
+      notify('error', '❌ فشل رفع الفيديو — تحقق من الاتصال');
+    }
+    setVideoUploading(false);
   };
 
   // ── Variant helpers ───────────────────────────────────────────
@@ -639,6 +706,7 @@ export default function ProductsPage() {
         colors: finalColors,
         images: finalImages,
         imageUrl: finalImages[0] || data.imageUrl || '',
+        videoUrl: data.videoUrl || '',
         category: catLabel,
         emoji: cfg.emoji,
         status,
@@ -1310,10 +1378,10 @@ export default function ProductsPage() {
 
                   {/* AI Image Design */}
                   <div style={{ padding:'14px', background:'rgba(255,106,0,.05)', border:'1px dashed rgba(255,106,0,.25)', borderRadius:14 }}>
-                    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom: aiDesignUrl ? 12 : 0 }}>
+                    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom: 12 }}>
                       <div>
-                        <p style={{ fontSize:13, fontWeight:800, color:'var(--ember)', marginBottom:2 }}>🎨 تصميم صورة بالذكاء الاصطناعي</p>
-                        <p style={{ fontSize:11, color:'var(--ink3)' }}>يولد صورة احترافية للمنتج تلقائياً — يتطلب OpenAI</p>
+                        <p style={{ fontSize:13, fontWeight:800, color:'var(--ember)', marginBottom:2 }}>🎨 استوديو تصميم الصور بالذكاء الاصطناعي</p>
+                        <p style={{ fontSize:11, color:'var(--ink3)' }}>اكتب ما تريد أو اختر اقتراحاً ثم اضغط تصميم — يتطلب OpenAI</p>
                       </div>
                       <button
                         onClick={designWithAI}
@@ -1324,6 +1392,35 @@ export default function ProductsPage() {
                         <Sparkles size={14}/>
                         {aiDesignLoading ? '⏳ جارٍ التصميم...' : 'تصميم AI'}
                       </button>
+                    </div>
+
+                    {/* Prompt box */}
+                    <textarea
+                      className="textarea"
+                      rows={2}
+                      value={aiDesignPrompt}
+                      onChange={e => setAiDesignPrompt(e.target.value)}
+                      placeholder="مثال: ضع المنتج على خلفية رخامية فاخرة بإضاءة ذهبية ناعمة..."
+                      style={{ resize:'none', fontSize:12, marginBottom:8 }}
+                    />
+
+                    {/* Suggestion chips */}
+                    <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginBottom: aiDesignUrl ? 12 : 0 }}>
+                      {[
+                        '🧹 إزالة الخلفية',
+                        '🌅 تغيير الخلفية لاستوديو احترافي',
+                        '👕 تلبيس المنتج على عارض',
+                        '📢 تصميم إعلان جذاب',
+                        '🖼️ تصميم Banner للسوشيال',
+                        '📱 تصميم Story انستغرام',
+                        '✨ إضاءة احترافية وجودة عالية',
+                      ].map(s => (
+                        <button key={s} type="button"
+                          onClick={() => setAiDesignPrompt(p => p ? `${p}، ${s.replace(/^[^\s]+\s/, '')}` : s.replace(/^[^\s]+\s/, ''))}
+                          style={{ fontSize:11, padding:'4px 10px', borderRadius:99, background:'rgba(255,106,0,.08)', border:'1px solid rgba(255,106,0,.2)', color:'var(--ember)', cursor:'pointer', fontFamily:'inherit', fontWeight:600 }}>
+                          {s}
+                        </button>
+                      ))}
                     </div>
                     {aiDesignUrl && (
                       <div style={{ display:'flex', gap:10, alignItems:'flex-start', marginTop:10 }}>
@@ -1341,6 +1438,35 @@ export default function ProductsPage() {
                             </button>
                           </div>
                         </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Product video (MP4 / MOV / WEBM) */}
+                  <div style={{ padding:'14px', background:'rgba(124,111,250,.05)', border:'1px dashed rgba(124,111,250,.25)', borderRadius:14 }}>
+                    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom: data.videoUrl ? 12 : 0 }}>
+                      <div>
+                        <p style={{ fontSize:13, fontWeight:800, color:'#7C6FFA', marginBottom:2 }}>🎬 فيديو المنتج</p>
+                        <p style={{ fontSize:11, color:'var(--ink3)' }}>اعرض منتجك بالفيديو — MP4 / MOV / WEBM (حتى 50 ميجا)</p>
+                      </div>
+                      <button
+                        onClick={() => videoRef.current?.click()}
+                        disabled={videoUploading}
+                        className="btn btn-ghost btn-sm"
+                        style={{ color:'#7C6FFA', borderColor:'rgba(124,111,250,.3)', gap:6, flexShrink:0 }}
+                      >
+                        {videoUploading ? '⏳ جارٍ الرفع...' : (data.videoUrl ? 'استبدال الفيديو' : '+ رفع فيديو')}
+                      </button>
+                    </div>
+                    <input ref={videoRef} type="file" accept="video/mp4,video/quicktime,video/webm,video/*" style={{ display:'none' }}
+                      onChange={e => { handleVideo(e.target.files); e.currentTarget.value = ''; }} />
+                    {data.videoUrl && (
+                      <div style={{ marginTop:10 }}>
+                        <video src={data.videoUrl} controls style={{ width:'100%', maxHeight:200, borderRadius:10, background:'#000', border:'1px solid rgba(124,111,250,.3)' }} />
+                        <button onClick={() => setData(d => ({ ...d, videoUrl: '' }))}
+                          className="btn btn-ghost btn-xs" style={{ fontSize:11, marginTop:6 }}>
+                          🗑️ إزالة الفيديو
+                        </button>
                       </div>
                     )}
                   </div>

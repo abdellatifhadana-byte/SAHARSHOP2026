@@ -62,10 +62,22 @@ const STATUS_AR: Record<string, string> = {
   shipped:'شُحن', delivered:'وُصّل', cancelled:'ملغي',
 };
 
+// Traffic source display labels + icons
+const SOURCE_LABELS: Record<string, { label: string; icon: string; color: string }> = {
+  facebook:  { label: 'فيسبوك',    icon: '📘', color: '#1877f2' },
+  instagram: { label: 'انستغرام',  icon: '📸', color: '#e1306c' },
+  tiktok:    { label: 'تيكتوك',    icon: '🎵', color: '#000000' },
+  google:    { label: 'جوجل',      icon: '🔍', color: '#4285F4' },
+  whatsapp:  { label: 'واتساب',    icon: '💬', color: '#25D366' },
+  youtube:   { label: 'يوتيوب',    icon: '▶️', color: '#FF0000' },
+  direct:    { label: 'مباشر',     icon: '🔗', color: '#8B96A8' },
+};
+
 export default function AnalyticsPage() {
   const { orders, products, customers, settings, isOnline } = useStore();
   const [months, setMonths] = useState<Period>(6);
   const [serverData, setServerData] = useState<any>(null);
+  const [storeStats, setStoreStats] = useState<any>(null);
   const { currency } = settings.brand;
 
   useEffect(() => {
@@ -73,6 +85,7 @@ export default function AnalyticsPage() {
     Promise.all([analyticsAPI.get(), analyticsAPI.funnel()]).then(([ana, funnel]) => {
       setServerData({ ...ana, funnel });
     }).catch(() => {});
+    analyticsAPI.store(30).then(setStoreStats).catch(() => {});
   }, [isOnline]);
 
   const active    = orders.filter(o => o.status !== 'cancelled');
@@ -142,6 +155,88 @@ export default function AnalyticsPage() {
             <p style={{ fontSize: 18, fontWeight: 900, color: 'var(--ink1)' }}>{k.value}</p>
           </div>
         ))}
+      </div>
+
+      {/* ── Store traffic & visitors ── */}
+      <div className="card" style={{ padding: '18px 20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+          <h2 style={{ fontSize: 15, fontWeight: 900, color: 'var(--ink1)', display: 'flex', alignItems: 'center', gap: 8 }}>
+            👁️ زوّار المتجر <span style={{ fontSize: 11, color: 'var(--ink3)', fontWeight: 600 }}>(آخر 30 يوم)</span>
+          </h2>
+        </div>
+
+        {storeStats && (storeStats.totalVisits > 0 || storeStats.totalViews > 0) ? (
+          <>
+            {/* Visitor KPIs */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 18 }}>
+              {[
+                { l: 'زوّار فريدون', v: storeStats.uniqueVisitors || 0, c: '#00D2B3' },
+                { l: 'إجمالي الزيارات', v: storeStats.totalVisits || 0, c: '#FF6A00' },
+                { l: 'مشاهدات المنتجات', v: storeStats.totalViews || 0, c: '#a855f7' },
+              ].map((s, i) => (
+                <div key={i} style={{ padding: '14px 10px', borderRadius: 12, background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border)', textAlign: 'center' }}>
+                  <p style={{ fontSize: 22, fontWeight: 900, color: s.c }}>{Number(s.v).toLocaleString()}</p>
+                  <p style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 3 }}>{s.l}</p>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              {/* Most viewed products */}
+              <div>
+                <h3 style={{ fontSize: 13, fontWeight: 800, color: 'var(--ink2)', marginBottom: 12 }}>👀 الأكثر مشاهدة</h3>
+                {storeStats.topViewed?.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {storeStats.topViewed.slice(0, 5).map((p: any, i: number) => {
+                      const max = storeStats.topViewed[0]?.views || 1;
+                      return (
+                        <div key={i}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+                            <span style={{ fontSize: 12.5, color: 'var(--ink1)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 120 }}>{p.name || '—'}</span>
+                            <span style={{ fontSize: 12, fontWeight: 900, color: 'var(--ink2)' }}>{p.views}</span>
+                          </div>
+                          <div className="progress-bar" style={{ height: 5 }}>
+                            <div className="progress-fill" style={{ width: `${(p.views / max) * 100}%`, background: 'linear-gradient(90deg,#a855f7,#7C3AED)' }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : <p style={{ color: 'var(--ink3)', fontSize: 12.5, padding: '14px 0' }}>لا مشاهدات بعد</p>}
+              </div>
+
+              {/* Traffic sources */}
+              <div>
+                <h3 style={{ fontSize: 13, fontWeight: 800, color: 'var(--ink2)', marginBottom: 12 }}>🌐 مصدر الزيارة</h3>
+                {storeStats.trafficSources?.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+                    {storeStats.trafficSources.slice(0, 6).map((s: any, i: number) => {
+                      const meta = SOURCE_LABELS[s.source] || { label: s.source, icon: '🔗', color: '#8B96A8' };
+                      const max = storeStats.trafficSources[0]?.count || 1;
+                      return (
+                        <div key={i}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+                            <span style={{ fontSize: 12.5, color: 'var(--ink1)', fontWeight: 600 }}>{meta.icon} {meta.label}</span>
+                            <span style={{ fontSize: 12, fontWeight: 900, color: 'var(--ink2)' }}>{s.count}</span>
+                          </div>
+                          <div className="progress-bar" style={{ height: 5 }}>
+                            <div className="progress-fill" style={{ width: `${(s.count / max) * 100}%`, background: meta.color }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : <p style={{ color: 'var(--ink3)', fontSize: 12.5, padding: '14px 0' }}>لا زيارات بعد</p>}
+              </div>
+            </div>
+          </>
+        ) : (
+          <div style={{ padding: '24px 0', textAlign: 'center', color: 'var(--ink3)' }}>
+            <span style={{ fontSize: 36, opacity: 0.3, display: 'block', marginBottom: 8 }}>👁️</span>
+            <p style={{ fontSize: 13.5 }}>لا بيانات زوّار بعد</p>
+            <p style={{ fontSize: 12, marginTop: 4 }}>شارك رابط متجرك — وسيظهر هنا من زار وأي منتج شاهد ومن أي منصة</p>
+          </div>
+        )}
       </div>
 
       {/* Revenue Bar Chart (Recharts) */}

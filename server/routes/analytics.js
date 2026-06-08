@@ -3,6 +3,72 @@ const router = require('express').Router();
 const auth   = require('../middleware/auth');
 const { db } = require('../database');
 
+// POST /api/analytics/track — PUBLIC: record a storefront visit or product view
+router.post('/track', async (req, res) => {
+  try {
+    const { userId, type, productId, productName, source, sessionId } = req.body || {};
+    if (!userId) return res.status(400).json({ error: 'userId required' });
+    const ev = {
+      userId,
+      type: type === 'view' ? 'view' : 'visit',
+      productId: productId || '',
+      productName: productName || '',
+      source: (source || 'direct').slice(0, 40),
+      sessionId: (sessionId || '').slice(0, 60),
+    };
+    await db.addStoreEvent(ev);
+    if (ev.type === 'view' && ev.productId) await db.incrementProductViews(ev.productId);
+    res.json({ ok: true });
+  } catch (e) { res.json({ ok: false }); }
+});
+
+// GET /api/analytics/store — visitor & view analytics for the merchant
+router.get('/store', auth, async (req, res) => {
+  try {
+    const uid = req.user.id;
+    const days = Math.min(90, Math.max(1, parseInt(req.query.days) || 30));
+    const events = await db.getStoreEvents(uid, days);
+
+    const visits = events.filter(e => e.type === 'visit');
+    const views  = events.filter(e => e.type === 'view');
+    const sessions = new Set(events.map(e => e.session_id).filter(Boolean));
+
+    // Traffic sources (from visits)
+    const sourceMap = {};
+    visits.forEach(v => { const s = v.source || 'direct'; sourceMap[s] = (sourceMap[s] || 0) + 1; });
+    const trafficSources = Object.entries(sourceMap).sort((a, b) => b[1] - a[1]).map(([source, count]) => ({ source, count }));
+
+    // Most viewed products
+    const viewMap = {};
+    views.forEach(v => {
+      const key = v.product_id || v.product_name;
+      if (!key) return;
+      if (!viewMap[key]) viewMap[key] = { id: v.product_id, name: v.product_name || v.product_id, views: 0 };
+      viewMap[key].views++;
+    });
+    const topViewed = Object.values(viewMap).sort((a, b) => b.views - a.views).slice(0, 8);
+
+    // Visits over last 14 days
+    const daily = Array.from({ length: 14 }, (_, i) => {
+      const d = new Date(); d.setDate(d.getDate() - (13 - i));
+      const dateStr = d.toISOString().split('T')[0];
+      const dayVisits = visits.filter(v => new Date(v.created_at).toISOString().startsWith(dateStr));
+      const daySessions = new Set(dayVisits.map(v => v.session_id).filter(Boolean));
+      return { date: dateStr, visits: dayVisits.length, visitors: daySessions.size };
+    });
+
+    res.json({
+      totalVisits: visits.length,
+      uniqueVisitors: sessions.size,
+      totalViews: views.length,
+      trafficSources,
+      topViewed,
+      daily,
+      rangeDays: days,
+    });
+  } catch (e) { console.error('[analytics/store]', e.message); res.status(500).json({ error: 'Server error' }); }
+});
+
 router.get('/', auth, async (req, res) => {
   try {
     const uid      = req.user.id;

@@ -4,7 +4,7 @@ import {
   LayoutDashboard, BarChart3, Settings, Tag,
   Search, LogOut, ExternalLink, Sun, Moon, Plus,
   Users, Bell, Download, Layers,
-  Package, Wrench, UserPlus, MoreHorizontal, X as XIcon,
+  Package, Wrench, UserPlus, MoreHorizontal, X as XIcon, HelpCircle,
 } from 'lucide-react';
 import { NavIconCart, NavIconTruck, NavIconBrain, NavIconPackage, NavIconMessage } from '../components/icons';
 import React from 'react';
@@ -106,6 +106,7 @@ const SIDEBAR_NAV: { page: Page; icon: any; label: string; desc: string }[] = [
   { page: 'customers',     icon: Users,           label: 'الزبائن',   desc: 'التحكم في جميع الزبائن' },
   { page: 'coupons',       icon: Tag,             label: 'الكوبونات', desc: 'إنشاء كودات وهدايا' },
   { page: 'import',        icon: Download,        label: 'تصدير',     desc: 'استيراد المحادثة للحصول على معلومات من المحادثات' },
+  { page: 'guide',         icon: HelpCircle,      label: 'شرح التطبيق', desc: 'دليل تفاعلي لكل ميزات التطبيق' },
   { page: 'settings',      icon: Settings,        label: 'الإعدادات', desc: 'التحكم في كل إعدادات المتجر...' },
 ];
 
@@ -128,7 +129,8 @@ const DESKTOP_SIDEBAR_GROUPS: { label: string; items: { page: Page; icon: any; l
     { page: 'connections',   icon: NavIconBrain, label: 'الاتصالات' },
   ]},
   { label: 'النظام', items: [
-    { page: 'settings', icon: Settings, label: 'الإعدادات' },
+    { page: 'guide',    icon: HelpCircle, label: 'شرح التطبيق' },
+    { page: 'settings', icon: Settings,   label: 'الإعدادات' },
   ]},
 ];
 
@@ -250,6 +252,12 @@ export default function NavBar() {
           <button onClick={() => setShowSearch(true)}
             style={{ width: 32, height: 32, borderRadius: 'var(--r-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,.05)', border: '1px solid var(--border)', color: 'var(--ink3)', cursor: 'pointer' }}>
             <Search size={14} strokeWidth={2.2} />
+          </button>
+
+          <button onClick={() => go('guide')}
+            title="شرح التطبيق"
+            style={{ width: 32, height: 32, borderRadius: 'var(--r-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', background: currentPage === 'guide' ? 'var(--ember-soft)' : 'rgba(255,255,255,.05)', border: `1px solid ${currentPage === 'guide' ? 'rgba(255,106,0,.3)' : 'var(--border)'}`, color: currentPage === 'guide' ? 'var(--ember)' : 'var(--ink3)', cursor: 'pointer' }}>
+            <HelpCircle size={14} strokeWidth={2.2} />
           </button>
 
           {settings.ai?.humanSimulation && (
@@ -467,12 +475,12 @@ export default function NavBar() {
         transform: navHidden ? 'translateY(100%)' : 'translateY(0)',
         transition: 'transform 0.3s cubic-bezier(.4,0,.2,1)',
       }}>
-        {/* Left 2: الرئيسية + الطلبات */}
+        {/* Left 2: الرئيسية + منتجات */}
         {[
           { page: 'dashboard' as Page, icon: LayoutDashboard, label: 'الرئيسية' },
-          { page: 'orders'    as Page, icon: NavIconCart,     label: 'الطلبات'  },
+          { page: 'products'  as Page, icon: NavIconPackage,  label: 'منتجات'   },
         ].map(item => {
-          const active = currentPage === item.page;
+          const active = currentPage === item.page || (item.page === 'products' && currentPage === 'services');
           const b = badge(item.page);
           return (
             <button key={item.page} className={`mob-nav-btn${active ? ' active' : ''}`} onClick={() => go(item.page)}
@@ -515,9 +523,10 @@ export default function NavBar() {
           </button>
         </div>
 
-        {/* Right 2: الرسائل + المزيد */}
+        {/* Right 2: الطلبات + الرسائل */}
         {[
-          { page: 'conversations' as Page, icon: NavIconMessage, label: 'الرسائل' },
+          { page: 'orders'         as Page, icon: NavIconCart,    label: 'طلبات'  },
+          { page: 'conversations'  as Page, icon: NavIconMessage,  label: 'رسائل'  },
         ].map(item => {
           const active = currentPage === item.page;
           const b = badge(item.page);
@@ -535,9 +544,6 @@ export default function NavBar() {
             </button>
           );
         })}
-        <button className={`mob-nav-btn${showMore ? ' active' : ''}`} onClick={() => setShowMore(v => !v)} style={{ flex: 1 }}>
-          <MoreHorizontal size={22} strokeWidth={1.8} />
-        </button>
       </nav>
 
       {/* ── MORE SHEET ── */}
@@ -566,7 +572,9 @@ export default function NavBar() {
                 { page: 'analytics'     as Page, icon: BarChart3,      label: 'التحليلات'  },
                 { page: 'customers'     as Page, icon: Users,           label: 'العملاء'    },
                 { page: 'delivery'      as Page, icon: NavIconTruck,    label: 'التوصيل'    },
+                { page: 'coupons'       as Page, icon: Tag,             label: 'الكوبونات'  },
                 { page: 'notifications' as Page, icon: Bell,            label: 'الإشعارات'  },
+                { page: 'guide'         as Page, icon: HelpCircle,      label: 'شرح التطبيق' },
                 { page: 'settings'      as Page, icon: Settings,        label: 'الإعدادات'  },
               ] as { page: Page; icon: React.ElementType; label: string }[]).map(item => {
                 const active = currentPage === item.page;

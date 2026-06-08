@@ -216,6 +216,7 @@ export const settingsAPI = {
 export const analyticsAPI = {
   get:    () => request<any>('GET', '/analytics'),
   funnel: () => request<any>('GET', '/analytics/funnel'),
+  store:  (days = 30) => request<any>('GET', `/analytics/store?days=${days}`),
 };
 
 // ── Broadcast ─────────────────────────────────────────────────

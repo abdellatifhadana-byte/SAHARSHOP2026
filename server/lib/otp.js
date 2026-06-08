@@ -60,6 +60,40 @@ async function sendOTP(email, storeName) {
   return { sent: true, method: 'console' };
 }
 
+async function sendWelcome(email, name, storeName) {
+  const transport = getTransport();
+  if (!transport) {
+    console.warn(`[Welcome] ⚠️  No SMTP configured — welcome email skipped for ${email}`);
+    return { sent: false, method: 'console' };
+  }
+  const from  = process.env.SMTP_FROM || `"SAHAR Shop" <${process.env.SMTP_USER}>`;
+  const store = storeName || 'متجرك';
+  try {
+    await transport.sendMail({
+      from,
+      to: email,
+      subject: '🎉 مرحباً بك في SAHAR Shop',
+      html: `
+        <div dir="rtl" style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:28px;background:#07080D;color:#E8E4DC;border-radius:14px">
+          <h2 style="color:#FF6A00;text-align:center;margin:0 0 6px">🎉 مرحباً ${name || ''}!</h2>
+          <p style="text-align:center;color:#aaa;margin:0 0 18px">تم إنشاء متجر <strong style="color:#FF6A00">${store}</strong> بنجاح</p>
+          <div style="background:#12141c;border-radius:10px;padding:18px;margin:0 0 18px">
+            <p style="color:#E8E4DC;font-weight:700;margin:0 0 10px">خطواتك الأولى:</p>
+            <p style="color:#bbb;font-size:14px;margin:6px 0">📦 أضف أول منتج أو خدمة</p>
+            <p style="color:#bbb;font-size:14px;margin:6px 0">💬 اربط واتساب لاستقبال الطلبات</p>
+            <p style="color:#bbb;font-size:14px;margin:6px 0">🤖 فعّل الذكاء الاصطناعي للرد التلقائي</p>
+            <p style="color:#bbb;font-size:14px;margin:6px 0">🔗 شارك رابط متجرك مع زبائنك</p>
+          </div>
+          <p style="color:#777;font-size:12px;text-align:center;margin:0">SAHAR Shop — منصة التجارة والخدمات الذكية 🇲🇦</p>
+        </div>`,
+    });
+    return { sent: true, method: 'email' };
+  } catch (err) {
+    console.error('[Welcome] Email send failed:', err.message);
+    return { sent: false, method: 'error' };
+  }
+}
+
 async function verifyOTP(email, code) {
   const otp = await db.getValidOTP(email, code);
   if (!otp) return { valid: false, reason: 'invalid' };
@@ -71,4 +105,4 @@ async function verifyOTP(email, code) {
   return { valid: true };
 }
 
-module.exports = { sendOTP, verifyOTP };
+module.exports = { sendOTP, verifyOTP, sendWelcome };

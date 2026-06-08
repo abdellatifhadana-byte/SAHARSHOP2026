@@ -204,6 +204,23 @@ function printOrder(order: any, settings: any, currency: string) {
   const w = window.open('', '_blank'); if (w) { w.document.write(html); w.document.close(); }
 }
 
+function sendReceiptWhatsApp(order: any, settings: any, currency: string) {
+  const brandName = settings.brand?.name || 'SAHAR shop';
+  const items = (order.items || []).map((i: any) =>
+    `• ${i.productName} × ${i.quantity} = ${(i.price * i.quantity).toLocaleString()} ${currency}`
+  ).join('\n');
+  const msg = `🧾 *وصل طلبك — ${brandName}*\n\n`
+    + `📦 رقم الطلب: *${order.id}*\n`
+    + `👤 الاسم: ${order.customerName}\n`
+    + `📍 المدينة: ${order.city || '—'}\n\n`
+    + `*المنتجات:*\n${items}\n\n`
+    + `💰 *الإجمالي: ${order.total} ${currency}*\n\n`
+    + `شكراً لثقتك في ${brandName} 💛`;
+  const phone = (order.customerPhone || '').replace(/\D/g, '');
+  const url = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
+  window.open(url, '_blank');
+}
+
 function OrdersSkeleton() {
   const pulse: React.CSSProperties = { borderRadius: 10, background: 'var(--panel2)', animation: 'pulse-ember 1.6s ease-in-out infinite' };
   return (
@@ -490,6 +507,11 @@ export default function OrdersPage() {
                     )}
                     {order.status === 'shipped' && <button onClick={() => { deliverOrder(order.id); setExpanded(null); }} className="btn btn-success" style={{ flex: 1, justifyContent: 'center' }}><Package size={15} /> تأكيد التوصيل</button>}
                     <button onClick={() => printOrder(order, settings, currency)} className="btn btn-ghost btn-sm" style={{ paddingInline: 14 }}>🖨️ طباعة</button>
+                    {order.customerPhone && (
+                      <button onClick={() => sendReceiptWhatsApp(order, settings, currency)} className="btn btn-ghost btn-sm" style={{ paddingInline: 14, color: '#25D366', borderColor: 'rgba(37,211,102,.3)' }}>
+                        💬 إرسال الوصل للزبون
+                      </button>
+                    )}
                   </div>
                 </div>
               )}

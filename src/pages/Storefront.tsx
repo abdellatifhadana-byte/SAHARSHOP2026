@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   Search, ShoppingCart, X, MessageCircle, Phone, Share2,
   Plus, Minus, Check, Package, Truck, MapPin, ChevronRight,
-  Star, Zap, Heart, Send, Bot, ArrowRight, RotateCcw
+  Star, Zap, Heart, Send, Bot, ArrowRight, RotateCcw, Play
 } from 'lucide-react';
 
 // ══════════════════════════════════════════════
@@ -12,7 +12,7 @@ interface CustomField { id:string; label:string; type:string; options:string[]; 
 interface SProduct {
   id:string; name:string; description:string; price:number; cost?:number;
   stock:number; category:string; sizes:string[]; colors:string[];
-  status:string; emoji:string; imageUrl:string; images:string[]; sku?:string;
+  status:string; emoji:string; imageUrl:string; images:string[]; videoUrl?:string; sku?:string;
   sales:number; views?:number; colorImages?:Record<string,string>; createdAt?:string;
   type?:'product'|'service'|'digital'; duration?:string; workArea?:string; portfolio?:string[];
   customFields?:CustomField[];
@@ -46,6 +46,51 @@ function getDeliveryCost(city:string, costs?:Record<string,number>):number {
 }
 
 // ══════════════════════════════════════════════
+// STORE ANALYTICS TRACKING
+// ══════════════════════════════════════════════
+function detectSource(): string {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const utm = params.get('utm_source') || params.get('source');
+    if (utm) return utm.toLowerCase();
+    const ref = document.referrer || '';
+    if (!ref) return 'direct';
+    const h = new URL(ref).hostname.replace('www.', '');
+    if (h.includes('facebook') || h.includes('fb.')) return 'facebook';
+    if (h.includes('instagram')) return 'instagram';
+    if (h.includes('tiktok')) return 'tiktok';
+    if (h.includes('google')) return 'google';
+    if (h.includes('wa.me') || h.includes('whatsapp')) return 'whatsapp';
+    if (h.includes('youtube')) return 'youtube';
+    return h || 'direct';
+  } catch { return 'direct'; }
+}
+function storeSessionId(): string {
+  try {
+    let sid = sessionStorage.getItem('sahar_sid');
+    if (!sid) { sid = Math.random().toString(36).slice(2) + Date.now().toString(36); sessionStorage.setItem('sahar_sid', sid); }
+    return sid;
+  } catch { return 'anon'; }
+}
+function trackStoreEvent(userId: string, type: 'visit' | 'view', product?: { id?: string; name?: string }) {
+  if (!userId) return;
+  try {
+    fetch('/api/analytics/track', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId, type,
+        productId: product?.id || '',
+        productName: product?.name || '',
+        source: detectSource(),
+        sessionId: storeSessionId(),
+      }),
+      keepalive: true,
+    }).catch(() => {});
+  } catch {}
+}
+
+// ══════════════════════════════════════════════
 // HOOKS
 // ══════════════════════════════════════════════
 function useStorefront(userId:string) {
@@ -63,6 +108,11 @@ function useStorefront(userId:string) {
       setStoreInfo({ brand: catalog.brand || {}, deliveryCosts: catalog.deliveryCosts });
       setLoading(false);
     }).catch(() => { setError('تعذّر تحميل المتجر'); setLoading(false); });
+    // Track store visit once per browser session
+    try {
+      const vkey = `sahar_visit_${userId}`;
+      if (!sessionStorage.getItem(vkey)) { trackStoreEvent(userId, 'visit'); sessionStorage.setItem(vkey, '1'); }
+    } catch {}
   }, [userId]);
 
   return { products, storeInfo, loading, error };
@@ -236,6 +286,103 @@ function ProductCard({ p, onAdd, onView, currency }: { p:SProduct; onAdd:(p:SPro
   );
 }
 
+/* Fullscreen image gallery — swipe, zoom (double-tap/click), keyboard nav */
+function Lightbox({ images, startIndex, onClose }: { images: string[]; startIndex: number; onClose: () => void }) {
+  const [idx, setIdx] = useState(startIndex);
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const touch = useRef<{ x: number; y: number; t: number; dist: number; baseZoom: number } | null>(null);
+
+  const go = useCallback((d: number) => { setIdx(i => Math.max(0, Math.min(images.length - 1, i + d))); setZoom(1); setPan({ x: 0, y: 0 }); }, [images.length]);
+
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+      if (e.key === 'ArrowRight') go(-1);
+      if (e.key === 'ArrowLeft') go(1);
+    };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  }, [go, onClose]);
+
+  const dist2 = (t: TouchList) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      touch.current = { x: 0, y: 0, t: Date.now(), dist: dist2(e.touches), baseZoom: zoom };
+    } else {
+      touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now(), dist: 0, baseZoom: zoom };
+    }
+  };
+  const onTouchMove = (e: React.TouchEvent) => {
+    if (!touch.current) return;
+    if (e.touches.length === 2 && touch.current.dist) {
+      const ratio = dist2(e.touches) / touch.current.dist;
+      setZoom(Math.max(1, Math.min(4, touch.current.baseZoom * ratio)));
+    } else if (zoom > 1) {
+      // pan while zoomed
+      setPan(pp => ({ x: pp.x + (e.touches[0].clientX - touch.current!.x), y: pp.y + (e.touches[0].clientY - touch.current!.y) }));
+      touch.current.x = e.touches[0].clientX; touch.current.y = e.touches[0].clientY;
+    }
+  };
+  const onTouchEnd = (e: React.TouchEvent) => {
+    const tc = touch.current; touch.current = null;
+    if (!tc || zoom > 1) return;
+    const dx = (e.changedTouches[0]?.clientX ?? tc.x) - tc.x;
+    const dt = Date.now() - tc.t;
+    if (Math.abs(dx) > 50 && dt < 600) go(dx > 0 ? -1 : 1); // RTL: swipe right → previous
+  };
+
+  const toggleZoom = () => { setZoom(z => (z > 1 ? 1 : 2.5)); setPan({ x: 0, y: 0 }); };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'rgba(0,0,0,.95)', display: 'flex', alignItems: 'center', justifyContent: 'center', touchAction: 'none' }}
+      onClick={onClose}>
+      {/* Close */}
+      <button onClick={onClose} style={{ position: 'absolute', top: 16, left: 16, width: 40, height: 40, borderRadius: '50%', background: 'rgba(255,255,255,.12)', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3 }}>
+        <X size={20} />
+      </button>
+      {/* Counter */}
+      <div style={{ position: 'absolute', top: 22, right: 20, color: 'rgba(255,255,255,.7)', fontSize: 13, fontWeight: 700, zIndex: 3 }}>{idx + 1} / {images.length}</div>
+
+      {/* Image */}
+      <div
+        onClick={e => { e.stopPropagation(); toggleZoom(); }}
+        onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
+        style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+        <img src={images[idx]} alt="" draggable={false}
+          style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transition: touch.current ? 'none' : 'transform .2s', cursor: zoom > 1 ? 'grab' : 'zoom-in', userSelect: 'none' }} />
+      </div>
+
+      {/* Prev / Next (desktop) */}
+      {images.length > 1 && (
+        <>
+          <button onClick={e => { e.stopPropagation(); go(1); }} disabled={idx >= images.length - 1}
+            style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', width: 44, height: 44, borderRadius: '50%', background: 'rgba(255,255,255,.12)', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 22, zIndex: 3, opacity: idx >= images.length - 1 ? .3 : 1 }}>‹</button>
+          <button onClick={e => { e.stopPropagation(); go(-1); }} disabled={idx <= 0}
+            style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', width: 44, height: 44, borderRadius: '50%', background: 'rgba(255,255,255,.12)', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 22, zIndex: 3, opacity: idx <= 0 ? .3 : 1 }}>›</button>
+        </>
+      )}
+
+      {/* Thumbnail strip */}
+      {images.length > 1 && (
+        <div onClick={e => e.stopPropagation()} style={{ position: 'absolute', bottom: 16, left: 0, right: 0, display: 'flex', gap: 6, justifyContent: 'center', overflowX: 'auto', padding: '0 16px', zIndex: 3 }}>
+          {images.map((img, i) => (
+            <button key={i} onClick={() => { setIdx(i); setZoom(1); setPan({ x: 0, y: 0 }); }}
+              style={{ flexShrink: 0, width: 44, height: 44, borderRadius: 8, overflow: 'hidden', border: `2px solid ${i === idx ? '#FF6A00' : 'rgba(255,255,255,.25)'}`, padding: 0, cursor: 'pointer', background: '#000' }}>
+              <img src={img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            </button>
+          ))}
+        </div>
+      )}
+      {/* Hint */}
+      <div style={{ position: 'absolute', bottom: images.length > 1 ? 66 : 16, left: 0, right: 0, textAlign: 'center', color: 'rgba(255,255,255,.4)', fontSize: 11, zIndex: 2, pointerEvents: 'none' }}>
+        اضغط للتكبير · اسحب للتنقل
+      </div>
+    </div>
+  );
+}
+
 /* Product Detail Modal */
 function ProductModal({ p, cart, onClose, currency, userId }: { p:SProduct; cart:ReturnType<typeof useCart>; onClose:()=>void; currency:string; userId:string }) {
   const [size,  setSize]  = useState(p.sizes?.[0]||'');
@@ -244,6 +391,9 @@ function ProductModal({ p, cart, onClose, currency, userId }: { p:SProduct; cart
   const [added, setAdded] = useState(false);
   const firstColorImg = p.colors?.[0] && p.colorImages?.[p.colors[0]];
   const [activeImage, setActiveImage] = useState(firstColorImg || p.imageUrl || '');
+  const [showVideo, setShowVideo] = useState(false);
+  const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
+  const galleryImgs = [p.imageUrl, ...(p.images || [])].filter((img, i, arr) => img && arr.indexOf(img) === i);
 
   const handleAdd = () => {
     cart.add(p, size, color);
@@ -253,41 +403,58 @@ function ProductModal({ p, cart, onClose, currency, userId }: { p:SProduct; cart
   };
 
   return (
+   <>
+    {lightboxIdx !== null && galleryImgs.length > 0 && (
+      <Lightbox images={galleryImgs} startIndex={lightboxIdx} onClose={() => setLightboxIdx(null)} />
+    )}
     <div onClick={onClose} style={{ position:'fixed',inset:0,background:'rgba(0,0,0,.7)',backdropFilter:'blur(8px)',zIndex:300,display:'flex',alignItems:'flex-end',justifyContent:'center',padding:'0' }}
       className="anim-fade-up">
       <div onClick={e=>e.stopPropagation()} style={{
         background:'var(--panel)',borderRadius:'24px 24px 0 0',width:'100%',maxWidth:520,
         maxHeight:'90vh',overflowY:'auto',padding:'0 0 24px',
       }}>
-        {/* Main image */}
-        <div style={{ height:260,position:'relative',background:activeImage?'#000':'var(--void2)',flexShrink:0 }}>
-          {activeImage
-            ? <img src={activeImage} alt={p.name} style={{ width:'100%',height:'100%',objectFit:'cover',transition:'opacity .2s' }} />
+        {/* Main image / video */}
+        <div style={{ height:260,position:'relative',background:(activeImage||showVideo)?'#000':'var(--void2)',flexShrink:0 }}>
+          {showVideo && p.videoUrl
+            ? <video src={p.videoUrl} controls autoPlay playsInline style={{ width:'100%',height:'100%',objectFit:'contain',background:'#000' }} />
+            : activeImage
+            ? <img src={activeImage} alt={p.name}
+                onClick={() => { const i = galleryImgs.indexOf(activeImage); setLightboxIdx(i >= 0 ? i : 0); }}
+                style={{ width:'100%',height:'100%',objectFit:'cover',transition:'opacity .2s',cursor:'zoom-in' }} />
             : <div style={{ width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:80 }}>{p.emoji||'📦'}</div>
           }
-          <button onClick={onClose} style={{ position:'absolute',top:14,left:14,width:34,height:34,borderRadius:'50%',background:'rgba(0,0,0,.5)',border:'none',color:'#fff',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center' }}>
+          <button onClick={onClose} style={{ position:'absolute',top:14,left:14,width:34,height:34,borderRadius:'50%',background:'rgba(0,0,0,.5)',border:'none',color:'#fff',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',zIndex:2 }}>
             <X size={17} />
           </button>
-          {p.sales > 0 && <div style={{ position:'absolute',bottom:14,right:14,background:'var(--ember)',color:'#fff',fontSize:11,fontWeight:700,padding:'3px 10px',borderRadius:99 }}>{p.sales}+ مبيعة</div>}
+          {/* Zoom hint */}
+          {!showVideo && activeImage && (
+            <div style={{ position:'absolute',top:14,right:14,background:'rgba(0,0,0,.5)',color:'#fff',fontSize:10,fontWeight:700,padding:'4px 9px',borderRadius:99,display:'flex',alignItems:'center',gap:4,pointerEvents:'none' }}>🔍 تكبير</div>
+          )}
+          {p.sales > 0 && !showVideo && <div style={{ position:'absolute',bottom:14,right:14,background:'var(--ember)',color:'#fff',fontSize:11,fontWeight:700,padding:'3px 10px',borderRadius:99 }}>{p.sales}+ مبيعة</div>}
         </div>
-        {/* Image thumbnails — shown when product has multiple images */}
-        {(p.images?.length > 0) && (() => {
-          const allImgs = [p.imageUrl, ...(p.images||[])].filter((img,i,arr) => img && arr.indexOf(img)===i);
-          if (allImgs.length <= 1) return null;
-          return (
+        {/* Thumbnails — images + video — shown when product has multiple media */}
+        {(galleryImgs.length > 1 || p.videoUrl) && (
             <div style={{ display:'flex',gap:6,overflowX:'auto',padding:'8px 14px',background:'var(--void2)',borderBottom:'1px solid var(--border)' }}>
-              {allImgs.map((img,i) => (
-                <button key={i} onClick={()=>setActiveImage(img)} style={{
+              {galleryImgs.map((img,i) => (
+                <button key={i} onClick={()=>{ setShowVideo(false); setActiveImage(img); }} style={{
                   flexShrink:0,width:48,height:48,borderRadius:7,overflow:'hidden',
-                  border:`2px solid ${activeImage===img?'var(--ember)':'var(--border2)'}`,
+                  border:`2px solid ${(!showVideo && activeImage===img)?'var(--ember)':'var(--border2)'}`,
                   background:'var(--void3)',cursor:'pointer',padding:0,transition:'border-color .15s',
                 }}>
                   <img src={img} alt="" style={{ width:'100%',height:'100%',objectFit:'cover' }} loading="lazy" />
                 </button>
               ))}
+              {p.videoUrl && (
+                <button onClick={()=>setShowVideo(true)} title="فيديو المنتج" style={{
+                  flexShrink:0,width:48,height:48,borderRadius:7,overflow:'hidden',position:'relative',
+                  border:`2px solid ${showVideo?'var(--ember)':'var(--border2)'}`,
+                  background:'#000',cursor:'pointer',padding:0,display:'flex',alignItems:'center',justifyContent:'center',
+                }}>
+                  <Play size={18} style={{ color:'#fff' }} />
+                </button>
+              )}
             </div>
-          );
-        })()}
+        )}
 
         <div style={{ padding:'20px 20px 0' }}>
           <div style={{ fontSize:11,color:'var(--ink3)',marginBottom:4 }}>{p.category} {p.sku ? `· #${p.sku}` : ''}</div>
@@ -431,6 +598,7 @@ function ProductModal({ p, cart, onClose, currency, userId }: { p:SProduct; cart
         </div>
       </div>
     </div>
+   </>
   );
 }
 
@@ -979,6 +1147,11 @@ export default function Storefront() {
     const pid = new URLSearchParams(window.location.search).get('p');
     if (pid) { const found = products.find(x => x.id === pid); if (found) setViewProduct(found); }
   }, [products]);
+
+  // Track product views (any entry point) to backend analytics
+  useEffect(() => {
+    if (viewProduct) trackStoreEvent(userId, 'view', { id: viewProduct.id, name: viewProduct.name });
+  }, [viewProduct?.id]);
 
   // Track recently viewed (persisted in localStorage)
   const trackViewed = useCallback((p: SProduct) => {

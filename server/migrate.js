@@ -31,6 +31,7 @@ async function migrate() {
       colors JSONB DEFAULT '[]',
       color_images JSONB DEFAULT '{}',
       image_url TEXT DEFAULT '',
+      video_url TEXT DEFAULT '',
       is_for_children BOOLEAN DEFAULT FALSE,
       age_range TEXT DEFAULT '',
       size_type TEXT DEFAULT 'adult',
@@ -237,6 +238,22 @@ async function migrate() {
     // Fix conversation.status default (Fix #13)
     await client.query(`ALTER TABLE conversations ALTER COLUMN status SET DEFAULT 'active'`);
     await client.query(`UPDATE conversations SET status='active' WHERE status='open'`);
+
+    // Add product video column for existing databases
+    await client.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS video_url TEXT DEFAULT ''`).catch(() => {});
+
+    // Store analytics events (visits + product views) for the storefront
+    await client.query(`CREATE TABLE IF NOT EXISTS store_events (
+      id BIGSERIAL PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      type TEXT NOT NULL DEFAULT 'visit',
+      product_id TEXT DEFAULT '',
+      product_name TEXT DEFAULT '',
+      source TEXT DEFAULT 'direct',
+      session_id TEXT DEFAULT '',
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_store_events_user ON store_events(user_id, created_at DESC)`);
 
     // FK fixes: loyalty_points.customer_id → customers(id) ON DELETE CASCADE
     await client.query(`

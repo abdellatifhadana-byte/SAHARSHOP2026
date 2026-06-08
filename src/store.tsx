@@ -193,8 +193,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         orders: orders || s.orders,
         customers: (customers as any)?.data ?? customers ?? s.customers,
         settings: (settings && settings.brand) ? (() => {
-            if (settings.design?.theme) { try { localStorage.setItem('ai_commerce_theme', settings.design.theme); } catch {} }
-            return { ...s.settings, ...settings };
+            const localTheme = (() => { try { return localStorage.getItem('ai_commerce_theme'); } catch { return null; } })();
+            const merged = { ...s.settings, ...settings };
+            if (localTheme === 'light' || localTheme === 'dark') {
+              merged.design = { ...merged.design, theme: localTheme as 'light' | 'dark' };
+            } else if (settings.design?.theme) {
+              try { localStorage.setItem('ai_commerce_theme', settings.design.theme); } catch {}
+            }
+            return merged;
           })() : s.settings,
         conversations: convs || s.conversations,
         onboardingCompleted: (settings && settings.brand) ? (settings.onboardingDone === true) : s.onboardingCompleted,

@@ -238,21 +238,24 @@ ${allProds||'لا منتجات منشورة'}
 // POST /api/ai/generate-description — dedicated product description generator
 router.post('/generate-description', auth, async (req, res) => {
   try {
-    const { name, category, price, sizes, colors } = req.body;
+    const { name, category, price, sizes, colors, type } = req.body;
     if (!name) return res.status(400).json({ error: 'name required' });
 
     const dbSettings = await db.getSettings(req.user.id) || {};
-    const openaiKey  = dbSettings.ai?.apiKey   || process.env.OPENAI_API_KEY;
-    const geminiKey  = dbSettings.ai?.geminiKey || process.env.GEMINI_API_KEY;
-    const provider   = dbSettings.ai?.provider  || 'openai';
+    // Accept key from request body (frontend store) → DB → env, like /reply
+    const openaiKey  = req.body.apiKey    || dbSettings.ai?.apiKey   || process.env.OPENAI_API_KEY;
+    const geminiKey  = req.body.geminiKey || dbSettings.ai?.geminiKey || process.env.GEMINI_API_KEY;
+    const provider   = req.body.provider  || dbSettings.ai?.provider  || 'openai';
+    const aiModel    = req.body.model     || dbSettings.ai?.model     || 'gpt-4o-mini';
 
-    const prompt = `اكتب وصفاً تسويقياً قصيراً (جملتين إلى ثلاث جمل) بالدارجة المغربية لمنتج: "${name}" من فئة "${category || 'ملابس'}".${price ? ` السعر: ${price} درهم.` : ''}${sizes?.length ? ` المقاسات: ${sizes.join('، ')}.` : ''}${colors?.length ? ` الألوان: ${colors.join('، ')}.` : ''} الوصف يكون جذاباً، يبرز الجودة ويشجع على الشراء. أعطِ الوصف مباشرة بدون مقدمات.`;
+    const kind = type === 'service' ? 'خدمة' : type === 'digital' ? 'منتج رقمي' : 'منتج';
+    const prompt = `اكتب وصفاً تسويقياً قصيراً (جملتين إلى ثلاث جمل) بالدارجة المغربية ل${kind}: "${name}" من فئة "${category || 'عام'}".${price ? ` السعر: ${price} درهم.` : ''}${sizes?.length ? ` المقاسات: ${sizes.join('، ')}.` : ''}${colors?.length ? ` الألوان: ${colors.join('، ')}.` : ''} الوصف يكون جذاباً، يبرز الجودة ويشجع على الشراء. أعطِ الوصف مباشرة بدون مقدمات.`;
     const sysPrompt = 'أنت خبير كتابة إعلانية لمتجر مغربي. اكتب وصفاً جذاباً مباشراً فقط.';
 
     if (openaiKey && provider !== 'gemini') {
       try {
         const body = JSON.stringify({
-          model: dbSettings.ai?.model || 'gpt-4o-mini',
+          model: aiModel,
           messages: [{ role: 'system', content: sysPrompt }, { role: 'user', content: prompt }],
           max_tokens: 200, temperature: 0.8,
         });
@@ -287,9 +290,9 @@ router.post('/generate-hashtags', auth, async (req, res) => {
     if (!name) return res.status(400).json({ error: 'name required' });
 
     const dbSettings = await db.getSettings(req.user.id) || {};
-    const openaiKey  = dbSettings.ai?.apiKey   || process.env.OPENAI_API_KEY;
-    const geminiKey  = dbSettings.ai?.geminiKey || process.env.GEMINI_API_KEY;
-    const provider   = dbSettings.ai?.provider  || 'openai';
+    const openaiKey  = req.body.apiKey    || dbSettings.ai?.apiKey   || process.env.OPENAI_API_KEY;
+    const geminiKey  = req.body.geminiKey || dbSettings.ai?.geminiKey || process.env.GEMINI_API_KEY;
+    const provider   = req.body.provider  || dbSettings.ai?.provider  || 'openai';
 
     const prompt = `Generate 15 social media hashtags for a Moroccan online store product.
 Product: "${name}"${category ? `\nCategory: ${category}` : ''}${description ? `\nDescription: ${description.slice(0,100)}` : ''}${storeName ? `\nStore: ${storeName}` : ''}
@@ -348,11 +351,11 @@ Include: Arabic hashtags for Morocco (#تسوق_المغرب etc.), English hash
 // POST /api/ai/design-product-image — AI product image via DALL-E 3
 router.post('/design-product-image', auth, async (req, res) => {
   try {
-    const { productName, price, storeName, description, category, colors, sizes } = req.body;
+    const { productName, price, storeName, description, category, colors, sizes, customPrompt, baseImage } = req.body;
     if (!productName) return res.status(400).json({ error: 'productName required' });
 
     const dbSettings = await db.getSettings(req.user.id) || {};
-    const openaiKey  = dbSettings.ai?.apiKey || process.env.OPENAI_API_KEY;
+    const openaiKey  = req.body.apiKey || dbSettings.ai?.apiKey || process.env.OPENAI_API_KEY;
 
     if (!openaiKey) {
       return res.status(400).json({
@@ -372,6 +375,9 @@ router.post('/design-product-image', auth, async (req, res) => {
       sizes?.length  ? `Sizes: ${sizes.slice(0,4).join(', ')}` : '',
       `Price: ${price} ${cur}`,
       `Store: ${store}`,
+      ``,
+      // User's custom design request takes top priority
+      customPrompt ? `IMPORTANT USER REQUEST: ${customPrompt}` : '',
       ``,
       `Create a stunning commercial product photo:`,
       `- Clean white or soft gradient background`,

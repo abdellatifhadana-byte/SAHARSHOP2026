@@ -63,10 +63,16 @@ function authHeaders(): Record<string, string> {
   return h;
 }
 
+// ─── Demo mode check ─────────────────────────────────────────────────────────
+function isDemo(): boolean {
+  try { return localStorage.getItem('ai_commerce_token') === 'demo-token-local'; } catch { return false; }
+}
+
 // ─── Main Component ──────────────────────────────────────────────────────────
 export default function CouponsPage() {
   const { settings } = useStore();
   const currency = settings.brand?.currency || 'MAD';
+  const demo = isDemo();
 
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [loading, setLoading] = useState(true);
@@ -81,6 +87,14 @@ export default function CouponsPage() {
   const fetchCoupons = useCallback(async () => {
     setLoading(true);
     setError('');
+    if (demo) {
+      try {
+        const stored = localStorage.getItem('demo_coupons');
+        setCoupons(stored ? JSON.parse(stored) : []);
+      } catch { setCoupons([]); }
+      setLoading(false);
+      return;
+    }
     try {
       const res = await fetch(`${apiBase()}/coupons`, {
         headers: authHeaders(),
@@ -94,7 +108,7 @@ export default function CouponsPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [demo]);
 
   useEffect(() => { fetchCoupons(); }, [fetchCoupons]);
 
@@ -114,8 +128,21 @@ export default function CouponsPage() {
         minOrder: Number(form.minOrder) || 0,
         maxUses: Number(form.maxUses) || 0,
         active: form.active,
+        usedCount: 0,
+        createdAt: new Date().toISOString(),
       };
       if (form.expiresAt) body.expiresAt = form.expiresAt;
+
+      if (demo) {
+        const newCoupon: Coupon = { ...body, id: 'demo_' + Date.now() };
+        const updated = [newCoupon, ...coupons];
+        setCoupons(updated);
+        try { localStorage.setItem('demo_coupons', JSON.stringify(updated)); } catch {}
+        setShowModal(false);
+        setForm(EMPTY_FORM);
+        setSaving(false);
+        return;
+      }
 
       const res = await fetch(`${apiBase()}/coupons`, {
         method: 'POST',
@@ -141,6 +168,12 @@ export default function CouponsPage() {
   // ── Delete coupon ──────────────────────────────────────────────────────────
   const handleDelete = async (id: string) => {
     if (!window.confirm('هل تريد حذف هذا الكوبون؟')) return;
+    if (demo) {
+      const updated = coupons.filter(c => c.id !== id);
+      setCoupons(updated);
+      try { localStorage.setItem('demo_coupons', JSON.stringify(updated)); } catch {}
+      return;
+    }
     try {
       const res = await fetch(`${apiBase()}/coupons/${id}`, {
         method: 'DELETE',

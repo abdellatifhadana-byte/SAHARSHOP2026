@@ -25,6 +25,7 @@ function _mapProduct(p) {
     colors:        Array.isArray(p.colors)       ? p.colors       : [],
     colorImages:   (p.color_images && typeof p.color_images === 'object') ? p.color_images : {},
     imageUrl:      p.image_url     || '',
+    videoUrl:      p.video_url     || '',
     isForChildren: !!p.is_for_children,
     ageRange:      p.age_range     || '',
     sizeType:      p.size_type     || 'adult',
@@ -196,10 +197,10 @@ const db = {
     const { rows } = await pool.query(
       `INSERT INTO products
         (id,user_id,name,description,price,cost,stock,sku,category,emoji,
-         images,sizes,colors,color_images,image_url,is_for_children,age_range,
+         images,sizes,colors,color_images,image_url,video_url,is_for_children,age_range,
          size_type,views,sales,status,offer_type,duration,service_area,
          portfolio,custom_fields)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27)
        RETURNING *`,
       [
         id, p.userId, p.name || '', p.description || '',
@@ -211,6 +212,7 @@ const db = {
         JSON.stringify(p.colors || []),
         JSON.stringify(p.colorImages || {}),
         p.imageUrl || '',
+        p.videoUrl || '',
         p.isForChildren ? true : false,
         p.ageRange || '',
         p.sizeType || 'adult',
@@ -230,7 +232,7 @@ const db = {
       name:         'name',         description:  'description',  price:   'price',
       cost:         'cost',         stock:        'stock',        sku:     'sku',
       category:     'category',     emoji:        'emoji',        status:  'status',
-      imageUrl:     'image_url',    images:       'images',       sizes:   'sizes',
+      imageUrl:     'image_url',    videoUrl:     'video_url',    images:  'images',       sizes:   'sizes',
       colors:       'colors',       colorImages:  'color_images', isForChildren: 'is_for_children',
       ageRange:     'age_range',    sizeType:     'size_type',    views:   'views',
       sales:        'sales',        offer_type:   'offer_type',   type:    'offer_type',
@@ -254,6 +256,29 @@ const db = {
   async deleteProduct(id, userId) {
     if (userId) await pool.query('DELETE FROM products WHERE id = $1 AND user_id = $2', [id, userId]);
     else await pool.query('DELETE FROM products WHERE id = $1', [id]);
+  },
+  async incrementProductViews(id) {
+    await pool.query('UPDATE products SET views = COALESCE(views,0) + 1 WHERE id = $1', [id]).catch(() => {});
+  },
+
+  // ── Store analytics events ───────────────────────────────────
+  async addStoreEvent({ userId, type = 'visit', productId = '', productName = '', source = 'direct', sessionId = '' }) {
+    if (!userId) return;
+    await pool.query(
+      `INSERT INTO store_events (user_id, type, product_id, product_name, source, session_id)
+       VALUES ($1,$2,$3,$4,$5,$6)`,
+      [userId, type, productId, productName, source, sessionId]
+    ).catch(() => {});
+  },
+  async getStoreEvents(userId, sinceDays = 30) {
+    const { rows } = await pool.query(
+      `SELECT type, product_id, product_name, source, session_id, created_at
+       FROM store_events
+       WHERE user_id = $1 AND created_at >= NOW() - ($2 || ' days')::interval
+       ORDER BY created_at DESC LIMIT 5000`,
+      [userId, String(sinceDays)]
+    ).catch(() => ({ rows: [] }));
+    return rows;
   },
 
   // ── Customers ────────────────────────────────────────────────

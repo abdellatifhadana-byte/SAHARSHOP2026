@@ -8,7 +8,7 @@ const jwt     = require('jsonwebtoken');
 const { db }  = require('../database');
 
 const { JWT_SECRET: _secret, JWT_EXPIRES: EXPIRES, REFRESH_EXPIRES: REXP, REFRESH_EXPIRES_MS: REXP_MS } = require('../lib/config');
-const { sendOTP, verifyOTP } = require('../lib/otp');
+const { sendOTP, verifyOTP, sendWelcome } = require('../lib/otp');
 
 function sign(user) {
   return jwt.sign({ id: user.id, email: user.email, role: user.role }, _secret, { expiresIn: EXPIRES });
@@ -44,6 +44,9 @@ router.post('/register', sanitizeBody, validateAuth, async (req, res) => {
     await db.saveSettings(user.id, { ...defaultSettings, brand: { ...defaultSettings.brand, name: storeName || `${name}'s Store`, email: user.email } });
     await db.addLog({ userId: user.id, user: 'System', action: 'Account registered', details: user.email, type: 'auth', severity: 'info' });
 
+    // Welcome email (non-blocking — graceful no-op if SMTP unconfigured)
+    sendWelcome(user.email, user.name, storeName).catch(() => {});
+
     const token        = sign(user);
     const refreshToken = await issueRefreshToken(user.id);
     res.status(201).json({ token, refreshToken, user: safe(user) });
@@ -64,6 +67,72 @@ router.post('/login', sanitizeBody, validateAuth, async (req, res) => {
     const refreshToken = await issueRefreshToken(user.id);
     res.json({ token, refreshToken, user: safe(user) });
   } catch (e) { res.status(500).json({ error: 'Server error' }); }
+});
+
+// ── Social login helpers ──────────────────────────────────────
+function httpsGetJSON(url) {
+  return new Promise((resolve, reject) => {
+    require('https').get(url, r => {
+      let d = '';
+      r.on('data', c => d += c);
+      r.on('end', () => { try { resolve(JSON.parse(d)); } catch (e) { reject(e); } });
+    }).on('error', reject);
+  });
+}
+
+// GET /api/auth/config — PUBLIC: which social providers are configured (client IDs are public)
+router.get('/config', (req, res) => {
+  res.json({
+    googleClientId:  process.env.GOOGLE_CLIENT_ID  || '',
+    facebookAppId:   process.env.FACEBOOK_APP_ID   || '',
+    google:   !!process.env.GOOGLE_CLIENT_ID,
+    facebook: !!process.env.FACEBOOK_APP_ID,
+  });
+});
+
+// POST /api/auth/social — PUBLIC: verify Google/Facebook token, find-or-create user, issue JWT
+router.post('/social', sanitizeBody, async (req, res) => {
+  try {
+    const { provider, credential, accessToken } = req.body;
+    let profile = null;
+
+    if (provider === 'google' && credential) {
+      // Verify the Google ID token server-side
+      const data = await httpsGetJSON(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`);
+      // Optionally enforce audience: if GOOGLE_CLIENT_ID set, aud must match
+      if (data && data.email && (!process.env.GOOGLE_CLIENT_ID || data.aud === process.env.GOOGLE_CLIENT_ID)) {
+        profile = { email: String(data.email).toLowerCase(), name: data.name || data.given_name || data.email.split('@')[0] };
+      }
+    } else if (provider === 'facebook' && accessToken) {
+      const data = await httpsGetJSON(`https://graph.facebook.com/me?fields=id,name,email&access_token=${encodeURIComponent(accessToken)}`);
+      if (data && data.email) profile = { email: String(data.email).toLowerCase(), name: data.name || data.email.split('@')[0] };
+    }
+
+    if (!profile || !profile.email) return res.status(401).json({ error: 'فشل التحقق من الحساب' });
+
+    let user = await db.getUserByEmail(profile.email);
+    let isNew = false;
+    if (!user) {
+      isNew = true;
+      const randomPass = crypto.randomBytes(24).toString('hex');
+      user = await db.createUser({
+        name: profile.name,
+        email: profile.email,
+        password: await bcrypt.hash(randomPass, 10),
+        role: 'admin',
+      });
+      const { defaultSettings } = require('../defaults');
+      await db.saveSettings(user.id, { ...defaultSettings, brand: { ...defaultSettings.brand, name: `${profile.name}'s Store`, email: user.email } });
+      await db.addLog({ userId: user.id, user: 'System', action: `Registered via ${provider}`, details: user.email, type: 'auth', severity: 'info' });
+      sendWelcome(user.email, user.name).catch(() => {});
+    } else {
+      await db.addLog({ userId: user.id, user: user.name, action: `Login via ${provider}`, details: '', type: 'auth', severity: 'info' });
+    }
+
+    const token        = sign(user);
+    const refreshToken = await issueRefreshToken(user.id);
+    res.json({ token, refreshToken, user: safe(user), isNew });
+  } catch (e) { console.error('[Auth social]', e.message); res.status(500).json({ error: 'Server error' }); }
 });
 
 // GET /api/auth/me

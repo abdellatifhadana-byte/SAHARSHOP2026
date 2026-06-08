@@ -72,10 +72,20 @@ export default function LandingPage() {
         .lang-option:hover { background: rgba(255,255,255,.08) !important; }
       `}</style>
 
+      {/* Hero background image */}
+      <div style={{
+        position: 'absolute', inset: 0, zIndex: 0,
+        backgroundImage: 'url(/sahar-banner-wide.png)',
+        backgroundSize: 'cover', backgroundPosition: 'center top',
+        opacity: .12, filter: 'blur(1px)', transform: 'scale(1.03)',
+      }} />
+      {/* Dark overlay */}
+      <div style={{ position: 'absolute', inset: 0, zIndex: 0, background: 'linear-gradient(180deg, rgba(7,8,13,.82) 0%, rgba(7,8,13,.95) 60%, rgba(7,8,13,1) 100%)' }} />
+
       {/* Grid pattern */}
       <div style={{
         position: 'absolute', inset: 0, zIndex: 1,
-        backgroundImage: 'linear-gradient(rgba(255,255,255,.01) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.01) 1px, transparent 1px)',
+        backgroundImage: 'linear-gradient(rgba(255,255,255,.015) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.015) 1px, transparent 1px)',
         backgroundSize: '48px 48px',
         maskImage: 'radial-gradient(ellipse 80% 60% at 50% 0%, black 40%, transparent 100%)',
       }} />
@@ -200,6 +210,41 @@ export default function LandingPage() {
         }}>
           {t(lang, lang === 'ar' ? 'landing.customer.desc' : 'landing.merchant.desc')}
         </p>
+      </div>
+
+      {/* ── WHO IS THIS FOR ── */}
+      <div style={{
+        position: 'relative', zIndex: 5,
+        maxWidth: 780, margin: '0 auto',
+        padding: '0 clamp(16px,4vw,48px) 16px',
+        animation: loaded ? 'fadeUp .7s .18s ease both' : 'none',
+        animationFillMode: 'both',
+      }}>
+        <p style={{ textAlign: 'center', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.3)', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 12 }}>
+          مناسب لك إذا كنت
+        </p>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+          {[
+            { icon: '🛍️', label: 'تبيع منتجات' },
+            { icon: '🔧', label: 'تبيع خدمات' },
+            { icon: '📱', label: 'تبيع رقمياً' },
+            { icon: '🏪', label: 'صاحب متجر' },
+            { icon: '👗', label: 'بوتيك أزياء' },
+            { icon: '⚡', label: 'كهربائي / سباك' },
+            { icon: '🎨', label: 'مصمم / مبرمج' },
+            { icon: '📦', label: 'تاجر جملة' },
+          ].map(item => (
+            <div key={item.label} style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '6px 14px', borderRadius: 99,
+              background: 'rgba(255,255,255,.04)',
+              border: '1px solid rgba(255,255,255,.1)',
+              color: 'rgba(255,255,255,.6)', fontSize: 12, fontWeight: 600,
+            }}>
+              <span>{item.icon}</span> {item.label}
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* ── CARDS ── */}
