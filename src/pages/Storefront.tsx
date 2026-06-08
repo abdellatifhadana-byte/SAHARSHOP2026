@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
-  Search, ShoppingCart, X, MessageCircle, Phone, Share2,
-  Plus, Minus, Check, Package, Truck, MapPin, ChevronRight,
-  Star, Zap, Heart, Send, Bot, ArrowRight, RotateCcw, Play
+  Search, ShoppingCart, X, MessageCircle, Share2,
+  Plus, Minus, Check, Package, Truck,
+  Star, Heart, Send, Bot, ArrowRight, Play,
+  Filter, Shield, RefreshCcw, Award, SlidersHorizontal, Flame
 } from 'lucide-react';
 
 // ══════════════════════════════════════════════
@@ -272,16 +273,111 @@ function ProductCard({ p, onAdd, onView, currency }: { p:SProduct; onAdd:(p:SPro
           </div>
         )}
 
+        {/* Social proof */}
+        {p.sales > 0 && (
+          <div style={{ fontSize:10,color:'var(--ink3)',marginBottom:6,display:'flex',alignItems:'center',gap:4 }}>
+            <Flame size={10} color="#ff6a00"/> <span style={{ color:'var(--ember)',fontWeight:700 }}>{p.sales}</span> طلب
+            {p.sales >= 10 && <span style={{ marginRight:4,color:'rgba(34,197,94,.8)',fontWeight:600 }}>· يتفاعل معه الآن</span>}
+          </div>
+        )}
         <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between' }}>
           <div style={{ fontSize:19,fontWeight:900,color:'var(--ember)',letterSpacing:'-0.02em',lineHeight:1 }}>
             {p.price.toLocaleString()} <span style={{ fontSize:11,fontWeight:600,opacity:.7 }}>{currency}</span>
           </div>
-          <div style={{ display:'flex',alignItems:'center',gap:3,fontSize:11,color:'var(--gold)' }}>
-            <Star size={12} fill="var(--gold)" stroke="none" /> 4.9
+          <div style={{ display:'flex',alignItems:'center',gap:3,fontSize:11,color:'#f59e0b' }}>
+            {Array.from({length:5},(_,i)=>(
+              <Star key={i} size={10} fill={i < (p.sales>20?5:p.sales>10?4:p.sales>3?4:3) ? '#f59e0b' : 'none'} color="#f59e0b"/>
+            ))}
+            <span style={{ color:'var(--ink3)',marginRight:2 }}>({p.sales>0?Math.min(p.sales*2,99):0})</span>
           </div>
         </div>
       </div>
       <style>{`.quick-add-btn{opacity:0!important} *:hover>.quick-add-btn,.card-lift:hover .quick-add-btn{opacity:1!important}`}</style>
+    </div>
+  );
+}
+
+/* Filter Drawer — price range + type + sort */
+function FilterDrawer({ onClose, priceMin, priceMax, setPriceMin, setPriceMax, typeFilter, setTypeFilter, sortBy, setSortBy, maxProductPrice }: {
+  onClose: () => void;
+  priceMin: number; priceMax: number;
+  setPriceMin: (v: number) => void; setPriceMax: (v: number) => void;
+  typeFilter: string; setTypeFilter: (v: string) => void;
+  sortBy: string; setSortBy: (v: any) => void;
+  maxProductPrice: number;
+}) {
+  const [localMin, setLocalMin] = useState(priceMin);
+  const [localMax, setLocalMax] = useState(priceMax || maxProductPrice);
+
+  const apply = () => {
+    setPriceMin(localMin);
+    setPriceMax(localMax >= maxProductPrice ? 0 : localMax);
+    onClose();
+  };
+  const reset = () => { setLocalMin(0); setLocalMax(maxProductPrice); setPriceMin(0); setPriceMax(0); setTypeFilter('all'); onClose(); };
+
+  return (
+    <div onClick={onClose} style={{ position:'fixed',inset:0,background:'rgba(0,0,0,.7)',backdropFilter:'blur(6px)',zIndex:400,display:'flex',alignItems:'flex-end',justifyContent:'center' }}>
+      <div onClick={e=>e.stopPropagation()} style={{ width:'100%',maxWidth:520,background:'var(--panel)',borderRadius:'24px 24px 0 0',padding:'20px 20px 32px',animation:'slide-in-up .25s ease' }}>
+        <style>{`@keyframes slide-in-up{from{transform:translateY(100%)}to{transform:translateY(0)}}`}</style>
+        {/* Handle */}
+        <div style={{ width:40,height:4,background:'var(--border2)',borderRadius:99,margin:'0 auto 18px' }}/>
+        <div style={{ display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20 }}>
+          <h3 style={{ fontSize:16,fontWeight:900,color:'var(--ink1)',display:'flex',alignItems:'center',gap:8 }}><SlidersHorizontal size={16} color="var(--ember)"/> تصفية المنتجات</h3>
+          <button onClick={reset} style={{ fontSize:12,color:'var(--ember)',background:'rgba(255,106,0,.1)',border:'none',cursor:'pointer',fontWeight:700,padding:'4px 10px',borderRadius:8 }}>إعادة تعيين</button>
+        </div>
+
+        {/* Type filter */}
+        <div style={{ marginBottom:20 }}>
+          <div style={{ fontSize:12,fontWeight:700,color:'var(--ink3)',marginBottom:10,letterSpacing:'.06em' }}>نوع المنتج</div>
+          <div style={{ display:'flex',gap:8,flexWrap:'wrap' }}>
+            {[['all','🛍️ الكل'],['product','📦 منتجات'],['service','🔧 خدمات'],['digital','💻 رقمي']].map(([v,l]) => (
+              <button key={v} onClick={()=>setTypeFilter(v)}
+                style={{ padding:'7px 14px',borderRadius:99,border:`1.5px solid ${typeFilter===v?'var(--ember)':'var(--border)'}`,background:typeFilter===v?'rgba(255,106,0,.12)':'var(--void2)',color:typeFilter===v?'var(--ember)':'var(--ink2)',fontSize:12,fontWeight:700,cursor:'pointer',transition:'all .15s' }}>
+                {l}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Price range */}
+        <div style={{ marginBottom:20 }}>
+          <div style={{ fontSize:12,fontWeight:700,color:'var(--ink3)',marginBottom:10,letterSpacing:'.06em' }}>
+            نطاق السعر: <span style={{ color:'var(--ember)' }}>{localMin} — {localMax >= maxProductPrice ? '∞' : localMax} MAD</span>
+          </div>
+          <div style={{ display:'flex',gap:12,alignItems:'center' }}>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:11,color:'var(--ink3)',marginBottom:4 }}>الحد الأدنى</div>
+              <input type="range" min={0} max={maxProductPrice} step={10} value={localMin}
+                onChange={e=>setLocalMin(Math.min(+e.target.value, localMax - 10))}
+                style={{ width:'100%',accentColor:'var(--ember)' }}/>
+            </div>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:11,color:'var(--ink3)',marginBottom:4 }}>الحد الأقصى</div>
+              <input type="range" min={0} max={maxProductPrice} step={10} value={localMax}
+                onChange={e=>setLocalMax(Math.max(+e.target.value, localMin + 10))}
+                style={{ width:'100%',accentColor:'var(--ember)' }}/>
+            </div>
+          </div>
+        </div>
+
+        {/* Sort */}
+        <div style={{ marginBottom:24 }}>
+          <div style={{ fontSize:12,fontWeight:700,color:'var(--ink3)',marginBottom:10,letterSpacing:'.06em' }}>الترتيب</div>
+          <div style={{ display:'flex',gap:8,flexWrap:'wrap' }}>
+            {[['popular','🔥 الأكثر طلباً'],['newest','✨ الأحدث'],['price-asc','💰 السعر: الأقل'],['price-desc','💎 السعر: الأعلى']].map(([v,l]) => (
+              <button key={v} onClick={()=>setSortBy(v)}
+                style={{ padding:'7px 14px',borderRadius:99,border:`1.5px solid ${sortBy===v?'var(--ember)':'var(--border)'}`,background:sortBy===v?'rgba(255,106,0,.12)':'var(--void2)',color:sortBy===v?'var(--ember)':'var(--ink2)',fontSize:12,fontWeight:700,cursor:'pointer',transition:'all .15s' }}>
+                {l}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <button onClick={apply} style={{ width:'100%',height:48,background:'var(--ember)',border:'none',borderRadius:12,color:'#fff',fontSize:15,fontWeight:700,cursor:'pointer',boxShadow:'0 4px 16px rgba(255,106,0,.35)' }}>
+          تطبيق الفلاتر
+        </button>
+      </div>
     </div>
   );
 }
@@ -485,6 +581,30 @@ function ProductModal({ p, cart, onClose, currency, userId }: { p:SProduct; cart
           <div style={{ fontSize:28,fontWeight:900,color:'var(--ember)',letterSpacing:'-0.04em',marginBottom:18 }}>
             {p.price.toLocaleString()} {currency}
           </div>
+
+          {/* Trust badges */}
+          <div style={{ display:'flex',gap:8,marginBottom:16,flexWrap:'wrap' }}>
+            {[
+              { icon:<Shield size={13}/>, label:'دفع آمن', color:'rgba(34,197,94,.15)', border:'rgba(34,197,94,.3)', text:'#22c55e' },
+              { icon:<RefreshCcw size={13}/>, label:'إرجاع 7 أيام', color:'rgba(59,130,246,.1)', border:'rgba(59,130,246,.25)', text:'#3b82f6' },
+              { icon:<Truck size={13}/>, label:'توصيل سريع', color:'rgba(245,158,11,.1)', border:'rgba(245,158,11,.25)', text:'#f59e0b' },
+              { icon:<Award size={13}/>, label:'جودة مضمونة', color:'rgba(168,85,247,.1)', border:'rgba(168,85,247,.25)', text:'#a855f7' },
+            ].map(b => (
+              <div key={b.label} style={{ display:'flex',alignItems:'center',gap:5,padding:'5px 10px',borderRadius:99,background:b.color,border:`1px solid ${b.border}`,color:b.text,fontSize:11,fontWeight:700,flexShrink:0 }}>
+                {b.icon} {b.label}
+              </div>
+            ))}
+          </div>
+          {/* Social proof */}
+          {p.sales > 0 && (
+            <div style={{ display:'flex',alignItems:'center',gap:8,marginBottom:14,padding:'8px 12px',background:'rgba(255,106,0,.07)',borderRadius:8,border:'1px solid rgba(255,106,0,.15)' }}>
+              <Flame size={14} color="#ff6a00"/>
+              <span style={{ fontSize:12,color:'var(--ink2)' }}>
+                <strong style={{ color:'var(--ember)' }}>{p.sales}</strong> شخص طلب هذا المنتج
+                {p.sales >= 5 && <span style={{ color:'rgba(34,197,94,.9)',marginRight:6 }}>· مشهور جداً</span>}
+              </span>
+            </div>
+          )}
 
           {/* Service meta */}
           {p.type === 'service' && (p.duration || p.workArea) && (
@@ -1124,7 +1244,9 @@ export default function Storefront() {
   const [sortBy,     setSortBy]     = useState<'popular'|'newest'|'price-asc'|'price-desc'>('popular');
   const [viewProduct,setViewProduct]= useState<SProduct|null>(null);
   const [viewMode, setViewMode]    = useState<'grid'|'list'>('grid');
+  const [priceMin, setPriceMin]    = useState(0);
   const [priceMax, setPriceMax]    = useState(0); // 0 = no filter
+  const [typeFilter, setTypeFilter] = useState('all');
   const [showFilters,setShowFilters]=useState(false);
   const [showCart,   setShowCart]   = useState(false);
   const [showTrack,  setShowTrack]  = useState(false);
@@ -1204,10 +1326,14 @@ export default function Storefront() {
     ? products
     : products.filter(p => p.category === selectedCategory);
 
+  const maxProductPrice = useMemo(() => Math.max(...products.map(p => p.price), 500), [products]);
+
   let filtered = filteredProducts
     .filter(p => (activeTab==='all' || p.category===activeTab)
       && (!search || p.name.includes(search) || p.description?.includes(search) || p.sku?.includes(search) || (p.colors||[]).some(cl=>cl.includes(search)))
-      && (priceMax === 0 || p.price <= priceMax));
+      && (priceMax === 0 || p.price <= priceMax)
+      && (priceMin === 0 || p.price >= priceMin)
+      && (typeFilter === 'all' || (p.type || 'product') === typeFilter));
 
   if (sortBy === 'popular')    filtered = [...filtered].sort((a,b) => b.sales - a.sales);
   if (sortBy === 'newest')     filtered = [...filtered].sort((a,b) => new Date(b.createdAt||0).getTime() - new Date(a.createdAt||0).getTime());
@@ -1215,12 +1341,34 @@ export default function Storefront() {
   if (sortBy === 'price-desc') filtered = [...filtered].sort((a,b) => b.price - a.price);
 
   if (loading) return (
-    <div style={{ minHeight:'100dvh',background:'var(--void)',display:'flex',alignItems:'center',justifyContent:'center' }}>
-      <div style={{ textAlign:'center',color:'var(--ink2)' }}>
-        <div style={{ width:48,height:48,border:'3px solid var(--border)',borderTopColor:'var(--ember)',borderRadius:'50%',animation:'spin 1s linear infinite',margin:'0 auto 16px' }}/>
-        جارٍ تحميل المتجر...
+    <div dir="rtl" style={{ minHeight:'100dvh',background:'var(--void)',padding:16,fontFamily:'Tajawal,system-ui,sans-serif' }}>
+      <style>{`
+        @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+        .skel{background:linear-gradient(90deg,var(--void2) 25%,var(--panel) 50%,var(--void2) 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;border-radius:10px;}
+      `}</style>
+      {/* Header skeleton */}
+      <div style={{ height:56,background:'var(--panel)',borderRadius:16,marginBottom:16 }} className="skel"/>
+      {/* Hero skeleton */}
+      <div style={{ height:120,borderRadius:20,marginBottom:16 }} className="skel"/>
+      {/* Search skeleton */}
+      <div style={{ height:44,borderRadius:12,marginBottom:12 }} className="skel"/>
+      {/* Tabs skeleton */}
+      <div style={{ display:'flex',gap:8,marginBottom:16 }}>
+        {[80,100,90,110].map(w => <div key={w} style={{ width:w,height:32,borderRadius:99,flexShrink:0 }} className="skel"/>)}
       </div>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+      {/* Products grid skeleton */}
+      <div style={{ display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(140px,1fr))',gap:14 }}>
+        {Array.from({length:8}).map((_,i) => (
+          <div key={i} style={{ borderRadius:20,overflow:'hidden' }}>
+            <div style={{ height:210 }} className="skel"/>
+            <div style={{ padding:'10px 12px',display:'flex',flexDirection:'column',gap:7 }}>
+              <div style={{ height:10,width:'60%' }} className="skel"/>
+              <div style={{ height:14,width:'90%' }} className="skel"/>
+              <div style={{ height:12,width:'40%' }} className="skel"/>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 
@@ -1475,11 +1623,26 @@ export default function Storefront() {
 
       {/* ── SEARCH + FILTER ──────────────────── */}
       <div style={{ padding:'0 16px',marginBottom:16 }}>
-        <div style={{ position:'relative',marginBottom:12 }}>
-          <Search size={16} style={{ position:'absolute',right:14,top:'50%',transform:'translateY(-50%)',color:'var(--ink3)',pointerEvents:'none' }}/>
-          <input className="glass-input" style={{ paddingRight:42 }}
-            placeholder="ابحث بالاسم أو الكود..."
-            value={search} onChange={e=>setSearch(e.target.value)} />
+        <div style={{ display:'flex',gap:8,marginBottom:12 }}>
+          <div style={{ position:'relative',flex:1 }}>
+            <Search size={16} style={{ position:'absolute',right:14,top:'50%',transform:'translateY(-50%)',color:'var(--ink3)',pointerEvents:'none' }}/>
+            <input className="glass-input" style={{ paddingRight:42,width:'100%' }}
+              placeholder="ابحث بالاسم أو الكود..."
+              value={search} onChange={e=>setSearch(e.target.value)} />
+          </div>
+          <button onClick={()=>setShowFilters(true)} style={{
+            flexShrink:0,width:44,height:44,borderRadius:12,
+            background:(priceMin>0||priceMax>0||typeFilter!=='all')?'var(--ember)':'var(--panel)',
+            border:`1px solid ${(priceMin>0||priceMax>0||typeFilter!=='all')?'var(--ember)':'var(--border)'}`,
+            color:(priceMin>0||priceMax>0||typeFilter!=='all')?'#fff':'var(--ink2)',
+            cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',
+            position:'relative',transition:'all .2s',
+          }}>
+            <Filter size={16}/>
+            {(priceMin>0||priceMax>0||typeFilter!=='all') && (
+              <span style={{ position:'absolute',top:-4,right:-4,width:14,height:14,background:'#ef4444',borderRadius:'50%',fontSize:9,fontWeight:900,color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',border:'2px solid var(--void)' }}>!</span>
+            )}
+          </button>
         </div>
         {/* Trust badges */}
         <div style={{ padding:'10px 16px',display:'flex',gap:10,overflowX:'auto',borderBottom:'1px solid var(--border)' }}>
@@ -1511,7 +1674,14 @@ export default function Storefront() {
 
       {/* ── SORT ─────────────────────────────── */}
       <div style={{ padding:'0 16px',marginBottom:16,display:'flex',alignItems:'center',justifyContent:'space-between' }}>
-        <span style={{ fontSize:12,color:'var(--ink3)',fontWeight:600 }}>{filtered.length} منتج</span>
+        <span style={{ fontSize:12,color:'var(--ink3)',fontWeight:600 }}>
+          {filtered.length} منتج
+          {(priceMin>0||priceMax>0||typeFilter!=='all') && (
+            <button onClick={()=>{setPriceMin(0);setPriceMax(0);setTypeFilter('all');}} style={{ marginRight:6,fontSize:10,color:'var(--ember)',background:'rgba(255,106,0,.1)',border:'1px solid rgba(255,106,0,.25)',borderRadius:99,padding:'2px 8px',cursor:'pointer',fontWeight:700 }}>
+              × مسح الفلاتر
+            </button>
+          )}
+        </span>
         {/* View mode toggle */}
         <div style={{ display:'flex',gap:3,background:'var(--void2)',border:'1px solid var(--border)',borderRadius:8,padding:3 }}>
           <button onClick={()=>setViewMode('grid')} style={{ width:28,height:26,borderRadius:6,border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',background:viewMode==='grid'?'var(--panel)':'transparent',color:viewMode==='grid'?'var(--ember)':'var(--ink3)',fontSize:14 }}>⊞</button>
@@ -1600,6 +1770,16 @@ export default function Storefront() {
       {viewProduct && <ProductModal p={viewProduct} cart={cart} onClose={()=>setViewProduct(null)} currency={cur} userId={userId}/>}
       {showCart && <CartSidebar cart={cart} storeInfo={storeInfo!} userId={userId} onClose={()=>setShowCart(false)} onOrderSuccess={id=>{setSuccessOrderId(id);setShowCart(false)}}/>}
       {showTrack && <TrackingModal userId={userId} storeInfo={storeInfo!} onClose={()=>setShowTrack(false)}/>}
+      {showFilters && (
+        <FilterDrawer
+          onClose={()=>setShowFilters(false)}
+          priceMin={priceMin} priceMax={priceMax || maxProductPrice}
+          setPriceMin={setPriceMin} setPriceMax={setPriceMax}
+          typeFilter={typeFilter} setTypeFilter={setTypeFilter}
+          sortBy={sortBy} setSortBy={setSortBy}
+          maxProductPrice={maxProductPrice}
+        />
+      )}
       <FloatingChat userId={userId} storeInfo={storeInfo!}/>
     </div>
   );
