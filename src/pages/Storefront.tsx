@@ -159,10 +159,19 @@ function useCart() {
 // COMPONENTS
 // ══════════════════════════════════════════════
 
-/* Product Card */
-function ProductCard({ p, onAdd, onView, currency }: { p:SProduct; onAdd:(p:SProduct)=>void; onView:(p:SProduct)=>void; currency:string }) {
+/* Product Card - Glassmorphism Premium 2026 */
+function ProductCard({ p, onAdd, onView, currency }: { 
+  p: SProduct; 
+  onAdd: (p: SProduct) => void; 
+  onView: (p: SProduct) => void; 
+  currency: string 
+}) {
   const wishlistKey = 'sahar_wishlist';
-  const getWishlist = (): string[] => { try { return JSON.parse(localStorage.getItem(wishlistKey) || '[]'); } catch { return []; } };
+  const getWishlist = (): string[] => { 
+    try { return JSON.parse(localStorage.getItem(wishlistKey) || '[]'); } 
+    catch { return []; } 
+  };
+
   const [liked, setLiked] = useState(() => getWishlist().includes(p.id));
   const [hover, setHover] = useState(false);
   const isNew = p.createdAt && (Date.now() - new Date(p.createdAt).getTime() < 7*24*60*60*1000);
@@ -180,119 +189,307 @@ function ProductCard({ p, onAdd, onView, currency }: { p:SProduct; onAdd:(p:SPro
     const userId = window.location.pathname.split('/store/')[1]?.split('/')[0] || '';
     const url = `${window.location.origin}/store/${userId}?p=${p.id}`;
     const text = `${p.name} — ${p.price} ${currency}\n${url}`;
-    if (navigator.share) navigator.share({ title: p.name, text, url }).catch(() => {});
-    else navigator.clipboard?.writeText(url).then(() => alert('تم نسخ الرابط ✅'));
+    
+    if (navigator.share) {
+      navigator.share({ title: p.name, text, url }).catch(() => {});
+    } else {
+      navigator.clipboard?.writeText(url).then(() => alert('تم نسخ الرابط ✅'));
+    }
   };
 
   return (
-    <div onClick={() => onView(p)}
-      onMouseEnter={()=>setHover(true)}
-      onMouseLeave={()=>setHover(false)}
+    <div 
+      onClick={() => onView(p)}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
       style={{
-        background:'var(--panel)',
-        border:`1px solid ${hover?'rgba(255,106,0,.3)':'var(--border)'}`,
-        borderRadius:20,overflow:'hidden',cursor:'pointer',
-        transition:'all .22s ease',
-        transform:hover?'translateY(-5px)':'none',
-        boxShadow:hover?'0 12px 40px rgba(0,0,0,.35), 0 0 0 1px rgba(255,106,0,.1)':'none',
+        background: 'rgba(255,255,255,0.07)',
+        backdropFilter: 'blur(32px) saturate(180%)',
+        border: `1px solid ${hover ? 'rgba(255,106,0,0.4)' : 'rgba(255,255,255,0.12)'}`,
+        borderRadius: 24,
+        overflow: 'hidden',
+        cursor: 'pointer',
+        transition: 'all 0.4s cubic-bezier(0.23, 1, 0.32, 1)',
+        transform: hover ? 'translateY(-12px) scale(1.02)' : 'none',
+        boxShadow: hover 
+          ? '0 25px 60px rgba(255,106,0,0.28), 0 0 0 1px rgba(255,255,255,0.1)' 
+          : '0 12px 40px rgba(0,0,0,0.35)',
+        position: 'relative',
+      }}
+    >
+      {/* Image Area */}
+      <div style={{ 
+        height: 230, 
+        position: 'relative', 
+        background: '#0A0A0A', 
+        overflow: 'hidden',
+        aspectRatio: '1 / 1'
       }}>
-
-      {/* Image area */}
-      <div style={{ height:210,position:'relative',background:p.imageUrl?'#000':'var(--void2)',overflow:'hidden' }}>
-        {p.imageUrl
-          ? <img src={p.imageUrl} alt={p.name}
-              style={{ width:'100%',height:'100%',objectFit:'cover',transition:'transform .4s ease',transform:hover?'scale(1.06)':'scale(1)' }}
-              loading="lazy" />
-          : <div style={{ width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:60 }}>{p.emoji||'📦'}</div>
-        }
-        {/* Gradient bottom */}
-        <div style={{ position:'absolute',bottom:0,left:0,right:0,height:80,background:'linear-gradient(transparent,rgba(0,0,0,.65))' }}/>
-
-        {/* Top badges */}
-        <div style={{ position:'absolute',top:10,right:10,display:'flex',flexDirection:'column',gap:4,alignItems:'flex-end' }}>
-          {p.type === 'service' && <span style={{ background:'rgba(139,92,246,.9)',backdropFilter:'blur(4px)',color:'#fff',fontSize:12,fontWeight:800,padding:'3px 10px',borderRadius:99,minHeight:22,display:'inline-flex',alignItems:'center' }}>🔧 خدمة</span>}
-          {p.type === 'digital' && <span style={{ background:'rgba(14,165,233,.9)',backdropFilter:'blur(4px)',color:'#fff',fontSize:12,fontWeight:800,padding:'3px 10px',borderRadius:99,minHeight:22,display:'inline-flex',alignItems:'center' }}>💻 رقمي</span>}
-          {(!p.type || p.type === 'product') && isNew && <span style={{ background:'rgba(0,200,150,.9)',backdropFilter:'blur(4px)',color:'#fff',fontSize:12,fontWeight:800,padding:'3px 10px',borderRadius:99,minHeight:22,display:'inline-flex',alignItems:'center',letterSpacing:'.05em' }}>✨ جديد</span>}
-          {(!p.type || p.type === 'product') && p.stock <= 5 && p.stock > 0 && <span style={{ background:'rgba(245,158,11,.9)',backdropFilter:'blur(4px)',color:'#fff',fontSize:12,fontWeight:800,padding:'3px 10px',borderRadius:99,minHeight:22,display:'inline-flex',alignItems:'center' }}>⚡ آخر {p.stock}</span>}
-          {p.sales > 10 && <span style={{ background:'rgba(255,106,0,.9)',backdropFilter:'blur(4px)',color:'#fff',fontSize:12,fontWeight:800,padding:'3px 10px',borderRadius:99,minHeight:22,display:'inline-flex',alignItems:'center' }}>🔥 الأكثر طلباً</span>}
-          {(!p.type || p.type === 'product') && p.stock === 0 && <span style={{ background:'rgba(0,0,0,.7)',backdropFilter:'blur(4px)',color:'#fff',fontSize:12,fontWeight:800,padding:'3px 10px',borderRadius:99,minHeight:22,display:'inline-flex',alignItems:'center' }}>نفذ المخزون</span>}
-        </div>
-
-        {/* Like + Share */}
-        <div style={{ position:'absolute',top:10,left:10,display:'flex',flexDirection:'column',gap:5 }}>
-          <button onClick={toggleLike}
-            style={{ width:32,height:32,borderRadius:'50%',background:liked?'rgba(239,68,68,.25)':'rgba(0,0,0,.45)',backdropFilter:'blur(6px)',border:liked?'1px solid rgba(239,68,68,.5)':'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',transition:'all .2s' }}>
-            <Heart size={14} fill={liked?'#ef4444':'none'} color={liked?'#ef4444':'#fff'}/>
-          </button>
-          <button onClick={shareProduct}
-            style={{ width:32,height:32,borderRadius:'50%',background:'rgba(0,0,0,.45)',backdropFilter:'blur(6px)',border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',transition:'all .2s',opacity:hover?1:0.7 }}>
-            <Share2 size={13} color='#fff'/>
-          </button>
-        </div>
-
-        {/* Colors row at bottom */}
-        {p.colors?.length > 0 && (
-          <div style={{ position:'absolute',bottom:10,right:10,left:10,display:'flex',gap:5,justifyContent:'flex-start',alignItems:'center' }}>
-            {(p.colors||[]).slice(0,5).map((clr:string,ci:number) => {
-              const colorMap: Record<string,string> = { 'أسود':'#1a1a1a','أبيض':'#f5f5f5','أحمر':'#ef4444','أزرق':'#3b82f6','أخضر':'#22c55e','رمادي':'#6b7280','بيج':'#d4b896','وردي':'#f472b6','بني':'#92400e','كحلي':'#1e3a5f','زيتي':'#3d5a1e','بنفسجي':'#a855f7','برتقالي':'#f97316','أصفر':'#eab308' };
-              const bg = colorMap[clr] || '#888';
-              return <div key={ci} title={clr} style={{ width:16,height:16,borderRadius:'50%',background:bg,border:'2px solid rgba(255,255,255,.8)',boxShadow:'0 1px 4px rgba(0,0,0,.4)',flexShrink:0 }}/>;
-            })}
-            {(p.colors||[]).length > 5 && <span style={{ fontSize:9,color:'rgba(255,255,255,.7)',fontWeight:700 }}>+{p.colors.length-5}</span>}
+        {p.imageUrl ? (
+          <img 
+            src={p.imageUrl}
+            alt={p.name}
+            loading="lazy"
+            decoding="async"
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            style={{ 
+              width: '100%', 
+              height: '100%', 
+              objectFit: 'cover',
+              transition: 'transform 0.85s cubic-bezier(0.4, 0, 0.2, 1)',
+              transform: hover ? 'scale(1.12)' : 'scale(1)'
+            }} 
+          />
+        ) : (
+          <div style={{ 
+            width: '100%', 
+            height: '100%', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            fontSize: 80, 
+            opacity: 0.6,
+            background: 'rgba(0,0,0,0.4)'
+          }}>
+            {p.emoji || '📦'}
           </div>
         )}
 
-        {/* Quick add — shows on hover */}
-        <button onClick={e=>{e.stopPropagation();if(p.type==='service'||p.type==='digital'||p.stock>0)onAdd(p);}}
+        {/* Glass Gradient Overlay */}
+        <div style={{ 
+          position: 'absolute', 
+          inset: 0, 
+          background: 'linear-gradient(transparent, rgba(0,0,0,0.75))' 
+        }} />
+
+        {/* Top Badges - Glass Style */}
+        <div style={{ 
+          position: 'absolute', 
+          top: 12, 
+          right: 12, 
+          display: 'flex', 
+          flexDirection: 'column', 
+          gap: 6, 
+          alignItems: 'flex-end' 
+        }}>
+          {p.type === 'service' && (
+            <span style={{ 
+              background: 'rgba(139,92,246,0.9)', 
+              backdropFilter: 'blur(12px)',
+              color: '#fff', 
+              fontSize: 12, 
+              fontWeight: 800, 
+              padding: '4px 12px', 
+              borderRadius: 999,
+              border: '1px solid rgba(255,255,255,0.2)'
+            }}>
+              🔧 خدمة
+            </span>
+          )}
+          {p.type === 'digital' && (
+            <span style={{ 
+              background: 'rgba(14,165,233,0.9)', 
+              backdropFilter: 'blur(12px)',
+              color: '#fff', 
+              fontSize: 12, 
+              fontWeight: 800, 
+              padding: '4px 12px', 
+              borderRadius: 999 
+            }}>
+              💻 رقمي
+            </span>
+          )}
+          {(!p.type || p.type === 'product') && isNew && (
+            <span style={{ 
+              background: 'rgba(0,200,150,0.9)', 
+              backdropFilter: 'blur(12px)',
+              color: '#fff', 
+              fontSize: 12, 
+              fontWeight: 800, 
+              padding: '4px 12px', 
+              borderRadius: 999 
+            }}>
+              ✨ جديد
+            </span>
+          )}
+          {p.sales > 15 && (
+            <span style={{ 
+              background: 'rgba(255,106,0,0.9)', 
+              backdropFilter: 'blur(12px)',
+              color: '#fff', 
+              fontSize: 12, 
+              fontWeight: 800, 
+              padding: '4px 12px', 
+              borderRadius: 999 
+            }}>
+              🔥 الأكثر مبيعاً
+            </span>
+          )}
+          {p.stock <= 5 && p.stock > 0 && (
+            <span style={{ 
+              background: 'rgba(245,158,11,0.9)', 
+              backdropFilter: 'blur(12px)',
+              color: '#fff', 
+              fontSize: 12, 
+              fontWeight: 800, 
+              padding: '4px 12px', 
+              borderRadius: 999 
+            }}>
+              ⚡ آخر {p.stock}
+            </span>
+          )}
+        </div>
+
+        {/* Like + Share Glass Buttons */}
+        <div style={{ 
+          position: 'absolute', 
+          top: 12, 
+          left: 12, 
+          display: 'flex', 
+          flexDirection: 'column', 
+          gap: 8 
+        }}>
+          <button 
+            onClick={toggleLike}
+            style={{
+              width: 38, 
+              height: 38, 
+              borderRadius: '50%', 
+              background: liked ? 'rgba(239,68,68,0.25)' : 'rgba(255,255,255,0.12)',
+              backdropFilter: 'blur(16px)',
+              border: liked ? '1px solid rgba(239,68,68,0.6)' : '1px solid rgba(255,255,255,0.2)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.2s'
+            }}
+          >
+            <Heart size={18} fill={liked ? '#ef4444' : 'none'} color={liked ? '#ef4444' : '#fff'} />
+          </button>
+
+          <button 
+            onClick={shareProduct}
+            style={{
+              width: 38, 
+              height: 38, 
+              borderRadius: '50%', 
+              background: 'rgba(255,255,255,0.12)',
+              backdropFilter: 'blur(16px)',
+              border: '1px solid rgba(255,255,255,0.2)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              opacity: hover ? 1 : 0.85,
+              transition: 'all 0.2s'
+            }}
+          >
+            <Share2 size={17} color="#fff" />
+          </button>
+        </div>
+
+        {/* Quick Add Button - Liquid Orange */}
+        <button 
+          onClick={(e) => {
+            e.stopPropagation();
+            if (p.stock > 0 || p.type === 'service' || p.type === 'digital') onAdd(p);
+          }}
           style={{
-            position:'absolute',bottom:0,left:0,right:0,height:40,
-            background:'linear-gradient(135deg,#FF6A00,#ff6b42)',
-            border:'none',color:'#fff',fontSize:13,fontWeight:800,
-            cursor:(p.type==='service'||p.type==='digital'||p.stock>0)?'pointer':'not-allowed',
-            display:'flex',alignItems:'center',justifyContent:'center',gap:7,
-            transition:'all .25s ease',
-            opacity:hover&&(p.type==='service'||p.type==='digital'||p.stock>0)?1:0,
-            transform:hover&&(p.type==='service'||p.type==='digital'||p.stock>0)?'translateY(0)':'translateY(8px)',
-          }}>
-          <ShoppingCart size={14}/> {p.type==='service'?'احجز الآن':p.type==='digital'?'اشتر الآن':'أضف للسلة سريعاً'}
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: 56,
+            background: primaryGradient,
+            border: 'none',
+            color: '#fff',
+            fontSize: 14.5,
+            fontWeight: 800,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+            opacity: hover ? 1 : 0,
+            transform: hover ? 'translateY(0)' : 'translateY(30px)',
+            transition: 'all 0.4s cubic-bezier(0.23, 1, 0.32, 1)',
+            boxShadow: '0 8px 25px rgba(255,106,0,0.45)',
+            cursor: (p.stock > 0 || !p.type || p.type === 'product') ? 'pointer' : 'not-allowed'
+          }}
+        >
+          <ShoppingCart size={19} /> 
+          {p.type === 'service' ? 'احجز الآن' : p.type === 'digital' ? 'اشتر الآن' : 'أضف للسلة'}
         </button>
       </div>
 
-      {/* Info */}
-      <div style={{ padding:'12px 14px 14px' }}>
-        <div style={{ fontSize:10,color:'var(--ink3)',marginBottom:4,fontWeight:700,letterSpacing:'.06em',textTransform:'uppercase' }}>{p.category||'—'}</div>
-        <div style={{ fontSize:14,fontWeight:800,color:'var(--ink1)',marginBottom:8,lineHeight:1.4,overflow:'hidden',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical' }}>{p.name}</div>
+      {/* Product Info */}
+      <div style={{ padding: '16px 16px 18px' }}>
+        <div style={{ 
+          fontSize: 12.5, 
+          color: 'rgba(255,255,255,0.6)', 
+          marginBottom: 6, 
+          fontWeight: 600,
+          textTransform: 'uppercase',
+          letterSpacing: '0.5px'
+        }}>
+          {p.category || 'منتج'}
+        </div>
 
-        {/* Sizes preview */}
+        <div style={{ 
+          fontSize: 15.5, 
+          fontWeight: 800, 
+          lineHeight: 1.35, 
+          marginBottom: 12,
+          display: '-webkit-box',
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: 'vertical',
+          overflow: 'hidden'
+        }}>
+          {p.name}
+        </div>
+
+        {/* Sizes */}
         {p.sizes?.length > 0 && (
-          <div style={{ display:'flex',gap:4,flexWrap:'wrap',marginBottom:10 }}>
-            {p.sizes.slice(0,5).map((s:string) => (
-              <span key={s} style={{ fontSize:10,background:'var(--void2)',border:'1px solid var(--border)',borderRadius:6,padding:'2px 7px',color:'var(--ink2)',fontWeight:600 }}>{s}</span>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+            {p.sizes.slice(0, 4).map(s => (
+              <span key={s} style={{
+                fontSize: 11,
+                padding: '3px 9px',
+                background: 'rgba(255,255,255,0.08)',
+                border: '1px solid rgba(255,255,255,0.15)',
+                borderRadius: 6,
+                color: 'rgba(255,255,255,0.75)'
+              }}>
+                {s}
+              </span>
             ))}
-            {p.sizes.length > 5 && <span style={{ fontSize:10,color:'var(--ink3)' }}>+{p.sizes.length-5}</span>}
           </div>
         )}
 
-        {/* Social proof */}
-        {p.sales > 0 && (
-          <div style={{ fontSize:10,color:'var(--ink3)',marginBottom:6,display:'flex',alignItems:'center',gap:4 }}>
-            <Flame size={10} color="#ff6a00"/> <span style={{ color:'var(--ember)',fontWeight:700 }}>{p.sales}</span> طلب
-            {p.sales >= 10 && <span style={{ marginRight:4,color:'rgba(34,197,94,.8)',fontWeight:600 }}>· يتفاعل معه الآن</span>}
+        {/* Price + Rating */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ 
+            fontSize: 21, 
+            fontWeight: 900, 
+            color: '#FF6A00', 
+            letterSpacing: '-0.5px' 
+          }}>
+            {p.price.toLocaleString()} <span style={{ fontSize: 13, opacity: 0.75 }}>{currency}</span>
           </div>
-        )}
-        <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between' }}>
-          <div style={{ fontSize:19,fontWeight:900,color:'var(--ember)',letterSpacing:'-0.02em',lineHeight:1 }}>
-            {p.price.toLocaleString()} <span style={{ fontSize:11,fontWeight:600,opacity:.7 }}>{currency}</span>
-          </div>
-          <div style={{ display:'flex',alignItems:'center',gap:3,fontSize:11,color:'#f59e0b' }}>
-            {Array.from({length:5},(_,i)=>(
-              <Star key={i} size={10} fill={i < (p.sales>20?5:p.sales>10?4:p.sales>3?4:3) ? '#f59e0b' : 'none'} color="#f59e0b"/>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Star 
+                key={i} 
+                size={14} 
+                fill={i < 4 ? '#facc15' : 'none'} 
+                color="#facc15" 
+              />
             ))}
-            <span style={{ color:'var(--ink3)',marginRight:2 }}>({p.sales>0?Math.min(p.sales*2,99):0})</span>
+            <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginLeft: 4 }}>
+              ({p.sales || 0})
+            </span>
           </div>
         </div>
       </div>
-      <style>{`.quick-add-btn{opacity:0!important} *:hover>.quick-add-btn,.card-lift:hover .quick-add-btn{opacity:1!important}`}</style>
     </div>
   );
 }
@@ -479,246 +676,302 @@ function Lightbox({ images, startIndex, onClose }: { images: string[]; startInde
   );
 }
 
-/* Product Detail Modal */
-function ProductModal({ p, cart, onClose, currency, userId }: { p:SProduct; cart:ReturnType<typeof useCart>; onClose:()=>void; currency:string; userId:string }) {
-  const [size,  setSize]  = useState(p.sizes?.[0]||'');
-  const [color, setColor] = useState(p.colors?.[0]||'');
-  const [qty,   setQty]   = useState(1);
+/* Product Detail Modal - Glassmorphism Ultra Premium */
+function ProductModal({ p, cart, onClose, currency, userId }: { 
+  p: SProduct; 
+  cart: ReturnType<typeof useCart>; 
+  onClose: () => void; 
+  currency: string; 
+  userId: string 
+}) {
+  const [size, setSize] = useState(p.sizes?.[0] || '');
+  const [color, setColor] = useState(p.colors?.[0] || '');
+  const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
-  const firstColorImg = p.colors?.[0] && p.colorImages?.[p.colors[0]];
-  const [activeImage, setActiveImage] = useState(firstColorImg || p.imageUrl || '');
+  const [activeImage, setActiveImage] = useState(p.imageUrl || '');
   const [showVideo, setShowVideo] = useState(false);
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
-  const galleryImgs = [p.imageUrl, ...(p.images || [])].filter((img, i, arr) => img && arr.indexOf(img) === i);
+
+  const galleryImgs = [p.imageUrl, ...(p.images || [])].filter(Boolean);
+  const firstColorImg = p.colors?.[0] && p.colorImages?.[p.colors[0]];
 
   const handleAdd = () => {
     cart.add(p, size, color);
-    for (let i = 0; i < qty-1; i++) cart.add(p, size, color);
+    for (let i = 1; i < qty; i++) cart.add(p, size, color);
     setAdded(true);
-    setTimeout(() => { setAdded(false); onClose(); }, 1000);
+    setTimeout(() => { setAdded(false); onClose(); }, 1200);
   };
 
   return (
-   <>
-    {lightboxIdx !== null && galleryImgs.length > 0 && (
-      <Lightbox images={galleryImgs} startIndex={lightboxIdx} onClose={() => setLightboxIdx(null)} />
-    )}
-    <div onClick={onClose} style={{ position:'fixed',inset:0,background:'rgba(0,0,0,.7)',backdropFilter:'blur(8px)',zIndex:300,display:'flex',alignItems:'flex-end',justifyContent:'center',padding:'0' }}
-      className="anim-fade-up">
-      <div onClick={e=>e.stopPropagation()} style={{
-        background:'var(--panel)',borderRadius:'24px 24px 0 0',width:'100%',maxWidth:520,
-        maxHeight:'90vh',overflowY:'auto',padding:'0 0 24px',
-      }}>
-        {/* Main image / video */}
-        <div style={{ height:260,position:'relative',background:(activeImage||showVideo)?'#000':'var(--void2)',flexShrink:0 }}>
-          {showVideo && p.videoUrl
-            ? <video src={p.videoUrl} controls autoPlay playsInline style={{ width:'100%',height:'100%',objectFit:'contain',background:'#000' }} />
-            : activeImage
-            ? <img src={activeImage} alt={p.name}
-                onClick={() => { const i = galleryImgs.indexOf(activeImage); setLightboxIdx(i >= 0 ? i : 0); }}
-                style={{ width:'100%',height:'100%',objectFit:'cover',transition:'opacity .2s',cursor:'zoom-in' }} />
-            : <div style={{ width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:80 }}>{p.emoji||'📦'}</div>
-          }
-          <button onClick={onClose} style={{ position:'absolute',top:14,left:14,width:34,height:34,borderRadius:'50%',background:'rgba(0,0,0,.5)',border:'none',color:'#fff',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',zIndex:2 }}>
-            <X size={17} />
-          </button>
-          {/* Zoom hint */}
-          {!showVideo && activeImage && (
-            <div style={{ position:'absolute',top:14,right:14,background:'rgba(0,0,0,.5)',color:'#fff',fontSize:10,fontWeight:700,padding:'4px 9px',borderRadius:99,display:'flex',alignItems:'center',gap:4,pointerEvents:'none' }}>🔍 تكبير</div>
-          )}
-          {p.sales > 0 && !showVideo && <div style={{ position:'absolute',bottom:14,right:14,background:'var(--ember)',color:'#fff',fontSize:11,fontWeight:700,padding:'3px 10px',borderRadius:99 }}>{p.sales}+ مبيعة</div>}
-        </div>
-        {/* Thumbnails — images + video — shown when product has multiple media */}
-        {(galleryImgs.length > 1 || p.videoUrl) && (
-            <div style={{ display:'flex',gap:6,overflowX:'auto',padding:'8px 14px',background:'var(--void2)',borderBottom:'1px solid var(--border)' }}>
-              {galleryImgs.map((img,i) => (
-                <button key={i} onClick={()=>{ setShowVideo(false); setActiveImage(img); }} style={{
-                  flexShrink:0,width:48,height:48,borderRadius:7,overflow:'hidden',
-                  border:`2px solid ${(!showVideo && activeImage===img)?'var(--ember)':'var(--border2)'}`,
-                  background:'var(--void3)',cursor:'pointer',padding:0,transition:'border-color .15s',
-                }}>
-                  <img src={img} alt="" style={{ width:'100%',height:'100%',objectFit:'cover' }} loading="lazy" />
+    <>
+      {lightboxIdx !== null && galleryImgs.length > 0 && (
+        <Lightbox images={galleryImgs} startIndex={lightboxIdx} onClose={() => setLightboxIdx(null)} />
+      )}
+
+      <div 
+        onClick={onClose} 
+        style={{ 
+          position: 'fixed', 
+          inset: 0, 
+          background: 'rgba(0,0,0,0.75)', 
+          backdropFilter: 'blur(12px)', 
+          zIndex: 300, 
+          display: 'flex', 
+          alignItems: 'flex-end', 
+          justifyContent: 'center' 
+        }}
+      >
+        <div 
+          onClick={e => e.stopPropagation()} 
+          style={{
+            ...glass, // استخدام الـ glass style المعرف سابقاً
+            background: 'rgba(15,15,20,0.95)',
+            borderRadius: '28px 28px 0 0',
+            width: '100%',
+            maxWidth: 520,
+            maxHeight: '92vh',
+            overflowY: 'auto',
+            boxShadow: '0 -20px 60px rgba(0,0,0,0.6)'
+          }}
+        >
+          {/* Main Media Area */}
+          <div style={{ 
+            height: 280, 
+            position: 'relative', 
+            background: '#0A0A0A', 
+            overflow: 'hidden' 
+          }}>
+            {showVideo && p.videoUrl ? (
+              <video 
+                src={p.videoUrl} 
+                controls 
+                autoPlay 
+                playsInline 
+                style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
+              />
+            ) : activeImage ? (
+              <img 
+                src={activeImage} 
+                alt={p.name}
+                onClick={() => {
+                  const idx = galleryImgs.indexOf(activeImage);
+                  setLightboxIdx(idx >= 0 ? idx : 0);
+                }}
+                style={{ 
+                  width: '100%', 
+                  height: '100%', 
+                  objectFit: 'cover', 
+                  cursor: 'zoom-in' 
+                }} 
+              />
+            ) : (
+              <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 100, opacity: 0.4 }}>
+                {p.emoji || '📦'}
+              </div>
+            )}
+
+            {/* Close Button */}
+            <button 
+              onClick={onClose}
+              style={{
+                position: 'absolute',
+                top: 16,
+                left: 16,
+                width: 42,
+                height: 42,
+                borderRadius: '50%',
+                background: 'rgba(0,0,0,0.6)',
+                backdropFilter: 'blur(12px)',
+                border: 'none',
+                color: '#fff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 10
+              }}
+            >
+              <X size={22} />
+            </button>
+
+            {/* Sales Badge */}
+            {p.sales > 0 && (
+              <div style={{
+                position: 'absolute',
+                bottom: 16,
+                right: 16,
+                background: '#FF6A00',
+                color: '#fff',
+                padding: '6px 14px',
+                borderRadius: 999,
+                fontSize: 13,
+                fontWeight: 700,
+                boxShadow: '0 4px 15px rgba(255,106,0,0.4)'
+              }}>
+                🔥 {p.sales}+ مبيعة
+              </div>
+            )}
+          </div>
+
+          {/* Thumbnails */}
+          {(galleryImgs.length > 1 || p.videoUrl) && (
+            <div style={{ 
+              display: 'flex', 
+              gap: 8, 
+              padding: '12px 16px', 
+              background: 'rgba(255,255,255,0.05)', 
+              overflowX: 'auto' 
+            }}>
+              {galleryImgs.map((img, i) => (
+                <button 
+                  key={i} 
+                  onClick={() => { setShowVideo(false); setActiveImage(img); }}
+                  style={{
+                    flexShrink: 0,
+                    width: 58,
+                    height: 58,
+                    borderRadius: 12,
+                    overflow: 'hidden',
+                    border: `2.5px solid ${activeImage === img && !showVideo ? '#FF6A00' : 'rgba(255,255,255,0.2)'}`,
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <img src={img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 </button>
               ))}
+
               {p.videoUrl && (
-                <button onClick={()=>setShowVideo(true)} title="فيديو المنتج" style={{
-                  flexShrink:0,width:48,height:48,borderRadius:7,overflow:'hidden',position:'relative',
-                  border:`2px solid ${showVideo?'var(--ember)':'var(--border2)'}`,
-                  background:'#000',cursor:'pointer',padding:0,display:'flex',alignItems:'center',justifyContent:'center',
-                }}>
-                  <Play size={18} style={{ color:'#fff' }} />
+                <button 
+                  onClick={() => setShowVideo(true)}
+                  style={{
+                    flexShrink: 0,
+                    width: 58,
+                    height: 58,
+                    borderRadius: 12,
+                    background: '#000',
+                    border: `2.5px solid ${showVideo ? '#FF6A00' : 'rgba(255,255,255,0.2)'}`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  <Play size={24} color="#fff" />
                 </button>
               )}
             </div>
-        )}
-
-        <div style={{ padding:'20px 20px 0' }}>
-          <div style={{ fontSize:11,color:'var(--ink3)',marginBottom:4 }}>{p.category} {p.sku ? `· #${p.sku}` : ''}</div>
-          <h2 style={{ fontSize:20,fontWeight:900,color:'var(--ink1)',marginBottom:8 }}>{p.name}</h2>
-          {p.description && <p style={{ fontSize:13,color:'var(--ink2)',lineHeight:1.6,marginBottom:14 }}>{p.description}</p>}
-
-          {/* Custom Fields */}
-          {p.customFields && p.customFields.filter(f => f.value).length > 0 && (
-            <div style={{ display:'flex',flexDirection:'column',gap:6,marginBottom:14,padding:'12px 14px',background:'var(--void2)',borderRadius:10,border:'1px solid var(--border)' }}>
-              {p.customFields.filter(f => f.value).map(f => (
-                <div key={f.id} style={{ display:'flex',justifyContent:'space-between',alignItems:'center',gap:8 }}>
-                  <span style={{ fontSize:11,fontWeight:700,color:'var(--ink3)' }}>{f.label}</span>
-                  {f.type === 'boolean'
-                    ? <span style={{ fontSize:11,fontWeight:700,color:f.value==='true'?'var(--mint)':'var(--ember)' }}>{f.value==='true'?'✅ نعم':'❌ لا'}</span>
-                    : f.type === 'color'
-                      ? <span style={{ display:'flex',alignItems:'center',gap:5,fontSize:11,fontWeight:700,color:'var(--ink2)' }}>
-                          <span style={{ width:14,height:14,borderRadius:'50%',background:f.value,border:'1px solid var(--border)',display:'inline-block',flexShrink:0 }}/>
-                          {f.value}
-                        </span>
-                      : <span style={{ fontSize:11,fontWeight:700,color:'var(--ink2)' }}>{f.value}</span>
-                  }
-                </div>
-              ))}
-            </div>
           )}
 
-          {/* Price */}
-          <div style={{ fontSize:28,fontWeight:900,color:'var(--ember)',letterSpacing:'-0.04em',marginBottom:18 }}>
-            {p.price.toLocaleString()} {currency}
-          </div>
+          <div style={{ padding: '24px 20px' }}>
+            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>{p.category} {p.sku && `· #${p.sku}`}</div>
+            <h2 style={{ fontSize: 22, fontWeight: 900, margin: '8px 0 12px' }}>{p.name}</h2>
 
-          {/* Trust badges */}
-          <div style={{ display:'flex',gap:8,marginBottom:16,flexWrap:'wrap' }}>
-            {[
-              { icon:<Shield size={13}/>, label:'دفع آمن', color:'rgba(34,197,94,.15)', border:'rgba(34,197,94,.3)', text:'#22c55e' },
-              { icon:<RefreshCcw size={13}/>, label:'إرجاع 7 أيام', color:'rgba(59,130,246,.1)', border:'rgba(59,130,246,.25)', text:'#3b82f6' },
-              { icon:<Truck size={13}/>, label:'توصيل سريع', color:'rgba(245,158,11,.1)', border:'rgba(245,158,11,.25)', text:'#f59e0b' },
-              { icon:<Award size={13}/>, label:'جودة مضمونة', color:'rgba(168,85,247,.1)', border:'rgba(168,85,247,.25)', text:'#a855f7' },
-            ].map(b => (
-              <div key={b.label} style={{ display:'flex',alignItems:'center',gap:5,padding:'5px 10px',borderRadius:99,background:b.color,border:`1px solid ${b.border}`,color:b.text,fontSize:11,fontWeight:700,flexShrink:0 }}>
-                {b.icon} {b.label}
-              </div>
-            ))}
-          </div>
-          {/* Social proof */}
-          {p.sales > 0 && (
-            <div style={{ display:'flex',alignItems:'center',gap:8,marginBottom:14,padding:'8px 12px',background:'rgba(255,106,0,.07)',borderRadius:8,border:'1px solid rgba(255,106,0,.15)' }}>
-              <Flame size={14} color="#ff6a00"/>
-              <span style={{ fontSize:12,color:'var(--ink2)' }}>
-                <strong style={{ color:'var(--ember)' }}>{p.sales}</strong> شخص طلب هذا المنتج
-                {p.sales >= 5 && <span style={{ color:'rgba(34,197,94,.9)',marginRight:6 }}>· مشهور جداً</span>}
-              </span>
-            </div>
-          )}
+            {p.description && <p style={{ fontSize: 15, lineHeight: 1.6, color: 'rgba(255,255,255,0.75)', marginBottom: 20 }}>{p.description}</p>}
 
-          {/* Service meta */}
-          {p.type === 'service' && (p.duration || p.workArea) && (
-            <div style={{ display:'flex',flexWrap:'wrap',gap:8,marginBottom:14 }}>
-              {p.duration && <span style={{ display:'flex',alignItems:'center',gap:5,fontSize:12,color:'var(--ink2)',background:'var(--void2)',border:'1px solid var(--border)',borderRadius:99,padding:'4px 12px' }}>⏱ {p.duration}</span>}
-              {p.workArea && <span style={{ display:'flex',alignItems:'center',gap:5,fontSize:12,color:'var(--ink2)',background:'var(--void2)',border:'1px solid var(--border)',borderRadius:99,padding:'4px 12px' }}>📍 {p.workArea}</span>}
+            {/* Price */}
+            <div style={{ fontSize: 32, fontWeight: 900, color: '#FF6A00', marginBottom: 20 }}>
+              {p.price.toLocaleString()} {currency}
             </div>
-          )}
-          {/* Digital badge */}
-          {p.type === 'digital' && (
-            <div style={{ marginBottom:14,padding:'8px 14px',background:'rgba(14,165,233,.1)',border:'1px solid rgba(14,165,233,.3)',borderRadius:8,fontSize:12,color:'var(--ink2)' }}>
-              💻 منتج رقمي — سيُرسل إليك مباشرة بعد التأكيد
-            </div>
-          )}
-          {/* Sizes — products only */}
-          {(!p.type || p.type === 'product') && p.sizes?.length > 0 && (
-            <div style={{ marginBottom:14 }}>
-              <div style={{ fontSize:11,fontWeight:700,color:'var(--ink3)',marginBottom:8 }}>المقاس</div>
-              <div style={{ display:'flex',gap:8,flexWrap:'wrap' }}>
-                {p.sizes.map(s => (
-                  <button key={s} onClick={()=>setSize(s)} style={{
-                    padding:'6px 14px',borderRadius:8,border:`1.5px solid ${size===s?'var(--ember)':'var(--border2)'}`,
-                    background:size===s?'rgba(255,106,0,.12)':'transparent',
-                    color:size===s?'var(--ember2)':'var(--ink2)',
-                    fontSize:13,fontWeight:600,cursor:'pointer',transition:'all .15s',
-                  }}>{s}</button>
-                ))}
-              </div>
-            </div>
-          )}
 
-          {/* Colors */}
-          {p.colors?.length > 0 && (
-            <div style={{ marginBottom:18 }}>
-              <div style={{ fontSize:11,fontWeight:700,color:'var(--ink3)',marginBottom:8 }}>اللون</div>
-              <div style={{ display:'flex',gap:8,flexWrap:'wrap' }}>
-                {p.colors.map(clr => {
-                  const colorImg = p.colorImages?.[clr];
-                  return (
-                    <button key={clr} onClick={()=>{
-                      setColor(clr);
-                      setActiveImage(colorImg || p.imageUrl || '');
-                    }} style={{
-                      padding: colorImg ? '4px' : '6px 14px',
-                      borderRadius: colorImg ? 10 : 8,
-                      border:`2px solid ${color===clr?'var(--ember)':'var(--border2)'}`,
-                      background:color===clr?'rgba(255,106,0,.12)':'transparent',
-                      cursor:'pointer',transition:'all .15s',
-                      display:'flex',flexDirection:'column',alignItems:'center',gap:4,
-                    }}>
-                      {colorImg ? (
-                        <>
-                          <img src={colorImg} alt={clr} style={{ width:56,height:56,objectFit:'cover',borderRadius:7 }} />
-                          <span style={{ fontSize:10,fontWeight:700,color:color===clr?'var(--ember2)':'var(--ink2)' }}>{clr}</span>
-                        </>
-                      ) : (
-                        <span style={{ fontSize:13,fontWeight:600,color:color===clr?'var(--ember2)':'var(--ink2)' }}>{clr}</span>
-                      )}
+            {/* Variants */}
+            {p.sizes?.length > 0 && (
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>المقاس</div>
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                  {p.sizes.map(s => (
+                    <button 
+                      key={s} 
+                      onClick={() => setSize(s)}
+                      style={{
+                        padding: '10px 18px',
+                        borderRadius: 12,
+                        border: `2px solid ${size === s ? '#FF6A00' : 'rgba(255,255,255,0.2)'}`,
+                        background: size === s ? 'rgba(255,106,0,0.15)' : 'transparent',
+                        color: size === s ? '#FF6A00' : '#fff',
+                        fontWeight: 600
+                      }}
+                    >
+                      {s}
                     </button>
-                  );
-                })}
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Colors */}
+            {p.colors?.length > 0 && (
+              <div style={{ marginBottom: 24 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>اللون</div>
+                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                  {p.colors.map(clr => {
+                    const colorImg = p.colorImages?.[clr];
+                    return (
+                      <button 
+                        key={clr} 
+                        onClick={() => {
+                          setColor(clr);
+                          if (colorImg) setActiveImage(colorImg);
+                        }}
+                        style={{
+                          border: `3px solid ${color === clr ? '#FF6A00' : 'rgba(255,255,255,0.15)'}`,
+                          borderRadius: 14,
+                          padding: colorImg ? 4 : 12,
+                          background: color === clr ? 'rgba(255,106,0,0.1)' : 'transparent'
+                        }}
+                      >
+                        {colorImg ? (
+                          <img src={colorImg} alt={clr} style={{ width: 52, height: 52, borderRadius: 10, objectFit: 'cover' }} />
+                        ) : (
+                          <span style={{ fontWeight: 600 }}>{clr}</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Quantity */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 28 }}>
+              <div style={{ fontSize: 14, fontWeight: 600 }}>الكمية</div>
+              <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(255,255,255,0.08)', borderRadius: 12, padding: '6px' }}>
+                <button onClick={() => setQty(q => Math.max(1, q-1))} style={{ width: 44, height: 44, borderRadius: 10 }}><Minus size={18}/></button>
+                <span style={{ minWidth: 40, textAlign: 'center', fontSize: 18, fontWeight: 700 }}>{qty}</span>
+                <button onClick={() => setQty(q => Math.min(p.stock || 99, q+1))} style={{ width: 44, height: 44, borderRadius: 10 }}><Plus size={18}/></button>
               </div>
             </div>
-          )}
 
-          {/* Related products */}
-          {p.category && (
-            <div style={{ marginBottom:18 }}>
-              <div style={{ fontSize:11,fontWeight:700,color:'var(--ink3)',marginBottom:10,letterSpacing:'.06em' }}>🛍️ قد يعجبك أيضاً</div>
-              <div style={{ display:'flex',gap:8,overflowX:'auto',paddingBottom:4 }}>
-                {(window as any).__sfProducts?.filter((rp:any) => rp.id !== p.id && rp.category === p.category).slice(0,4).map((rp:any) => (
-                  <div key={rp.id}
-                    onClick={()=>{ onClose(); setTimeout(()=>document.dispatchEvent(new CustomEvent('viewProduct',{detail:rp})),50); }}
-                    style={{ flexShrink:0,width:88,borderRadius:10,overflow:'hidden',cursor:'pointer',background:'var(--void2)',border:'1px solid var(--border)' }}>
-                    <div style={{ height:70,background:rp.imageUrl?'#000':'var(--void3)',overflow:'hidden' }}>
-                      {rp.imageUrl ? <img src={rp.imageUrl} alt={rp.name} style={{ width:'100%',height:'100%',objectFit:'cover' }} loading="lazy"/> : <div style={{ width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:24 }}>{rp.emoji||'📦'}</div>}
-                    </div>
-                    <div style={{ padding:'5px 7px' }}>
-                      <div style={{ fontSize:10,fontWeight:700,color:'var(--ink1)',overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis' }}>{rp.name}</div>
-                      <div style={{ fontSize:11,fontWeight:900,color:'var(--ember)' }}>{rp.price.toLocaleString()} {currency}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Qty */}
-          <div style={{ display:'flex',alignItems:'center',gap:12,marginBottom:20 }}>
-            <div style={{ fontSize:11,fontWeight:700,color:'var(--ink3)' }}>الكمية</div>
-            <div style={{ display:'flex',alignItems:'center',gap:8,background:'var(--void2)',borderRadius:8,padding:'4px 8px' }}>
-              <button onClick={()=>setQty(q=>Math.max(1,q-1))} style={{ width:36,height:36,borderRadius:6,background:'var(--panel)',border:'1px solid var(--border)',cursor:'pointer',color:'var(--ink2)',display:'flex',alignItems:'center',justifyContent:'center' }}><Minus size={14}/></button>
-              <span style={{ fontSize:15,fontWeight:700,color:'var(--ink1)',minWidth:28,textAlign:'center' }}>{qty}</span>
-              <button onClick={()=>setQty(q=>Math.min(p.stock,q+1))} style={{ width:36,height:36,borderRadius:6,background:'var(--panel)',border:'1px solid var(--border)',cursor:'pointer',color:'var(--ink2)',display:'flex',alignItems:'center',justifyContent:'center' }}><Plus size={14}/></button>
-            </div>
-            <span style={{ fontSize:11,color:'var(--ink3)' }}>{p.stock} متوفرة</span>
+            {/* Add Button */}
+            <button 
+              onClick={handleAdd}
+              style={{
+                width: '100%',
+                height: 58,
+                background: added ? '#22c55e' : primaryGradient,
+                border: 'none',
+                borderRadius: 18,
+                color: '#fff',
+                fontSize: 16.5,
+                fontWeight: 800,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 12,
+                boxShadow: '0 12px 30px rgba(255,106,0,0.4)',
+                transition: 'all 0.3s'
+              }}
+            >
+              {added ? (
+                <><Check size={26} /> تمت الإضافة بنجاح!</>
+              ) : (
+                <><ShoppingCart size={24} /> 
+                  {p.type === 'service' ? 'احجز الآن' : p.type === 'digital' ? 'اشتر الآن' : 'أضف إلى السلة'} 
+                  — {(p.price * qty).toLocaleString()} {currency}
+                </>
+              )}
+            </button>
           </div>
-
-          <button onClick={handleAdd} style={{
-            width:'100%',height:50,background:added?'var(--mint)':'var(--ember)',
-            border:'none',borderRadius:'var(--r)',color:'#fff',fontSize:15,fontWeight:700,
-            cursor:'pointer',transition:'all .2s',
-            display:'flex',alignItems:'center',justifyContent:'center',gap:8,
-            boxShadow:`0 4px 16px ${added?'rgba(0,200,150,.3)':'rgba(255,106,0,.35)'}`,
-          }}>
-            {added
-              ? <><Check size={18}/> {p.type==='service'?'تم الحجز!':'تمت الإضافة!'}</>
-              : <><ShoppingCart size={16}/> {p.type==='service'?'احجز الآن':p.type==='digital'?'اشتر الآن':'أضف للسلة'} — {(p.price*qty).toLocaleString()} {currency}</>
-            }
-          </button>
         </div>
       </div>
-    </div>
-   </>
+    </>
   );
 }
 
