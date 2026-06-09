@@ -1,14 +1,12 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
-  Search, ShoppingCart, X, MessageCircle, Share2,
-  Plus, Minus, Check, Package, Truck,
-  Star, Heart, Send, Bot, ArrowRight, Play,
-  Filter, Shield, RefreshCcw, Award, SlidersHorizontal, Flame
+  Search, ShoppingCart, X, MessageCircle, Share2, Plus, Minus, Check,
+  Package, Star, Heart, Send, Bot, ArrowRight, Play,
+  Shield, RefreshCcw, Award, Flame, ChevronUp, Clock, MapPin,
+  Filter, SlidersHorizontal, Eye
 } from 'lucide-react';
 
-// ══════════════════════════════════════════════
-// TYPES
-// ══════════════════════════════════════════════
+// ─── TYPES ───────────────────────────────────────────────────────────────────
 interface CustomField { id:string; label:string; type:string; options:string[]; value:string; }
 interface SProduct {
   id:string; name:string; description:string; price:number; cost?:number;
@@ -19,1100 +17,606 @@ interface SProduct {
   customFields?:CustomField[];
 }
 interface CartItem { product:SProduct; quantity:number; size:string; color:string; }
-interface StoreInfo { brand:{name:string;phone:string;currency:string;logo?:string;description?:string;instagram?:string;facebook?:string;whatsapp?:string;email?:string}; deliveryCosts?:Record<string,number>; }
+interface StoreInfo {
+  brand:{name:string;phone:string;currency:string;logo?:string;description?:string;
+         instagram?:string;facebook?:string;whatsapp?:string;email?:string};
+  deliveryCosts?:Record<string,number>;
+}
 interface ChatMsg { role:'user'|'ai'; content:string; product?:SProduct; }
 
-// ══════════════════════════════════════════════
-// MOROCCAN CITIES + DELIVERY COST
-// ══════════════════════════════════════════════
+// ─── CONSTANTS ───────────────────────────────────────────────────────────────
 const MOROCCAN_CITIES = [
   'الدار البيضاء','الرباط','فاس','مراكش','طنجة','أكادير','مكناس','وجدة',
   'سلا','تطوان','القنيطرة','الجديدة','بني ملال','خريبكة','تازة','نادور',
   'الحسيمة','برشيد','سطات','آسفي','الرحامنة','قلعة السراغنة','خنيفرة',
   'إفران','ورزازات','زاكورة','الراشيدية','فيكيك','طاطا','ميدلت',
 ];
-
 const DEFAULT_COSTS: Record<string,number> = {
   'الدار البيضاء':20,'الرباط':25,'فاس':30,'مراكش':30,'طنجة':35,
   'أكادير':35,'مكناس':30,'وجدة':40,'سلا':25,'تطوان':35,
   'القنيطرة':30,'الجديدة':35,'بني ملال':40,
 };
-
 function getDeliveryCost(city:string, costs?:Record<string,number>):number {
   const allCosts = { ...DEFAULT_COSTS, ...(costs||{}) };
   for (const [k,v] of Object.entries(allCosts)) {
-    if (city.includes(k) || k.includes(city)) return v;
+    if (city.includes(k)||k.includes(city)) return v;
   }
-  return allCosts['default'] || 40;
+  return allCosts['default']||40;
 }
 
-// ══════════════════════════════════════════════
-// STORE ANALYTICS TRACKING
-// ══════════════════════════════════════════════
-function detectSource(): string {
+// ─── ANALYTICS ───────────────────────────────────────────────────────────────
+function detectSource():string {
   try {
-    const params = new URLSearchParams(window.location.search);
-    const utm = params.get('utm_source') || params.get('source');
-    if (utm) return utm.toLowerCase();
-    const ref = document.referrer || '';
-    if (!ref) return 'direct';
-    const h = new URL(ref).hostname.replace('www.', '');
-    if (h.includes('facebook') || h.includes('fb.')) return 'facebook';
-    if (h.includes('instagram')) return 'instagram';
-    if (h.includes('tiktok')) return 'tiktok';
-    if (h.includes('google')) return 'google';
-    if (h.includes('wa.me') || h.includes('whatsapp')) return 'whatsapp';
-    if (h.includes('youtube')) return 'youtube';
-    return h || 'direct';
+    const p=new URLSearchParams(window.location.search);
+    const utm=p.get('utm_source')||p.get('source');
+    if(utm) return utm.toLowerCase();
+    const ref=document.referrer||'';
+    if(!ref) return 'direct';
+    const h=new URL(ref).hostname.replace('www.','');
+    if(h.includes('facebook')||h.includes('fb.')) return 'facebook';
+    if(h.includes('instagram')) return 'instagram';
+    if(h.includes('tiktok')) return 'tiktok';
+    if(h.includes('google')) return 'google';
+    if(h.includes('wa.me')||h.includes('whatsapp')) return 'whatsapp';
+    return h||'direct';
   } catch { return 'direct'; }
 }
-function storeSessionId(): string {
+function storeSessionId():string {
   try {
-    let sid = sessionStorage.getItem('sahar_sid');
-    if (!sid) { sid = Math.random().toString(36).slice(2) + Date.now().toString(36); sessionStorage.setItem('sahar_sid', sid); }
-    return sid;
+    let s=sessionStorage.getItem('sahar_sid');
+    if(!s){s=Math.random().toString(36).slice(2)+Date.now().toString(36);sessionStorage.setItem('sahar_sid',s);}
+    return s;
   } catch { return 'anon'; }
 }
-function trackStoreEvent(userId: string, type: 'visit' | 'view', product?: { id?: string; name?: string }) {
-  if (!userId) return;
+function trackStoreEvent(userId:string,type:'visit'|'view',product?:{id?:string;name?:string}) {
+  if(!userId) return;
   try {
-    fetch('/api/analytics/track', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        userId, type,
-        productId: product?.id || '',
-        productName: product?.name || '',
-        source: detectSource(),
-        sessionId: storeSessionId(),
-      }),
-      keepalive: true,
-    }).catch(() => {});
+    fetch('/api/analytics/track',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({userId,type,productId:product?.id||'',productName:product?.name||'',source:detectSource(),sessionId:storeSessionId()}),
+      keepalive:true,
+    }).catch(()=>{});
   } catch {}
 }
 
-// ══════════════════════════════════════════════
-// HOOKS
-// ══════════════════════════════════════════════
+// ─── HOOKS ────────────────────────────────────────────────────────────────────
 function useStorefront(userId:string) {
-  const [products, setProducts] = useState<SProduct[]>([]);
-  const [storeInfo, setStoreInfo] = useState<StoreInfo|null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError]   = useState('');
-
-  useEffect(() => {
-    if (!userId) { setError('رابط المتجر غير صحيح'); setLoading(false); return; }
-    Promise.all([
-      fetch(`/api/products/public/catalog?userId=${userId}`).then(r => r.json()),
-    ]).then(([catalog]) => {
-      setProducts(catalog.products || []);
-      setStoreInfo({ brand: catalog.brand || {}, deliveryCosts: catalog.deliveryCosts });
-      setLoading(false);
-    }).catch(() => { setError('تعذّر تحميل المتجر'); setLoading(false); });
-    // Track store visit once per browser session
-    try {
-      const vkey = `sahar_visit_${userId}`;
-      if (!sessionStorage.getItem(vkey)) { trackStoreEvent(userId, 'visit'); sessionStorage.setItem(vkey, '1'); }
-    } catch {}
-  }, [userId]);
-
-  return { products, storeInfo, loading, error };
+  const [products,setProducts]=useState<SProduct[]>([]);
+  const [storeInfo,setStoreInfo]=useState<StoreInfo|null>(null);
+  const [loading,setLoading]=useState(true);
+  const [error,setError]=useState('');
+  useEffect(()=>{
+    if(!userId){setError('رابط المتجر غير صحيح');setLoading(false);return;}
+    fetch(`/api/products/public/catalog?userId=${userId}`).then(r=>r.json())
+      .then(c=>{setProducts(c.products||[]);setStoreInfo({brand:c.brand||{},deliveryCosts:c.deliveryCosts});setLoading(false);})
+      .catch(()=>{setError('تعذّر تحميل المتجر');setLoading(false);});
+    try{const k=`sahar_visit_${userId}`;if(!sessionStorage.getItem(k)){trackStoreEvent(userId,'visit');sessionStorage.setItem(k,'1');}}catch{}
+  },[userId]);
+  return {products,storeInfo,loading,error};
 }
 
-// ══════════════════════════════════════════════
-// CART HOOK
-// ══════════════════════════════════════════════
 function useCart() {
-  // Persist cart in localStorage — survives page refresh
-  const [items, setItems] = useState<CartItem[]>(() => {
-    try {
-      const saved = localStorage.getItem('sahar_cart');
-      return saved ? JSON.parse(saved) : [];
-    } catch { return []; }
+  const [items,setItems]=useState<CartItem[]>(()=>{
+    try{const s=localStorage.getItem('sahar_cart');return s?JSON.parse(s):[];}catch{return [];}
   });
-
-  // Save to localStorage on every change
-  useEffect(() => {
-    try { localStorage.setItem('sahar_cart', JSON.stringify(items)); } catch {}
-  }, [items]);
-
-  const add = (product:SProduct, size:string, color:string) => {
-    setItems(prev => {
-      const existing = prev.find(i => i.product.id===product.id && i.size===size && i.color===color);
-      if (existing) return prev.map(i => i===existing ? {...i,quantity:i.quantity+1} : i);
-      return [...prev, { product, quantity:1, size, color }];
-    });
-  };
-  const remove = (productId:string, size:string, color:string) =>
-    setItems(prev => prev.filter(i => !(i.product.id===productId && i.size===size && i.color===color)));
-  const update = (productId:string, size:string, color:string, qty:number) =>
-    setItems(prev => qty <= 0
-      ? prev.filter(i => !(i.product.id===productId && i.size===size && i.color===color))
-      : prev.map(i => (i.product.id===productId && i.size===size && i.color===color) ? {...i,quantity:qty} : i));
-  const total  = items.reduce((s,i) => s+i.product.price*i.quantity, 0);
-  const count  = items.reduce((s,i) => s+i.quantity, 0);
-  const clear  = () => setItems([]);
-  return { items, add, remove, update, total, count, clear };
+  useEffect(()=>{try{localStorage.setItem('sahar_cart',JSON.stringify(items));}catch{}},[items]);
+  const add=(product:SProduct,size:string,color:string)=>setItems(prev=>{
+    const ex=prev.find(i=>i.product.id===product.id&&i.size===size&&i.color===color);
+    if(ex) return prev.map(i=>i===ex?{...i,quantity:i.quantity+1}:i);
+    return [...prev,{product,quantity:1,size,color}];
+  });
+  const remove=(pid:string,size:string,color:string)=>setItems(p=>p.filter(i=>!(i.product.id===pid&&i.size===size&&i.color===color)));
+  const update=(pid:string,size:string,color:string,qty:number)=>setItems(p=>qty<=0?p.filter(i=>!(i.product.id===pid&&i.size===size&&i.color===color)):p.map(i=>(i.product.id===pid&&i.size===size&&i.color===color)?{...i,quantity:qty}:i));
+  const total=items.reduce((s,i)=>s+i.product.price*i.quantity,0);
+  const count=items.reduce((s,i)=>s+i.quantity,0);
+  const clear=()=>setItems([]);
+  return {items,add,remove,update,total,count,clear};
 }
 
-// ══════════════════════════════════════════════
-// COMPONENTS
-// ══════════════════════════════════════════════
+// ─── SF (Storefront) CSS VARS — light mode ────────────────────────────────────
+const SF:React.CSSProperties = {
+  '--sf-bg':'#F7F8FC',
+  '--sf-surface':'#FFFFFF',
+  '--sf-surface2':'#F3F4F8',
+  '--sf-border':'#EAEAF2',
+  '--sf-text':'#111827',
+  '--sf-text2':'#555F6E',
+  '--sf-text3':'#9CA3AF',
+  '--sf-primary':'#FF6A00',
+  '--sf-p10':'rgba(255,106,0,0.08)',
+  '--sf-p20':'rgba(255,106,0,0.16)',
+  '--sf-success':'#16A34A',
+  '--sf-s10':'#ECFDF5',
+  '--sf-warning':'#F59E0B',
+  '--sf-danger':'#EF4444',
+  '--sf-shadow':'0 2px 12px rgba(0,0,0,0.07)',
+  '--sf-shadow-lg':'0 8px 32px rgba(0,0,0,0.13)',
+  '--sf-r':'14px',
+  '--sf-r-sm':'10px',
+  '--sf-r-full':'999px',
+} as React.CSSProperties;
 
-/* Product Card - Glassmorphism Premium 2026 */
-function ProductCard({ p, onAdd, onView, currency }: { 
-  p: SProduct; 
-  onAdd: (p: SProduct) => void; 
-  onView: (p: SProduct) => void; 
-  currency: string 
-}) {
-  const wishlistKey = 'sahar_wishlist';
-  const getWishlist = (): string[] => { 
-    try { return JSON.parse(localStorage.getItem(wishlistKey) || '[]'); } 
-    catch { return []; } 
-  };
+// ─── PROMO BAR ────────────────────────────────────────────────────────────────
+function PromoBar() {
+  const items=['🎉 شحن مجاني للطلبات فوق 200 درهم','🔄 إرجاع سهل خلال 7 أيام','⭐ جودة مضمونة 100%','🚚 توصيل لجميع المدن المغربية','💳 دفع عند الاستلام متاح'];
+  return (
+    <div style={{background:'var(--sf-primary)',color:'#fff',height:32,overflow:'hidden',display:'flex',alignItems:'center',fontSize:12,fontWeight:600}}>
+      <style>{`@keyframes sfmarquee{0%{transform:translateX(-50%)}100%{transform:translateX(0%)}}`}</style>
+      <div style={{display:'flex',gap:40,whiteSpace:'nowrap',animation:'sfmarquee 18s linear infinite',paddingInline:20}}>
+        {[...items,...items].map((t,i)=><span key={i} style={{flexShrink:0}}>{t}</span>)}
+      </div>
+    </div>
+  );
+}
 
-  const [liked, setLiked] = useState(() => getWishlist().includes(p.id));
-  const [hover, setHover] = useState(false);
-  const isNew = p.createdAt && (Date.now() - new Date(p.createdAt).getTime() < 7*24*60*60*1000);
+// ─── PRODUCT CARD ─────────────────────────────────────────────────────────────
+function ProductCard({p,onAdd,onView,currency}:{p:SProduct;onAdd:(p:SProduct)=>void;onView:(p:SProduct)=>void;currency:string}) {
+  const [liked,setLiked]=useState(()=>{try{return JSON.parse(localStorage.getItem('sahar_wishlist')||'[]').includes(p.id);}catch{return false;}});
+  const [hover,setHover]=useState(false);
+  const [imgIdx,setImgIdx]=useState(0);
+  const isNew=p.createdAt&&(Date.now()-new Date(p.createdAt).getTime()<7*24*60*60*1000);
+  const imgs=[p.imageUrl,...(p.images||[])].filter(Boolean);
+  const rating=p.sales>20?5:p.sales>10?4:p.sales>3?4:3;
+  const reviews=p.sales>0?Math.min(p.sales*2,120):0;
 
-  const toggleLike = (e: React.MouseEvent) => {
+  const toggleLike=(e:React.MouseEvent)=>{
     e.stopPropagation();
-    const wl = getWishlist();
-    const next = liked ? wl.filter(id => id !== p.id) : [...wl, p.id];
-    try { localStorage.setItem(wishlistKey, JSON.stringify(next)); } catch {}
+    const wl:string[]=JSON.parse(localStorage.getItem('sahar_wishlist')||'[]');
+    localStorage.setItem('sahar_wishlist',JSON.stringify(liked?wl.filter(x=>x!==p.id):[...wl,p.id]));
     setLiked(!liked);
   };
 
-  const shareProduct = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    const userId = window.location.pathname.split('/store/')[1]?.split('/')[0] || '';
-    const url = `${window.location.origin}/store/${userId}?p=${p.id}`;
-    const text = `${p.name} — ${p.price} ${currency}\n${url}`;
-    
-    if (navigator.share) {
-      navigator.share({ title: p.name, text, url }).catch(() => {});
-    } else {
-      navigator.clipboard?.writeText(url).then(() => alert('تم نسخ الرابط ✅'));
-    }
-  };
-
   return (
-    <div 
-      onClick={() => onView(p)}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      style={{
-        background: 'rgba(255,255,255,0.07)',
-        backdropFilter: 'blur(32px) saturate(180%)',
-        border: `1px solid ${hover ? 'rgba(255,106,0,0.4)' : 'rgba(255,255,255,0.12)'}`,
-        borderRadius: 24,
-        overflow: 'hidden',
-        cursor: 'pointer',
-        transition: 'all 0.4s cubic-bezier(0.23, 1, 0.32, 1)',
-        transform: hover ? 'translateY(-12px) scale(1.02)' : 'none',
-        boxShadow: hover 
-          ? '0 25px 60px rgba(255,106,0,0.28), 0 0 0 1px rgba(255,255,255,0.1)' 
-          : '0 12px 40px rgba(0,0,0,0.35)',
-        position: 'relative',
-      }}
-    >
-      {/* Image Area */}
-      <div style={{ 
-        height: 230, 
-        position: 'relative', 
-        background: '#0A0A0A', 
-        overflow: 'hidden',
-        aspectRatio: '1 / 1'
+    <div onClick={()=>onView(p)}
+      onMouseEnter={()=>{setHover(true);if(imgs.length>1)setImgIdx(1);}}
+      onMouseLeave={()=>{setHover(false);setImgIdx(0);}}
+      style={{background:'var(--sf-surface)',borderRadius:16,overflow:'hidden',cursor:'pointer',
+        boxShadow:hover?'var(--sf-shadow-lg)':'var(--sf-shadow)',
+        transform:hover?'translateY(-4px)':'none',
+        transition:'all .22s ease',border:'1px solid var(--sf-border)',
       }}>
-        {p.imageUrl ? (
-          <img 
-            src={p.imageUrl}
-            alt={p.name}
-            loading="lazy"
-            decoding="async"
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-            style={{ 
-              width: '100%', 
-              height: '100%', 
-              objectFit: 'cover',
-              transition: 'transform 0.85s cubic-bezier(0.4, 0, 0.2, 1)',
-              transform: hover ? 'scale(1.12)' : 'scale(1)'
-            }} 
-          />
-        ) : (
-          <div style={{ 
-            width: '100%', 
-            height: '100%', 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center', 
-            fontSize: 80, 
-            opacity: 0.6,
-            background: 'rgba(0,0,0,0.4)'
-          }}>
-            {p.emoji || '📦'}
-          </div>
-        )}
-
-        {/* Glass Gradient Overlay */}
-        <div style={{ 
-          position: 'absolute', 
-          inset: 0, 
-          background: 'linear-gradient(transparent, rgba(0,0,0,0.75))' 
-        }} />
-
-        {/* Top Badges - Glass Style */}
-        <div style={{ 
-          position: 'absolute', 
-          top: 12, 
-          right: 12, 
-          display: 'flex', 
-          flexDirection: 'column', 
-          gap: 6, 
-          alignItems: 'flex-end' 
-        }}>
-          {p.type === 'service' && (
-            <span style={{ 
-              background: 'rgba(139,92,246,0.9)', 
-              backdropFilter: 'blur(12px)',
-              color: '#fff', 
-              fontSize: 12, 
-              fontWeight: 800, 
-              padding: '4px 12px', 
-              borderRadius: 999,
-              border: '1px solid rgba(255,255,255,0.2)'
-            }}>
-              🔧 خدمة
-            </span>
-          )}
-          {p.type === 'digital' && (
-            <span style={{ 
-              background: 'rgba(14,165,233,0.9)', 
-              backdropFilter: 'blur(12px)',
-              color: '#fff', 
-              fontSize: 12, 
-              fontWeight: 800, 
-              padding: '4px 12px', 
-              borderRadius: 999 
-            }}>
-              💻 رقمي
-            </span>
-          )}
-          {(!p.type || p.type === 'product') && isNew && (
-            <span style={{ 
-              background: 'rgba(0,200,150,0.9)', 
-              backdropFilter: 'blur(12px)',
-              color: '#fff', 
-              fontSize: 12, 
-              fontWeight: 800, 
-              padding: '4px 12px', 
-              borderRadius: 999 
-            }}>
-              ✨ جديد
-            </span>
-          )}
-          {p.sales > 15 && (
-            <span style={{ 
-              background: 'rgba(255,106,0,0.9)', 
-              backdropFilter: 'blur(12px)',
-              color: '#fff', 
-              fontSize: 12, 
-              fontWeight: 800, 
-              padding: '4px 12px', 
-              borderRadius: 999 
-            }}>
-              🔥 الأكثر مبيعاً
-            </span>
-          )}
-          {p.stock <= 5 && p.stock > 0 && (
-            <span style={{ 
-              background: 'rgba(245,158,11,0.9)', 
-              backdropFilter: 'blur(12px)',
-              color: '#fff', 
-              fontSize: 12, 
-              fontWeight: 800, 
-              padding: '4px 12px', 
-              borderRadius: 999 
-            }}>
-              ⚡ آخر {p.stock}
-            </span>
-          )}
-        </div>
-
-        {/* Like + Share Glass Buttons */}
-        <div style={{ 
-          position: 'absolute', 
-          top: 12, 
-          left: 12, 
-          display: 'flex', 
-          flexDirection: 'column', 
-          gap: 8 
-        }}>
-          <button 
-            onClick={toggleLike}
-            style={{
-              width: 38, 
-              height: 38, 
-              borderRadius: '50%', 
-              background: liked ? 'rgba(239,68,68,0.25)' : 'rgba(255,255,255,0.12)',
-              backdropFilter: 'blur(16px)',
-              border: liked ? '1px solid rgba(239,68,68,0.6)' : '1px solid rgba(255,255,255,0.2)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'all 0.2s'
-            }}
-          >
-            <Heart size={18} fill={liked ? '#ef4444' : 'none'} color={liked ? '#ef4444' : '#fff'} />
-          </button>
-
-          <button 
-            onClick={shareProduct}
-            style={{
-              width: 38, 
-              height: 38, 
-              borderRadius: '50%', 
-              background: 'rgba(255,255,255,0.12)',
-              backdropFilter: 'blur(16px)',
-              border: '1px solid rgba(255,255,255,0.2)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              opacity: hover ? 1 : 0.85,
-              transition: 'all 0.2s'
-            }}
-          >
-            <Share2 size={17} color="#fff" />
-          </button>
-        </div>
-
-        {/* Quick Add Button - Liquid Orange */}
-        <button 
-          onClick={(e) => {
-            e.stopPropagation();
-            if (p.stock > 0 || p.type === 'service' || p.type === 'digital') onAdd(p);
-          }}
-          style={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: 56,
-            background: primaryGradient,
-            border: 'none',
-            color: '#fff',
-            fontSize: 14.5,
-            fontWeight: 800,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 8,
-            opacity: hover ? 1 : 0,
-            transform: hover ? 'translateY(0)' : 'translateY(30px)',
-            transition: 'all 0.4s cubic-bezier(0.23, 1, 0.32, 1)',
-            boxShadow: '0 8px 25px rgba(255,106,0,0.45)',
-            cursor: (p.stock > 0 || !p.type || p.type === 'product') ? 'pointer' : 'not-allowed'
-          }}
-        >
-          <ShoppingCart size={19} /> 
-          {p.type === 'service' ? 'احجز الآن' : p.type === 'digital' ? 'اشتر الآن' : 'أضف للسلة'}
-        </button>
-      </div>
-
-      {/* Product Info */}
-      <div style={{ padding: '16px 16px 18px' }}>
-        <div style={{ 
-          fontSize: 12.5, 
-          color: 'rgba(255,255,255,0.6)', 
-          marginBottom: 6, 
-          fontWeight: 600,
-          textTransform: 'uppercase',
-          letterSpacing: '0.5px'
-        }}>
-          {p.category || 'منتج'}
-        </div>
-
-        <div style={{ 
-          fontSize: 15.5, 
-          fontWeight: 800, 
-          lineHeight: 1.35, 
-          marginBottom: 12,
-          display: '-webkit-box',
-          WebkitLineClamp: 2,
-          WebkitBoxOrient: 'vertical',
-          overflow: 'hidden'
-        }}>
-          {p.name}
-        </div>
-
-        {/* Sizes */}
-        {p.sizes?.length > 0 && (
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
-            {p.sizes.slice(0, 4).map(s => (
-              <span key={s} style={{
-                fontSize: 11,
-                padding: '3px 9px',
-                background: 'rgba(255,255,255,0.08)',
-                border: '1px solid rgba(255,255,255,0.15)',
-                borderRadius: 6,
-                color: 'rgba(255,255,255,0.75)'
-              }}>
-                {s}
-              </span>
-            ))}
-          </div>
-        )}
-
-        {/* Price + Rating */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ 
-            fontSize: 21, 
-            fontWeight: 900, 
-            color: '#FF6A00', 
-            letterSpacing: '-0.5px' 
-          }}>
-            {p.price.toLocaleString()} <span style={{ fontSize: 13, opacity: 0.75 }}>{currency}</span>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            {Array.from({ length: 5 }).map((_, i) => (
-              <Star 
-                key={i} 
-                size={14} 
-                fill={i < 4 ? '#facc15' : 'none'} 
-                color="#facc15" 
-              />
-            ))}
-            <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginLeft: 4 }}>
-              ({p.sales || 0})
-            </span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* Filter Drawer — price range + type + sort */
-function FilterDrawer({ onClose, priceMin, priceMax, setPriceMin, setPriceMax, typeFilter, setTypeFilter, sortBy, setSortBy, maxProductPrice }: {
-  onClose: () => void;
-  priceMin: number; priceMax: number;
-  setPriceMin: (v: number) => void; setPriceMax: (v: number) => void;
-  typeFilter: string; setTypeFilter: (v: string) => void;
-  sortBy: string; setSortBy: (v: any) => void;
-  maxProductPrice: number;
-}) {
-  const [localMin, setLocalMin] = useState(priceMin);
-  const [localMax, setLocalMax] = useState(priceMax || maxProductPrice);
-
-  const apply = () => {
-    setPriceMin(localMin);
-    setPriceMax(localMax >= maxProductPrice ? 0 : localMax);
-    onClose();
-  };
-  const reset = () => { setLocalMin(0); setLocalMax(maxProductPrice); setPriceMin(0); setPriceMax(0); setTypeFilter('all'); onClose(); };
-
-  return (
-    <div onClick={onClose} style={{ position:'fixed',inset:0,background:'rgba(0,0,0,.7)',backdropFilter:'blur(6px)',zIndex:400,display:'flex',alignItems:'flex-end',justifyContent:'center' }}>
-      <div onClick={e=>e.stopPropagation()} style={{ width:'100%',maxWidth:520,background:'var(--panel)',borderRadius:'24px 24px 0 0',padding:'20px 20px 32px',animation:'slide-in-up .25s ease' }}>
-        <style>{`@keyframes slide-in-up{from{transform:translateY(100%)}to{transform:translateY(0)}}`}</style>
-        {/* Handle */}
-        <div style={{ width:40,height:4,background:'var(--border2)',borderRadius:99,margin:'0 auto 18px' }}/>
-        <div style={{ display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20 }}>
-          <h3 style={{ fontSize:16,fontWeight:900,color:'var(--ink1)',display:'flex',alignItems:'center',gap:8 }}><SlidersHorizontal size={16} color="var(--ember)"/> تصفية المنتجات</h3>
-          <button onClick={reset} style={{ fontSize:12,color:'var(--ember)',background:'rgba(255,106,0,.1)',border:'none',cursor:'pointer',fontWeight:700,padding:'4px 10px',borderRadius:8 }}>إعادة تعيين</button>
-        </div>
-
-        {/* Type filter */}
-        <div style={{ marginBottom:20 }}>
-          <div style={{ fontSize:12,fontWeight:700,color:'var(--ink3)',marginBottom:10,letterSpacing:'.06em' }}>نوع المنتج</div>
-          <div style={{ display:'flex',gap:8,flexWrap:'wrap' }}>
-            {[['all','🛍️ الكل'],['product','📦 منتجات'],['service','🔧 خدمات'],['digital','💻 رقمي']].map(([v,l]) => (
-              <button key={v} onClick={()=>setTypeFilter(v)}
-                style={{ padding:'7px 14px',borderRadius:99,border:`1.5px solid ${typeFilter===v?'var(--ember)':'var(--border)'}`,background:typeFilter===v?'rgba(255,106,0,.12)':'var(--void2)',color:typeFilter===v?'var(--ember)':'var(--ink2)',fontSize:12,fontWeight:700,cursor:'pointer',transition:'all .15s' }}>
-                {l}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Price range */}
-        <div style={{ marginBottom:20 }}>
-          <div style={{ fontSize:12,fontWeight:700,color:'var(--ink3)',marginBottom:10,letterSpacing:'.06em' }}>
-            نطاق السعر: <span style={{ color:'var(--ember)' }}>{localMin} — {localMax >= maxProductPrice ? '∞' : localMax} MAD</span>
-          </div>
-          <div style={{ display:'flex',gap:12,alignItems:'center' }}>
-            <div style={{ flex:1 }}>
-              <div style={{ fontSize:11,color:'var(--ink3)',marginBottom:4 }}>الحد الأدنى</div>
-              <input type="range" min={0} max={maxProductPrice} step={10} value={localMin}
-                onChange={e=>setLocalMin(Math.min(+e.target.value, localMax - 10))}
-                style={{ width:'100%',accentColor:'var(--ember)' }}/>
-            </div>
-            <div style={{ flex:1 }}>
-              <div style={{ fontSize:11,color:'var(--ink3)',marginBottom:4 }}>الحد الأقصى</div>
-              <input type="range" min={0} max={maxProductPrice} step={10} value={localMax}
-                onChange={e=>setLocalMax(Math.max(+e.target.value, localMin + 10))}
-                style={{ width:'100%',accentColor:'var(--ember)' }}/>
-            </div>
-          </div>
-        </div>
-
-        {/* Sort */}
-        <div style={{ marginBottom:24 }}>
-          <div style={{ fontSize:12,fontWeight:700,color:'var(--ink3)',marginBottom:10,letterSpacing:'.06em' }}>الترتيب</div>
-          <div style={{ display:'flex',gap:8,flexWrap:'wrap' }}>
-            {[['popular','🔥 الأكثر طلباً'],['newest','✨ الأحدث'],['price-asc','💰 السعر: الأقل'],['price-desc','💎 السعر: الأعلى']].map(([v,l]) => (
-              <button key={v} onClick={()=>setSortBy(v)}
-                style={{ padding:'7px 14px',borderRadius:99,border:`1.5px solid ${sortBy===v?'var(--ember)':'var(--border)'}`,background:sortBy===v?'rgba(255,106,0,.12)':'var(--void2)',color:sortBy===v?'var(--ember)':'var(--ink2)',fontSize:12,fontWeight:700,cursor:'pointer',transition:'all .15s' }}>
-                {l}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <button onClick={apply} style={{ width:'100%',height:48,background:'var(--ember)',border:'none',borderRadius:12,color:'#fff',fontSize:15,fontWeight:700,cursor:'pointer',boxShadow:'0 4px 16px rgba(255,106,0,.35)' }}>
-          تطبيق الفلاتر
-        </button>
-      </div>
-    </div>
-  );
-}
-
-/* Fullscreen image gallery — swipe, zoom (double-tap/click), keyboard nav */
-function Lightbox({ images, startIndex, onClose }: { images: string[]; startIndex: number; onClose: () => void }) {
-  const [idx, setIdx] = useState(startIndex);
-  const [zoom, setZoom] = useState(1);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
-  const touch = useRef<{ x: number; y: number; t: number; dist: number; baseZoom: number } | null>(null);
-
-  const go = useCallback((d: number) => { setIdx(i => Math.max(0, Math.min(images.length - 1, i + d))); setZoom(1); setPan({ x: 0, y: 0 }); }, [images.length]);
-
-  useEffect(() => {
-    const h = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-      if (e.key === 'ArrowRight') go(-1);
-      if (e.key === 'ArrowLeft') go(1);
-    };
-    window.addEventListener('keydown', h);
-    return () => window.removeEventListener('keydown', h);
-  }, [go, onClose]);
-
-  const dist2 = (t: TouchList) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
-
-  const onTouchStart = (e: React.TouchEvent) => {
-    if (e.touches.length === 2) {
-      touch.current = { x: 0, y: 0, t: Date.now(), dist: dist2(e.touches), baseZoom: zoom };
-    } else {
-      touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now(), dist: 0, baseZoom: zoom };
-    }
-  };
-  const onTouchMove = (e: React.TouchEvent) => {
-    if (!touch.current) return;
-    if (e.touches.length === 2 && touch.current.dist) {
-      const ratio = dist2(e.touches) / touch.current.dist;
-      setZoom(Math.max(1, Math.min(4, touch.current.baseZoom * ratio)));
-    } else if (zoom > 1) {
-      // pan while zoomed
-      setPan(pp => ({ x: pp.x + (e.touches[0].clientX - touch.current!.x), y: pp.y + (e.touches[0].clientY - touch.current!.y) }));
-      touch.current.x = e.touches[0].clientX; touch.current.y = e.touches[0].clientY;
-    }
-  };
-  const onTouchEnd = (e: React.TouchEvent) => {
-    const tc = touch.current; touch.current = null;
-    if (!tc || zoom > 1) return;
-    const dx = (e.changedTouches[0]?.clientX ?? tc.x) - tc.x;
-    const dt = Date.now() - tc.t;
-    if (Math.abs(dx) > 50 && dt < 600) go(dx > 0 ? -1 : 1); // RTL: swipe right → previous
-  };
-
-  const toggleZoom = () => { setZoom(z => (z > 1 ? 1 : 2.5)); setPan({ x: 0, y: 0 }); };
-
-  return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'rgba(0,0,0,.95)', display: 'flex', alignItems: 'center', justifyContent: 'center', touchAction: 'none' }}
-      onClick={onClose}>
-      {/* Close */}
-      <button onClick={onClose} style={{ position: 'absolute', top: 16, left: 16, width: 40, height: 40, borderRadius: '50%', background: 'rgba(255,255,255,.12)', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3 }}>
-        <X size={20} />
-      </button>
-      {/* Counter */}
-      <div style={{ position: 'absolute', top: 22, right: 20, color: 'rgba(255,255,255,.7)', fontSize: 13, fontWeight: 700, zIndex: 3 }}>{idx + 1} / {images.length}</div>
-
       {/* Image */}
-      <div
-        onClick={e => { e.stopPropagation(); toggleZoom(); }}
-        onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
-        style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-        <img src={images[idx]} alt="" draggable={false}
-          style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transition: touch.current ? 'none' : 'transform .2s', cursor: zoom > 1 ? 'grab' : 'zoom-in', userSelect: 'none' }} />
+      <div style={{height:200,position:'relative',background:'#F9FAFB',overflow:'hidden'}}>
+        {imgs.length>0
+          ?<img src={imgs[imgIdx]} alt={p.name} loading="lazy"
+              style={{width:'100%',height:'100%',objectFit:'cover',transition:'transform .4s ease, opacity .3s',
+                transform:hover?'scale(1.06)':'scale(1)'}}/>
+          :<div style={{width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:56}}>{p.emoji||'📦'}</div>
+        }
+        {/* Overlay CTA */}
+        <button onClick={e=>{e.stopPropagation();if(p.type==='service'||p.type==='digital'||p.stock>0)onAdd(p);}}
+          style={{position:'absolute',bottom:0,left:0,right:0,height:42,
+            background:'linear-gradient(135deg,#FF6A00,#FF8C33)',border:'none',color:'#fff',
+            fontSize:13,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6,
+            opacity:hover?1:0,transform:hover?'translateY(0)':'translateY(8px)',
+            transition:'all .22s ease',
+          }}>
+          <ShoppingCart size={14}/>
+          {p.type==='service'?'احجز الآن':p.type==='digital'?'اشتر':'أضف للسلة'}
+        </button>
+        {/* Badges */}
+        <div style={{position:'absolute',top:10,right:10,display:'flex',flexDirection:'column',gap:4,alignItems:'flex-end'}}>
+          {p.type==='service'&&<span style={{background:'#7C3AED',color:'#fff',fontSize:10,fontWeight:700,padding:'3px 9px',borderRadius:99}}>خدمة</span>}
+          {p.type==='digital'&&<span style={{background:'#0EA5E9',color:'#fff',fontSize:10,fontWeight:700,padding:'3px 9px',borderRadius:99}}>رقمي</span>}
+          {(!p.type||p.type==='product')&&isNew&&<span style={{background:'#16A34A',color:'#fff',fontSize:10,fontWeight:700,padding:'3px 9px',borderRadius:99}}>جديد</span>}
+          {p.stock<=3&&p.stock>0&&(!p.type||p.type==='product')&&<span style={{background:'#F59E0B',color:'#fff',fontSize:10,fontWeight:700,padding:'3px 9px',borderRadius:99}}>⚡ آخر {p.stock}</span>}
+          {p.sales>15&&<span style={{background:'#FF6A00',color:'#fff',fontSize:10,fontWeight:700,padding:'3px 9px',borderRadius:99}}>🔥 رائج</span>}
+          {(!p.type||p.type==='product')&&p.stock===0&&<span style={{background:'#9CA3AF',color:'#fff',fontSize:10,fontWeight:700,padding:'3px 9px',borderRadius:99}}>نفذ</span>}
+        </div>
+        {/* Like */}
+        <button onClick={toggleLike} style={{position:'absolute',top:10,left:10,width:32,height:32,borderRadius:'50%',background:'rgba(255,255,255,0.9)',border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',backdropFilter:'blur(4px)',boxShadow:'0 2px 8px rgba(0,0,0,0.1)'}}>
+          <Heart size={14} fill={liked?'#EF4444':'none'} color={liked?'#EF4444':'#9CA3AF'}/>
+        </button>
       </div>
+      {/* Info */}
+      <div style={{padding:'12px 13px 14px'}}>
+        <div style={{fontSize:10,color:'var(--sf-text3)',fontWeight:600,letterSpacing:'.05em',textTransform:'uppercase',marginBottom:4}}>{p.category||'—'}</div>
+        <div style={{fontSize:13,fontWeight:700,color:'var(--sf-text)',marginBottom:6,lineHeight:1.4,overflow:'hidden',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical'}}>{p.name}</div>
+        {reviews>0&&(
+          <div style={{display:'flex',alignItems:'center',gap:4,marginBottom:7}}>
+            <div style={{display:'flex',gap:1}}>
+              {Array.from({length:5},(_,i)=><Star key={i} size={10} fill={i<rating?'#F59E0B':'none'} color="#F59E0B"/>)}
+            </div>
+            <span style={{fontSize:10,color:'var(--sf-text3)'}}>({reviews})</span>
+            {p.sales>0&&<span style={{fontSize:10,color:'var(--sf-text3)',marginRight:4}}>{p.sales} طلب</span>}
+          </div>
+        )}
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+          <div style={{fontSize:18,fontWeight:900,color:'var(--sf-primary)',letterSpacing:'-0.02em'}}>
+            {p.price.toLocaleString()} <span style={{fontSize:11,fontWeight:500,opacity:.7}}>{currency}</span>
+          </div>
+          {p.sizes?.length>0&&(
+            <div style={{display:'flex',gap:3}}>
+              {p.sizes.slice(0,3).map(s=><span key={s} style={{fontSize:9,background:'var(--sf-surface2)',border:'1px solid var(--sf-border)',borderRadius:4,padding:'1px 5px',color:'var(--sf-text3)',fontWeight:600}}>{s}</span>)}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
-      {/* Prev / Next (desktop) */}
-      {images.length > 1 && (
-        <>
-          <button onClick={e => { e.stopPropagation(); go(1); }} disabled={idx >= images.length - 1}
-            style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', width: 44, height: 44, borderRadius: '50%', background: 'rgba(255,255,255,.12)', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 22, zIndex: 3, opacity: idx >= images.length - 1 ? .3 : 1 }}>‹</button>
-          <button onClick={e => { e.stopPropagation(); go(-1); }} disabled={idx <= 0}
-            style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', width: 44, height: 44, borderRadius: '50%', background: 'rgba(255,255,255,.12)', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 22, zIndex: 3, opacity: idx <= 0 ? .3 : 1 }}>›</button>
-        </>
-      )}
+// ─── SERVICE CARD ─────────────────────────────────────────────────────────────
+function ServiceCard({p,onView,currency}:{p:SProduct;onView:(p:SProduct)=>void;currency:string}) {
+  const [hover,setHover]=useState(false);
+  const TYPE_EMOJI:Record<string,string>={'تصوير':'📸','تصميم':'🎨','تنظيف':'🧹','إصلاح':'🔧','توصيل':'🚚','طبخ':'🍳','تعليم':'📚','صيانة':'⚙️','خياطة':'🧵','حلاقة':'✂️'};
+  const emoji=Object.entries(TYPE_EMOJI).find(([k])=>p.name.includes(k)||p.category?.includes(k))?.[1]||p.emoji||'🛠️';
 
-      {/* Thumbnail strip */}
-      {images.length > 1 && (
-        <div onClick={e => e.stopPropagation()} style={{ position: 'absolute', bottom: 16, left: 0, right: 0, display: 'flex', gap: 6, justifyContent: 'center', overflowX: 'auto', padding: '0 16px', zIndex: 3 }}>
-          {images.map((img, i) => (
-            <button key={i} onClick={() => { setIdx(i); setZoom(1); setPan({ x: 0, y: 0 }); }}
-              style={{ flexShrink: 0, width: 44, height: 44, borderRadius: 8, overflow: 'hidden', border: `2px solid ${i === idx ? '#FF6A00' : 'rgba(255,255,255,.25)'}`, padding: 0, cursor: 'pointer', background: '#000' }}>
-              <img src={img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+  return (
+    <div onClick={()=>onView(p)}
+      onMouseEnter={()=>setHover(true)} onMouseLeave={()=>setHover(false)}
+      style={{background:'var(--sf-surface)',borderRadius:16,padding:'16px',cursor:'pointer',
+        boxShadow:hover?'var(--sf-shadow-lg)':'var(--sf-shadow)',
+        border:`1px solid ${hover?'var(--sf-primary)':'var(--sf-border)'}`,
+        borderRight:`3px solid var(--sf-primary)`,
+        transform:hover?'translateX(-3px)':'none',
+        transition:'all .2s ease',display:'flex',gap:14,alignItems:'flex-start',
+      }}>
+      {/* Icon square */}
+      <div style={{flexShrink:0,width:72,height:72,borderRadius:14,
+        background:hover?'linear-gradient(135deg,#FF6A00,#FF8C33)':'linear-gradient(135deg,#FFF2EA,#FFDDBD)',
+        display:'flex',alignItems:'center',justifyContent:'center',fontSize:30,
+        transition:'background .2s',boxShadow:'0 4px 12px rgba(255,106,0,0.15)',
+        overflow:'hidden',
+      }}>
+        {p.imageUrl
+          ?<img src={p.imageUrl} alt={p.name} style={{width:'100%',height:'100%',objectFit:'cover'}}/>
+          :<span>{emoji}</span>
+        }
+      </div>
+      {/* Content */}
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:8,marginBottom:4}}>
+          <div style={{fontSize:14,fontWeight:800,color:'var(--sf-text)',lineHeight:1.3,flex:1}}>{p.name}</div>
+          <div style={{fontSize:16,fontWeight:900,color:'var(--sf-primary)',flexShrink:0,letterSpacing:'-0.02em'}}>
+            {p.price.toLocaleString()} <span style={{fontSize:10,fontWeight:500}}>{currency}</span>
+          </div>
+        </div>
+        {p.description&&<div style={{fontSize:12,color:'var(--sf-text2)',lineHeight:1.5,marginBottom:8,overflow:'hidden',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical'}}>{p.description}</div>}
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:6}}>
+          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+            {p.duration&&<span style={{display:'flex',alignItems:'center',gap:3,fontSize:11,color:'var(--sf-text3)',background:'var(--sf-surface2)',borderRadius:99,padding:'3px 8px'}}><Clock size={10}/>  {p.duration}</span>}
+            {p.workArea&&<span style={{display:'flex',alignItems:'center',gap:3,fontSize:11,color:'var(--sf-text3)',background:'var(--sf-surface2)',borderRadius:99,padding:'3px 8px'}}><MapPin size={10}/> {p.workArea}</span>}
+            {p.sales>0&&<span style={{fontSize:11,color:'var(--sf-text3)'}}>{p.sales} طلب</span>}
+          </div>
+          <button onClick={e=>{e.stopPropagation();onView(p);}}
+            style={{flexShrink:0,padding:'6px 14px',borderRadius:99,background:'var(--sf-primary)',border:'none',color:'#fff',fontSize:12,fontWeight:700,cursor:'pointer'}}>
+            احجز الآن
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── LIGHTBOX ─────────────────────────────────────────────────────────────────
+function Lightbox({images,startIndex,onClose}:{images:string[];startIndex:number;onClose:()=>void}) {
+  const [idx,setIdx]=useState(startIndex);
+  const [zoom,setZoom]=useState(1);
+  const [pan,setPan]=useState({x:0,y:0});
+  const touch=useRef<{x:number;y:number;t:number;dist:number;baseZoom:number}|null>(null);
+  const go=useCallback((d:number)=>{setIdx(i=>Math.max(0,Math.min(images.length-1,i+d)));setZoom(1);setPan({x:0,y:0});},[images.length]);
+  useEffect(()=>{
+    const h=(e:KeyboardEvent)=>{if(e.key==='Escape')onClose();if(e.key==='ArrowRight')go(-1);if(e.key==='ArrowLeft')go(1);};
+    window.addEventListener('keydown',h);return()=>window.removeEventListener('keydown',h);
+  },[go,onClose]);
+  const dist2=(t:TouchList)=>Math.hypot(t[0].clientX-t[1].clientX,t[0].clientY-t[1].clientY);
+  const onTouchStart=(e:React.TouchEvent)=>{
+    if(e.touches.length===2){touch.current={x:0,y:0,t:Date.now(),dist:dist2(e.touches as unknown as TouchList),baseZoom:zoom};}
+    else{touch.current={x:e.touches[0].clientX,y:e.touches[0].clientY,t:Date.now(),dist:0,baseZoom:zoom};}
+  };
+  const onTouchMove=(e:React.TouchEvent)=>{
+    if(!touch.current)return;
+    if(e.touches.length===2&&touch.current.dist){const r=dist2(e.touches as unknown as TouchList)/touch.current.dist;setZoom(Math.max(1,Math.min(4,touch.current.baseZoom*r)));}
+    else if(zoom>1){setPan(pp=>({x:pp.x+(e.touches[0].clientX-touch.current!.x),y:pp.y+(e.touches[0].clientY-touch.current!.y)}));touch.current.x=e.touches[0].clientX;touch.current.y=e.touches[0].clientY;}
+  };
+  const onTouchEnd=(e:React.TouchEvent)=>{
+    const tc=touch.current;touch.current=null;
+    if(!tc||zoom>1)return;
+    const dx=(e.changedTouches[0]?.clientX??tc.x)-tc.x;
+    if(Math.abs(dx)>50&&Date.now()-tc.t<600)go(dx>0?-1:1);
+  };
+  return (
+    <div style={{position:'fixed',inset:0,zIndex:600,background:'rgba(0,0,0,.95)',display:'flex',alignItems:'center',justifyContent:'center',touchAction:'none'}} onClick={onClose}>
+      <button onClick={onClose} style={{position:'absolute',top:16,left:16,width:40,height:40,borderRadius:'50%',background:'rgba(255,255,255,.15)',border:'none',color:'#fff',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',zIndex:3}}><X size={20}/></button>
+      <div style={{position:'absolute',top:22,right:20,color:'rgba(255,255,255,.6)',fontSize:13,fontWeight:700,zIndex:3}}>{idx+1}/{images.length}</div>
+      <div onClick={e=>{e.stopPropagation();setZoom(z=>z>1?1:2.5);setPan({x:0,y:0});}} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
+        style={{width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden'}}>
+        <img src={images[idx]} alt="" draggable={false} style={{maxWidth:'100%',maxHeight:'100%',objectFit:'contain',transform:`translate(${pan.x}px,${pan.y}px) scale(${zoom})`,transition:touch.current?'none':'transform .2s',cursor:zoom>1?'grab':'zoom-in',userSelect:'none'}}/>
+      </div>
+      {images.length>1&&<>
+        <button onClick={e=>{e.stopPropagation();go(1);}} disabled={idx>=images.length-1} style={{position:'absolute',left:12,top:'50%',transform:'translateY(-50%)',width:44,height:44,borderRadius:'50%',background:'rgba(255,255,255,.15)',border:'none',color:'#fff',cursor:'pointer',fontSize:22,zIndex:3,opacity:idx>=images.length-1?.3:1}}>‹</button>
+        <button onClick={e=>{e.stopPropagation();go(-1);}} disabled={idx<=0} style={{position:'absolute',right:12,top:'50%',transform:'translateY(-50%)',width:44,height:44,borderRadius:'50%',background:'rgba(255,255,255,.15)',border:'none',color:'#fff',cursor:'pointer',fontSize:22,zIndex:3,opacity:idx<=0?.3:1}}>›</button>
+      </>}
+      {images.length>1&&(
+        <div onClick={e=>e.stopPropagation()} style={{position:'absolute',bottom:16,left:0,right:0,display:'flex',gap:6,justifyContent:'center',overflowX:'auto',padding:'0 16px',zIndex:3}}>
+          {images.map((img,i)=>(
+            <button key={i} onClick={()=>{setIdx(i);setZoom(1);setPan({x:0,y:0});}} style={{flexShrink:0,width:44,height:44,borderRadius:8,overflow:'hidden',border:`2px solid ${i===idx?'#FF6A00':'rgba(255,255,255,.25)'}`,padding:0,cursor:'pointer',background:'#000'}}>
+              <img src={img} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>
             </button>
           ))}
         </div>
       )}
-      {/* Hint */}
-      <div style={{ position: 'absolute', bottom: images.length > 1 ? 66 : 16, left: 0, right: 0, textAlign: 'center', color: 'rgba(255,255,255,.4)', fontSize: 11, zIndex: 2, pointerEvents: 'none' }}>
-        اضغط للتكبير · اسحب للتنقل
-      </div>
     </div>
   );
 }
 
-/* Product Detail Modal - Glassmorphism Ultra Premium */
-function ProductModal({ p, cart, onClose, currency, userId }: { 
-  p: SProduct; 
-  cart: ReturnType<typeof useCart>; 
-  onClose: () => void; 
-  currency: string; 
-  userId: string 
-}) {
-  const [size, setSize] = useState(p.sizes?.[0] || '');
-  const [color, setColor] = useState(p.colors?.[0] || '');
-  const [qty, setQty] = useState(1);
-  const [added, setAdded] = useState(false);
-  const [activeImage, setActiveImage] = useState(p.imageUrl || '');
-  const [showVideo, setShowVideo] = useState(false);
-  const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
+// ─── PRODUCT MODAL ────────────────────────────────────────────────────────────
+function ProductModal({p,cart,onClose,currency,userId}:{p:SProduct;cart:ReturnType<typeof useCart>;onClose:()=>void;currency:string;userId:string}) {
+  const [size,setSize]=useState(p.sizes?.[0]||'');
+  const [color,setColor]=useState(p.colors?.[0]||'');
+  const [qty,setQty]=useState(1);
+  const [added,setAdded]=useState(false);
+  const [showVideo,setShowVideo]=useState(false);
+  const [lightboxIdx,setLightboxIdx]=useState<number|null>(null);
+  const firstColorImg=p.colors?.[0]&&p.colorImages?.[p.colors[0]];
+  const [activeImage,setActiveImage]=useState(firstColorImg||p.imageUrl||'');
+  const galleryImgs=[p.imageUrl,...(p.images||[])].filter((x,i,a)=>x&&a.indexOf(x)===i);
+  const rating=p.sales>20?5:p.sales>10?4:p.sales>3?4:3;
 
-  const galleryImgs = [p.imageUrl, ...(p.images || [])].filter(Boolean);
-  const firstColorImg = p.colors?.[0] && p.colorImages?.[p.colors[0]];
-
-  const handleAdd = () => {
-    cart.add(p, size, color);
-    for (let i = 1; i < qty; i++) cart.add(p, size, color);
+  const handleAdd=()=>{
+    cart.add(p,size,color);
+    for(let i=0;i<qty-1;i++)cart.add(p,size,color);
     setAdded(true);
-    setTimeout(() => { setAdded(false); onClose(); }, 1200);
+    setTimeout(()=>{setAdded(false);onClose();},900);
+  };
+  const share=()=>{
+    const url=window.location.origin+window.location.pathname+'?p='+p.id;
+    navigator.share?.({title:p.name,url}).catch(()=>{})||navigator.clipboard?.writeText(url);
   };
 
-  return (
-    <>
-      {lightboxIdx !== null && galleryImgs.length > 0 && (
-        <Lightbox images={galleryImgs} startIndex={lightboxIdx} onClose={() => setLightboxIdx(null)} />
-      )}
-
-      <div 
-        onClick={onClose} 
-        style={{ 
-          position: 'fixed', 
-          inset: 0, 
-          background: 'rgba(0,0,0,0.75)', 
-          backdropFilter: 'blur(12px)', 
-          zIndex: 300, 
-          display: 'flex', 
-          alignItems: 'flex-end', 
-          justifyContent: 'center' 
-        }}
-      >
-        <div 
-          onClick={e => e.stopPropagation()} 
-          style={{
-            ...glass, // استخدام الـ glass style المعرف سابقاً
-            background: 'rgba(15,15,20,0.95)',
-            borderRadius: '28px 28px 0 0',
-            width: '100%',
-            maxWidth: 520,
-            maxHeight: '92vh',
-            overflowY: 'auto',
-            boxShadow: '0 -20px 60px rgba(0,0,0,0.6)'
-          }}
-        >
-          {/* Main Media Area */}
-          <div style={{ 
-            height: 280, 
-            position: 'relative', 
-            background: '#0A0A0A', 
-            overflow: 'hidden' 
-          }}>
-            {showVideo && p.videoUrl ? (
-              <video 
-                src={p.videoUrl} 
-                controls 
-                autoPlay 
-                playsInline 
-                style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
-              />
-            ) : activeImage ? (
-              <img 
-                src={activeImage} 
-                alt={p.name}
-                onClick={() => {
-                  const idx = galleryImgs.indexOf(activeImage);
-                  setLightboxIdx(idx >= 0 ? idx : 0);
-                }}
-                style={{ 
-                  width: '100%', 
-                  height: '100%', 
-                  objectFit: 'cover', 
-                  cursor: 'zoom-in' 
-                }} 
-              />
-            ) : (
-              <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 100, opacity: 0.4 }}>
-                {p.emoji || '📦'}
-              </div>
-            )}
-
-            {/* Close Button */}
-            <button 
-              onClick={onClose}
-              style={{
-                position: 'absolute',
-                top: 16,
-                left: 16,
-                width: 42,
-                height: 42,
-                borderRadius: '50%',
-                background: 'rgba(0,0,0,0.6)',
-                backdropFilter: 'blur(12px)',
-                border: 'none',
-                color: '#fff',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                zIndex: 10
-              }}
-            >
-              <X size={22} />
-            </button>
-
-            {/* Sales Badge */}
-            {p.sales > 0 && (
-              <div style={{
-                position: 'absolute',
-                bottom: 16,
-                right: 16,
-                background: '#FF6A00',
-                color: '#fff',
-                padding: '6px 14px',
-                borderRadius: 999,
-                fontSize: 13,
-                fontWeight: 700,
-                boxShadow: '0 4px 15px rgba(255,106,0,0.4)'
-              }}>
-                🔥 {p.sales}+ مبيعة
-              </div>
+  return (<>
+    {lightboxIdx!==null&&galleryImgs.length>0&&<Lightbox images={galleryImgs} startIndex={lightboxIdx} onClose={()=>setLightboxIdx(null)}/>}
+    <div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',backdropFilter:'blur(6px)',zIndex:300,display:'flex',alignItems:'flex-end',justifyContent:'center'}}>
+      <div onClick={e=>e.stopPropagation()} style={{
+        background:'var(--sf-surface)',borderRadius:'22px 22px 0 0',width:'100%',maxWidth:520,
+        maxHeight:'92vh',overflowY:'auto',
+      }}>
+        {/* Image */}
+        <div style={{height:270,position:'relative',background:'#F9FAFB',flexShrink:0,overflow:'hidden'}}>
+          {showVideo&&p.videoUrl
+            ?<video src={p.videoUrl} controls autoPlay playsInline style={{width:'100%',height:'100%',objectFit:'contain',background:'#000'}}/>
+            :activeImage
+            ?<img src={activeImage} alt={p.name} onClick={()=>{const i=galleryImgs.indexOf(activeImage);setLightboxIdx(i>=0?i:0);}}
+                style={{width:'100%',height:'100%',objectFit:'cover',cursor:'zoom-in'}}/>
+            :<div style={{width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:80}}>{p.emoji||'📦'}</div>
+          }
+          <button onClick={onClose} style={{position:'absolute',top:14,left:14,width:36,height:36,borderRadius:'50%',background:'rgba(255,255,255,.9)',border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 2px 8px rgba(0,0,0,.12)',zIndex:2}}><X size={16} color="#111"/></button>
+          <button onClick={share} style={{position:'absolute',top:14,right:14,width:36,height:36,borderRadius:'50%',background:'rgba(255,255,255,.9)',border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 2px 8px rgba(0,0,0,.12)',zIndex:2}}><Share2 size={15} color="#555"/></button>
+          {p.sales>0&&!showVideo&&<div style={{position:'absolute',bottom:12,right:12,background:'rgba(255,106,0,0.9)',color:'#fff',fontSize:11,fontWeight:700,padding:'3px 10px',borderRadius:99,backdropFilter:'blur(4px)'}}>{p.sales}+ مبيعة</div>}
+        </div>
+        {/* Thumbnails */}
+        {(galleryImgs.length>1||p.videoUrl)&&(
+          <div style={{display:'flex',gap:6,overflowX:'auto',padding:'8px 14px',background:'var(--sf-surface2)',borderBottom:'1px solid var(--sf-border)'}}>
+            {galleryImgs.map((img,i)=>(
+              <button key={i} onClick={()=>{setShowVideo(false);setActiveImage(img);}} style={{flexShrink:0,width:52,height:52,borderRadius:8,overflow:'hidden',border:`2px solid ${!showVideo&&activeImage===img?'var(--sf-primary)':'var(--sf-border)'}`,background:'#F9FAFB',cursor:'pointer',padding:0}}>
+                <img src={img} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>
+              </button>
+            ))}
+            {p.videoUrl&&(
+              <button onClick={()=>setShowVideo(true)} style={{flexShrink:0,width:52,height:52,borderRadius:8,border:`2px solid ${showVideo?'var(--sf-primary)':'var(--sf-border)'}`,background:'#111',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                <Play size={18} color="#fff"/>
+              </button>
             )}
           </div>
-
-          {/* Thumbnails */}
-          {(galleryImgs.length > 1 || p.videoUrl) && (
-            <div style={{ 
-              display: 'flex', 
-              gap: 8, 
-              padding: '12px 16px', 
-              background: 'rgba(255,255,255,0.05)', 
-              overflowX: 'auto' 
-            }}>
-              {galleryImgs.map((img, i) => (
-                <button 
-                  key={i} 
-                  onClick={() => { setShowVideo(false); setActiveImage(img); }}
-                  style={{
-                    flexShrink: 0,
-                    width: 58,
-                    height: 58,
-                    borderRadius: 12,
-                    overflow: 'hidden',
-                    border: `2.5px solid ${activeImage === img && !showVideo ? '#FF6A00' : 'rgba(255,255,255,0.2)'}`,
-                    transition: 'all 0.2s'
-                  }}
-                >
-                  <img src={img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                </button>
-              ))}
-
-              {p.videoUrl && (
-                <button 
-                  onClick={() => setShowVideo(true)}
-                  style={{
-                    flexShrink: 0,
-                    width: 58,
-                    height: 58,
-                    borderRadius: 12,
-                    background: '#000',
-                    border: `2.5px solid ${showVideo ? '#FF6A00' : 'rgba(255,255,255,0.2)'}`,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}
-                >
-                  <Play size={24} color="#fff" />
-                </button>
-              )}
+        )}
+        <div style={{padding:'18px 18px 0'}}>
+          <div style={{fontSize:11,color:'var(--sf-text3)',marginBottom:3}}>{p.category}{p.sku?` · #${p.sku}`:''}</div>
+          <h2 style={{fontSize:19,fontWeight:900,color:'var(--sf-text)',margin:'0 0 6px',lineHeight:1.3}}>{p.name}</h2>
+          {/* Rating */}
+          <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:12}}>
+            <div style={{display:'flex',gap:1}}>{Array.from({length:5},(_,i)=><Star key={i} size={13} fill={i<rating?'#F59E0B':'none'} color="#F59E0B"/>)}</div>
+            <span style={{fontSize:12,color:'var(--sf-text3)'}}>({Math.min(p.sales*2,120)}) · {p.sales} طلب</span>
+          </div>
+          {/* Trust badges */}
+          <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:14}}>
+            {[{icon:<Shield size={12}/>,t:'دفع آمن',c:'#16A34A',bg:'#ECFDF5'},{icon:<RefreshCcw size={12}/>,t:'إرجاع 7 أيام',c:'#0EA5E9',bg:'#E0F2FE'},{icon:<Package size={12}/>,t:'توصيل سريع',c:'#F59E0B',bg:'#FEF3C7'},{icon:<Award size={12}/>,t:'جودة مضمونة',c:'#8B5CF6',bg:'#F5F3FF'}].map(b=>(
+              <div key={b.t} style={{display:'flex',alignItems:'center',gap:4,padding:'4px 9px',borderRadius:99,background:b.bg,color:b.c,fontSize:11,fontWeight:700}}>{b.icon}{b.t}</div>
+            ))}
+          </div>
+          {/* Social proof */}
+          {p.sales>0&&(
+            <div style={{display:'flex',alignItems:'center',gap:7,marginBottom:12,padding:'8px 12px',background:'#FFF7F0',borderRadius:10,border:'1px solid rgba(255,106,0,.15)'}}>
+              <Flame size={14} color="#FF6A00"/>
+              <span style={{fontSize:12,color:'var(--sf-text2)'}}><strong style={{color:'var(--sf-primary)'}}>{p.sales}</strong> شخص طلب هذا{p.sales>=10?<span style={{color:'#16A34A',marginRight:4}}> · مشهور جداً</span>:''}</span>
             </div>
           )}
-
-          <div style={{ padding: '24px 20px' }}>
-            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>{p.category} {p.sku && `· #${p.sku}`}</div>
-            <h2 style={{ fontSize: 22, fontWeight: 900, margin: '8px 0 12px' }}>{p.name}</h2>
-
-            {p.description && <p style={{ fontSize: 15, lineHeight: 1.6, color: 'rgba(255,255,255,0.75)', marginBottom: 20 }}>{p.description}</p>}
-
-            {/* Price */}
-            <div style={{ fontSize: 32, fontWeight: 900, color: '#FF6A00', marginBottom: 20 }}>
-              {p.price.toLocaleString()} {currency}
+          <div style={{fontSize:26,fontWeight:900,color:'var(--sf-primary)',letterSpacing:'-0.04em',marginBottom:16}}>{p.price.toLocaleString()} {currency}</div>
+          {p.description&&<p style={{fontSize:13,color:'var(--sf-text2)',lineHeight:1.65,marginBottom:14}}>{p.description}</p>}
+          {/* Custom fields */}
+          {p.customFields&&p.customFields.filter(f=>f.value).length>0&&(
+            <div style={{marginBottom:14,padding:'10px 12px',background:'var(--sf-surface2)',borderRadius:10,border:'1px solid var(--sf-border)',display:'flex',flexDirection:'column',gap:5}}>
+              {p.customFields.filter(f=>f.value).map(f=>(
+                <div key={f.id} style={{display:'flex',justifyContent:'space-between',fontSize:12}}>
+                  <span style={{color:'var(--sf-text3)',fontWeight:600}}>{f.label}</span>
+                  <span style={{color:'var(--sf-text2)',fontWeight:700}}>{f.value}</span>
+                </div>
+              ))}
             </div>
-
-            {/* Variants */}
-            {p.sizes?.length > 0 && (
-              <div style={{ marginBottom: 20 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>المقاس</div>
-                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                  {p.sizes.map(s => (
-                    <button 
-                      key={s} 
-                      onClick={() => setSize(s)}
-                      style={{
-                        padding: '10px 18px',
-                        borderRadius: 12,
-                        border: `2px solid ${size === s ? '#FF6A00' : 'rgba(255,255,255,0.2)'}`,
-                        background: size === s ? 'rgba(255,106,0,0.15)' : 'transparent',
-                        color: size === s ? '#FF6A00' : '#fff',
-                        fontWeight: 600
-                      }}
-                    >
-                      {s}
+          )}
+          {/* Service meta */}
+          {p.type==='service'&&(p.duration||p.workArea)&&(
+            <div style={{display:'flex',gap:8,marginBottom:14,flexWrap:'wrap'}}>
+              {p.duration&&<span style={{display:'flex',alignItems:'center',gap:4,fontSize:12,color:'var(--sf-text2)',background:'var(--sf-surface2)',border:'1px solid var(--sf-border)',borderRadius:99,padding:'4px 12px'}}><Clock size={11}/>  {p.duration}</span>}
+              {p.workArea&&<span style={{display:'flex',alignItems:'center',gap:4,fontSize:12,color:'var(--sf-text2)',background:'var(--sf-surface2)',border:'1px solid var(--sf-border)',borderRadius:99,padding:'4px 12px'}}><MapPin size={11}/> {p.workArea}</span>}
+            </div>
+          )}
+          {p.type==='digital'&&<div style={{marginBottom:14,padding:'8px 12px',background:'#E0F2FE',border:'1px solid #BAE6FD',borderRadius:8,fontSize:12,color:'#0369A1'}}>💻 منتج رقمي — سيُرسل إليك مباشرة بعد التأكيد</div>}
+          {/* Sizes */}
+          {(!p.type||p.type==='product')&&p.sizes?.length>0&&(
+            <div style={{marginBottom:14}}>
+              <div style={{fontSize:11,fontWeight:700,color:'var(--sf-text3)',marginBottom:8}}>المقاس</div>
+              <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                {p.sizes.map(s=>(
+                  <button key={s} onClick={()=>setSize(s)} style={{padding:'7px 15px',borderRadius:8,border:`1.5px solid ${size===s?'var(--sf-primary)':'var(--sf-border)'}`,background:size===s?'var(--sf-p10)':'transparent',color:size===s?'var(--sf-primary)':'var(--sf-text2)',fontSize:13,fontWeight:600,cursor:'pointer',transition:'all .15s'}}>
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {/* Colors */}
+          {p.colors?.length>0&&(
+            <div style={{marginBottom:16}}>
+              <div style={{fontSize:11,fontWeight:700,color:'var(--sf-text3)',marginBottom:8}}>اللون: <span style={{color:'var(--sf-text2)'}}>{color}</span></div>
+              <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                {p.colors.map(clr=>{
+                  const colorImg=p.colorImages?.[clr];
+                  const CM:Record<string,string>={'أسود':'#1a1a1a','أبيض':'#f5f5f5','أحمر':'#ef4444','أزرق':'#3b82f6','أخضر':'#22c55e','رمادي':'#6b7280','بيج':'#d4b896','وردي':'#f472b6','بني':'#92400e','كحلي':'#1e3a5f','بنفسجي':'#a855f7','برتقالي':'#f97316'};
+                  return colorImg?(
+                    <button key={clr} onClick={()=>{setColor(clr);setActiveImage(colorImg||p.imageUrl||'');}} style={{padding:3,borderRadius:10,border:`2px solid ${color===clr?'var(--sf-primary)':'var(--sf-border)'}`,cursor:'pointer',background:'transparent',display:'flex',flexDirection:'column',alignItems:'center',gap:3}}>
+                      <img src={colorImg} alt={clr} style={{width:50,height:50,objectFit:'cover',borderRadius:7}}/>
+                      <span style={{fontSize:9,fontWeight:700,color:color===clr?'var(--sf-primary)':'var(--sf-text3)'}}>{clr}</span>
                     </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Colors */}
-            {p.colors?.length > 0 && (
-              <div style={{ marginBottom: 24 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>اللون</div>
-                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                  {p.colors.map(clr => {
-                    const colorImg = p.colorImages?.[clr];
-                    return (
-                      <button 
-                        key={clr} 
-                        onClick={() => {
-                          setColor(clr);
-                          if (colorImg) setActiveImage(colorImg);
-                        }}
-                        style={{
-                          border: `3px solid ${color === clr ? '#FF6A00' : 'rgba(255,255,255,0.15)'}`,
-                          borderRadius: 14,
-                          padding: colorImg ? 4 : 12,
-                          background: color === clr ? 'rgba(255,106,0,0.1)' : 'transparent'
-                        }}
-                      >
-                        {colorImg ? (
-                          <img src={colorImg} alt={clr} style={{ width: 52, height: 52, borderRadius: 10, objectFit: 'cover' }} />
-                        ) : (
-                          <span style={{ fontWeight: 600 }}>{clr}</span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Quantity */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 28 }}>
-              <div style={{ fontSize: 14, fontWeight: 600 }}>الكمية</div>
-              <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(255,255,255,0.08)', borderRadius: 12, padding: '6px' }}>
-                <button onClick={() => setQty(q => Math.max(1, q-1))} style={{ width: 44, height: 44, borderRadius: 10 }}><Minus size={18}/></button>
-                <span style={{ minWidth: 40, textAlign: 'center', fontSize: 18, fontWeight: 700 }}>{qty}</span>
-                <button onClick={() => setQty(q => Math.min(p.stock || 99, q+1))} style={{ width: 44, height: 44, borderRadius: 10 }}><Plus size={18}/></button>
+                  ):(
+                    <button key={clr} onClick={()=>setColor(clr)} style={{width:30,height:30,borderRadius:'50%',background:CM[clr]||'#ccc',border:`3px solid ${color===clr?'var(--sf-primary)':'var(--sf-border)'}`,cursor:'pointer',boxShadow:'0 2px 6px rgba(0,0,0,.15)',transition:'border-color .15s'}} title={clr}/>
+                  );
+                })}
               </div>
             </div>
-
-            {/* Add Button */}
-            <button 
-              onClick={handleAdd}
-              style={{
-                width: '100%',
-                height: 58,
-                background: added ? '#22c55e' : primaryGradient,
-                border: 'none',
-                borderRadius: 18,
-                color: '#fff',
-                fontSize: 16.5,
-                fontWeight: 800,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 12,
-                boxShadow: '0 12px 30px rgba(255,106,0,0.4)',
-                transition: 'all 0.3s'
-              }}
-            >
-              {added ? (
-                <><Check size={26} /> تمت الإضافة بنجاح!</>
-              ) : (
-                <><ShoppingCart size={24} /> 
-                  {p.type === 'service' ? 'احجز الآن' : p.type === 'digital' ? 'اشتر الآن' : 'أضف إلى السلة'} 
-                  — {(p.price * qty).toLocaleString()} {currency}
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
-    </>
-  );
-}
-
-/* Cart Sidebar */
-function CartSidebar({ cart, storeInfo, userId, onClose, onOrderSuccess }: { cart:ReturnType<typeof useCart>; storeInfo:StoreInfo; userId:string; onClose:()=>void; onOrderSuccess:(orderId:string)=>void }) {
-  const [step, setStep] = useState<'cart'|'checkout'|'success'>('cart');
-  const [form, setForm] = useState({ name:'', phone:'', city:'', address:'', notes:'', subscribe:true, paymentMethod:'cod' as 'cod'|'virement' });
-  const [couponCode, setCouponCode] = useState('');
-  const [couponDiscount, setCouponDiscount] = useState(0);
-  const [couponMsg, setCouponMsg] = useState('');
-  const [citySearch, setCitySearch] = useState('');
-  const [showCities, setShowCities] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [orderId, setOrderId] = useState('');
-  const [orderCode, setOrderCode] = useState('');
-  const cur = storeInfo.brand.currency || 'MAD';
-  const deliveryCost = getDeliveryCost(form.city, storeInfo.deliveryCosts);
-  const grandTotal   = Math.max(0, cart.total - couponDiscount) + deliveryCost;
-
-  const filteredCities = MOROCCAN_CITIES.filter(c => c.includes(citySearch) || citySearch === '');
-
-  const applyCoupon = async () => {
-    if (!couponCode.trim()) return;
-    try {
-      const r = await fetch(`/api/coupons/validate?code=${encodeURIComponent(couponCode)}&userId=${userId}&total=${cart.total}`);
-      if (r.ok) {
-        const d = await r.json();
-        setCouponDiscount(d.discount || 0);
-        setCouponMsg(d.discount > 0 ? `✅ خصم ${d.discount} ${cur} تم تطبيقه` : '❌ الكود غير صحيح');
-      } else {
-        setCouponDiscount(0);
-        setCouponMsg('❌ الكود غير صحيح أو منتهي الصلاحية');
-      }
-    } catch {
-      setCouponDiscount(0);
-      setCouponMsg('❌ تعذر التحقق من الكود');
-    }
-  };
-
-  const handleOrder = async () => {
-    if (!form.name || !form.phone || !form.city) {
-      alert('الاسم الكامل، الهاتف والمدينة مطلوبون'); return;
-    }
-    setLoading(true);
-    try {
-      const items = cart.items.map(i => ({
-        productId: i.product.id, productName: i.product.name,
-        price: i.product.price, quantity: i.quantity, size: i.size, color: i.color,
-      }));
-      const r = await fetch('/api/orders/public', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({
-          userId, items, customerName: form.name, customerPhone: form.phone,
-          city: form.city, address: form.address, total: grandTotal,
-          source: 'Storefront', notes: `${form.notes}${form.subscribe?' · يريد عروض':''}`
-        }),
-      });
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.error);
-
-      setOrderId(data.order.id);
-      setOrderCode(data.order.customerCode || '');
-
-      // Open WhatsApp for confirmation
-      const phone = storeInfo.brand.phone?.replace(/\D/g,'');
-      const itemsText = cart.items.map(i=>`• ${i.product.name} (${i.size} ${i.color}) x${i.quantity} — ${i.product.price*i.quantity} ${cur}`).join('\n');
-      const customerCodeStr = data.order.customerCode ? `\n🔑 الكود: ${data.order.customerCode}` : '';
-      const msg = `مرحباً ${storeInfo.brand.name}! 👋\n\nأريد تأكيد طلبي:\n\n${itemsText}\n\n💰 المجموع: ${cart.total} ${cur}\n🚚 التوصيل: ${deliveryCost} ${cur}\n💵 الإجمالي: ${grandTotal} ${cur}\n\n👤 الاسم: ${form.name}\n📱 الهاتف: ${form.phone}\n📍 المدينة: ${form.city}\n🏠 العنوان: ${form.address||'—'}\n🔖 رقم الطلب: ${data.order.id}${customerCodeStr}`;
-      if (phone) setTimeout(() => window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank'), 500);
-
-      cart.clear();
-    try { localStorage.removeItem('sahar_cart'); } catch {}
-      setStep('success');
-      onOrderSuccess(data.order.id);
-    } catch (e: any) {
-      alert(`حدث خطأ: ${e.message}`);
-    }
-    setLoading(false);
-  };
-
-  return (
-    <div style={{ position:'fixed',inset:0,zIndex:400,display:'flex' }}>
-      <div onClick={onClose} style={{ flex:1,background:'rgba(0,0,0,.6)',backdropFilter:'blur(4px)' }} />
-      <div style={{ width:'min(400px,100vw)',background:'var(--panel)',borderRight:'1px solid var(--border)',display:'flex',flexDirection:'column',overflowY:'auto',animation:'slide-in .25s ease' }}>
-
-        {/* Header */}
-        <div style={{ padding:'16px 18px',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:10 }}>
-          <button onClick={onClose} style={{ width:32,height:32,borderRadius:8,background:'var(--panel2)',border:'1px solid var(--border)',cursor:'pointer',color:'var(--ink2)',display:'flex',alignItems:'center',justifyContent:'center' }}><X size={16}/></button>
-          <div style={{ flex:1,fontSize:15,fontWeight:700,color:'var(--ink1)' }}>
-            {step==='cart'?`سلتك (${cart.count})`  :step==='checkout'?'تأكيد الطلب':'تم الطلب ✅'}
-          </div>
-          {step==='cart' && <span style={{ fontSize:13,fontWeight:700,color:'var(--ember)' }}>{cart.total.toLocaleString()} {cur}</span>}
-        </div>
-
-        {/* Step: Cart */}
-        {step === 'cart' && (
-          <div style={{ flex:1,overflow:'auto',padding:'12px' }}>
-            {cart.items.length === 0 ? (
-              <div style={{ textAlign:'center',padding:'60px 20px',color:'var(--ink3)' }}>
-                <ShoppingCart size={40} style={{ margin:'0 auto 12px',opacity:.3 }} />
-                <div style={{ fontSize:14 }}>سلتك فارغة</div>
-                <button onClick={onClose} style={{ marginTop:16,padding:'8px 20px',background:'var(--ember)',border:'none',borderRadius:8,color:'#fff',cursor:'pointer',fontWeight:700,fontSize:13 }}>تصفح المنتجات</button>
-              </div>
-            ) : (
-              <>
-                {cart.items.map((item,i) => (
-                  <div key={i} style={{ display:'flex',gap:12,padding:'12px 0',borderBottom:'1px solid var(--border)' }}>
-                    <div style={{ width:64,height:64,borderRadius:10,background:'var(--void2)',overflow:'hidden',flexShrink:0 }}>
-                      {item.product.imageUrl
-                        ? <img src={item.product.imageUrl} alt="" style={{ width:'100%',height:'100%',objectFit:'cover' }} />
-                        : <div style={{ width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:28 }}>{item.product.emoji||'📦'}</div>
-                      }
+          )}
+          {/* Related products */}
+          {p.category&&(window as any).__sfProducts?.filter((rp:any)=>rp.id!==p.id&&rp.category===p.category).length>0&&(
+            <div style={{marginBottom:16}}>
+              <div style={{fontSize:11,fontWeight:700,color:'var(--sf-text3)',marginBottom:10,letterSpacing:'.06em'}}>🛍️ قد يعجبك أيضاً</div>
+              <div style={{display:'flex',gap:8,overflowX:'auto',paddingBottom:4}}>
+                {(window as any).__sfProducts.filter((rp:any)=>rp.id!==p.id&&rp.category===p.category).slice(0,4).map((rp:any)=>(
+                  <div key={rp.id} onClick={()=>{onClose();setTimeout(()=>document.dispatchEvent(new CustomEvent('viewProduct',{detail:rp})),50);}}
+                    style={{flexShrink:0,width:90,borderRadius:10,overflow:'hidden',cursor:'pointer',background:'var(--sf-surface2)',border:'1px solid var(--sf-border)'}}>
+                    <div style={{height:72,background:'#F9FAFB',overflow:'hidden'}}>
+                      {rp.imageUrl?<img src={rp.imageUrl} alt={rp.name} style={{width:'100%',height:'100%',objectFit:'cover'}} loading="lazy"/>:<div style={{width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:24}}>{rp.emoji||'📦'}</div>}
                     </div>
-                    <div style={{ flex:1,minWidth:0 }}>
-                      <div style={{ fontSize:13,fontWeight:600,color:'var(--ink1)' }}>{item.product.name}</div>
-                      <div style={{ fontSize:11,color:'var(--ink3)',marginTop:2 }}>{item.size && `مقاس: ${item.size}`} {item.color && `· لون: ${item.color}`}</div>
-                      <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:8 }}>
-                        <div style={{ display:'flex',alignItems:'center',gap:8,background:'var(--void2)',borderRadius:6,padding:'3px 8px' }}>
-                          <button onClick={()=>cart.update(item.product.id,item.size,item.color,item.quantity-1)} style={{ width:22,height:22,borderRadius:5,background:'var(--panel)',border:'1px solid var(--border)',cursor:'pointer',color:'var(--ink2)',display:'flex',alignItems:'center',justifyContent:'center' }}><Minus size={10}/></button>
-                          <span style={{ fontSize:13,fontWeight:700,color:'var(--ink1)',minWidth:20,textAlign:'center' }}>{item.quantity}</span>
-                          <button onClick={()=>cart.update(item.product.id,item.size,item.color,item.quantity+1)} style={{ width:22,height:22,borderRadius:5,background:'var(--panel)',border:'1px solid var(--border)',cursor:'pointer',color:'var(--ink2)',display:'flex',alignItems:'center',justifyContent:'center' }}><Plus size={10}/></button>
-                        </div>
-                        <span style={{ fontSize:14,fontWeight:700,color:'var(--ink1)' }}>{(item.product.price*item.quantity).toLocaleString()} {cur}</span>
-                      </div>
+                    <div style={{padding:'5px 7px'}}>
+                      <div style={{fontSize:10,fontWeight:700,color:'var(--sf-text)',overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis'}}>{rp.name}</div>
+                      <div style={{fontSize:11,fontWeight:900,color:'var(--sf-primary)'}}>{rp.price.toLocaleString()} {currency}</div>
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+          {/* Qty */}
+          {(!p.type||p.type==='product')&&(
+            <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:20}}>
+              <span style={{fontSize:11,fontWeight:700,color:'var(--sf-text3)'}}>الكمية</span>
+              <div style={{display:'flex',alignItems:'center',gap:8,background:'var(--sf-surface2)',borderRadius:10,padding:'4px 8px',border:'1px solid var(--sf-border)'}}>
+                <button onClick={()=>setQty(q=>Math.max(1,q-1))} style={{width:32,height:32,borderRadius:7,background:'var(--sf-surface)',border:'1px solid var(--sf-border)',cursor:'pointer',color:'var(--sf-text2)',display:'flex',alignItems:'center',justifyContent:'center'}}><Minus size={13}/></button>
+                <span style={{fontSize:15,fontWeight:700,color:'var(--sf-text)',minWidth:28,textAlign:'center'}}>{qty}</span>
+                <button onClick={()=>setQty(q=>Math.min(p.stock||99,q+1))} style={{width:32,height:32,borderRadius:7,background:'var(--sf-surface)',border:'1px solid var(--sf-border)',cursor:'pointer',color:'var(--sf-text2)',display:'flex',alignItems:'center',justifyContent:'center'}}><Plus size={13}/></button>
+              </div>
+              {(!p.type||p.type==='product')&&<span style={{fontSize:11,color:'var(--sf-text3)'}}>{p.stock} متوفر</span>}
+            </div>
+          )}
+        </div>
+        {/* Sticky CTA */}
+        <div style={{padding:'0 18px 24px',paddingTop:8,background:'var(--sf-surface)',borderTop:'1px solid var(--sf-border)',marginTop:4}}>
+          <button onClick={handleAdd} style={{
+            width:'100%',height:52,background:added?'#16A34A':'var(--sf-primary)',
+            border:'none',color:'#fff',fontSize:15,fontWeight:700,
+            cursor:'pointer',transition:'all .2s',
+            display:'flex',alignItems:'center',justifyContent:'center',gap:8,
+            borderRadius:14,
+            boxShadow:added?'0 4px 16px rgba(22,163,74,.3)':'0 4px 16px rgba(255,106,0,.35)',
+          }}>
+            {added?<><Check size={18}/>{p.type==='service'?'تم الحجز!':'تمت الإضافة!'}</>
+              :<><ShoppingCart size={16}/>{p.type==='service'?'احجز الآن':p.type==='digital'?'اشتر الآن':'أضف للسلة'} — {(p.price*qty).toLocaleString()} {currency}</>}
+          </button>
+        </div>
+      </div>
+    </div>
+  </>);
+}
 
-                <div style={{ padding:'14px 0',borderTop:'1px solid var(--border)',marginTop:12 }}>
-                  <div style={{ display:'flex',justifyContent:'space-between',fontSize:13,color:'var(--ink2)',marginBottom:8 }}>
-                    <span>المنتجات</span><span>{cart.total.toLocaleString()} {cur}</span>
+// ─── CART SIDEBAR ─────────────────────────────────────────────────────────────
+function CartSidebar({cart,storeInfo,userId,onClose,onOrderSuccess}:{cart:ReturnType<typeof useCart>;storeInfo:StoreInfo;userId:string;onClose:()=>void;onOrderSuccess:(id:string)=>void}) {
+  const [step,setStep]=useState<'cart'|'checkout'|'success'>('cart');
+  const [form,setForm]=useState({name:'',phone:'',city:'',address:'',notes:'',subscribe:true,paymentMethod:'cod' as 'cod'|'virement'});
+  const [couponCode,setCouponCode]=useState('');
+  const [couponDiscount,setCouponDiscount]=useState(0);
+  const [couponMsg,setCouponMsg]=useState('');
+  const [citySearch,setCitySearch]=useState('');
+  const [showCities,setShowCities]=useState(false);
+  const [loading,setLoading]=useState(false);
+  const [orderId,setOrderId]=useState('');
+  const cur=storeInfo.brand.currency||'MAD';
+  const deliveryCost=getDeliveryCost(form.city,storeInfo.deliveryCosts);
+  const grandTotal=Math.max(0,cart.total-couponDiscount)+deliveryCost;
+  const filteredCities=MOROCCAN_CITIES.filter(c=>c.includes(citySearch)||citySearch==='');
+
+  const applyCoupon=async()=>{
+    if(!couponCode.trim())return;
+    try{
+      const r=await fetch(`/api/coupons/validate?code=${encodeURIComponent(couponCode)}&userId=${userId}&total=${cart.total}`);
+      if(r.ok){const d=await r.json();setCouponDiscount(d.discount||0);setCouponMsg(d.discount>0?`✅ خصم ${d.discount} ${cur} تم تطبيقه`:'❌ الكود غير صحيح');}
+      else{setCouponDiscount(0);setCouponMsg('❌ الكود غير صحيح أو منتهي الصلاحية');}
+    }catch{setCouponDiscount(0);setCouponMsg('❌ تعذر التحقق من الكود');}
+  };
+
+  const handleOrder=async()=>{
+    if(!form.name||!form.phone||!form.city){alert('الاسم الكامل، الهاتف والمدينة مطلوبون');return;}
+    setLoading(true);
+    try{
+      const items=cart.items.map(i=>({productId:i.product.id,productName:i.product.name,price:i.product.price,quantity:i.quantity,size:i.size,color:i.color}));
+      const r=await fetch('/api/orders/public',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({userId,items,customerName:form.name,customerPhone:form.phone,city:form.city,address:form.address,total:grandTotal,source:'Storefront',notes:`${form.notes}${form.subscribe?' · يريد عروض':''}`})});
+      const data=await r.json();
+      if(!r.ok)throw new Error(data.error);
+      setOrderId(data.order.id);
+      const phone=storeInfo.brand.phone?.replace(/\D/g,'');
+      const itemsText=cart.items.map(i=>`• ${i.product.name} (${i.size} ${i.color}) x${i.quantity} — ${i.product.price*i.quantity} ${cur}`).join('\n');
+      const codeStr=data.order.customerCode?`\n🔑 الكود: ${data.order.customerCode}`:'';
+      const msg=`مرحباً ${storeInfo.brand.name}! 👋\n\nأريد تأكيد طلبي:\n\n${itemsText}\n\n💰 المجموع: ${cart.total} ${cur}\n🚚 التوصيل: ${deliveryCost} ${cur}\n💵 الإجمالي: ${grandTotal} ${cur}\n\n👤 ${form.name}\n📱 ${form.phone}\n📍 ${form.city}\n🏠 ${form.address||'—'}\n🔖 ${data.order.id}${codeStr}`;
+      if(phone)setTimeout(()=>window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`,'_blank'),500);
+      cart.clear();try{localStorage.removeItem('sahar_cart');}catch{}
+      setStep('success');onOrderSuccess(data.order.id);
+    }catch(e:any){alert(`حدث خطأ: ${e.message}`);}
+    setLoading(false);
+  };
+
+  const inputStyle:React.CSSProperties={width:'100%',padding:'11px 14px',borderRadius:10,border:'1.5px solid var(--sf-border)',background:'var(--sf-surface)',color:'var(--sf-text)',fontSize:13,outline:'none',boxSizing:'border-box',fontFamily:'Tajawal,sans-serif'};
+
+  return (
+    <div style={{position:'fixed',inset:0,zIndex:400,display:'flex'}}>
+      <div onClick={onClose} style={{flex:1,background:'rgba(0,0,0,.45)',backdropFilter:'blur(4px)'}}/>
+      <div style={{width:'min(420px,100vw)',background:'var(--sf-surface)',display:'flex',flexDirection:'column',overflowY:'auto',boxShadow:'-8px 0 40px rgba(0,0,0,.15)'}}>
+        <div style={{padding:'16px 18px',borderBottom:'1px solid var(--sf-border)',display:'flex',alignItems:'center',gap:10,background:'var(--sf-surface)',position:'sticky',top:0,zIndex:2}}>
+          <button onClick={onClose} style={{width:34,height:34,borderRadius:8,background:'var(--sf-surface2)',border:'1px solid var(--sf-border)',cursor:'pointer',color:'var(--sf-text2)',display:'flex',alignItems:'center',justifyContent:'center'}}><X size={16}/></button>
+          <div style={{flex:1,fontSize:15,fontWeight:800,color:'var(--sf-text)'}}>{step==='cart'?`سلتك (${cart.count})`:step==='checkout'?'تأكيد الطلب':'تم الطلب ✅'}</div>
+          {step==='cart'&&<span style={{fontSize:14,fontWeight:800,color:'var(--sf-primary)'}}>{cart.total.toLocaleString()} {cur}</span>}
+        </div>
+
+        {step==='cart'&&(
+          <div style={{flex:1,overflow:'auto',padding:16}}>
+            {cart.items.length===0?(
+              <div style={{textAlign:'center',padding:'60px 20px',color:'var(--sf-text3)'}}>
+                <ShoppingCart size={44} style={{margin:'0 auto 14px',opacity:.25}}/>
+                <div style={{fontSize:15,fontWeight:700,color:'var(--sf-text2)',marginBottom:6}}>سلتك فارغة</div>
+                <button onClick={onClose} style={{marginTop:12,padding:'9px 22px',background:'var(--sf-primary)',border:'none',borderRadius:10,color:'#fff',cursor:'pointer',fontWeight:700,fontSize:13}}>تصفح المنتجات</button>
+              </div>
+            ):(
+              <>
+                {cart.items.map((item,i)=>(
+                  <div key={i} style={{display:'flex',gap:12,padding:'12px 0',borderBottom:'1px solid var(--sf-border)'}}>
+                    <div style={{width:64,height:64,borderRadius:10,background:'#F9FAFB',overflow:'hidden',flexShrink:0,border:'1px solid var(--sf-border)'}}>
+                      {item.product.imageUrl?<img src={item.product.imageUrl} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>:<div style={{width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:26}}>{item.product.emoji||'📦'}</div>}
+                    </div>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:13,fontWeight:700,color:'var(--sf-text)'}}>{item.product.name}</div>
+                      <div style={{fontSize:11,color:'var(--sf-text3)',marginTop:2}}>{item.size&&`${item.size}`}{item.color&&` · ${item.color}`}</div>
+                      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:8}}>
+                        <div style={{display:'flex',alignItems:'center',gap:6,background:'var(--sf-surface2)',borderRadius:8,padding:'3px 6px',border:'1px solid var(--sf-border)'}}>
+                          <button onClick={()=>cart.update(item.product.id,item.size,item.color,item.quantity-1)} style={{width:24,height:24,borderRadius:6,background:'var(--sf-surface)',border:'1px solid var(--sf-border)',cursor:'pointer',color:'var(--sf-text2)',display:'flex',alignItems:'center',justifyContent:'center'}}><Minus size={10}/></button>
+                          <span style={{fontSize:13,fontWeight:700,color:'var(--sf-text)',minWidth:20,textAlign:'center'}}>{item.quantity}</span>
+                          <button onClick={()=>cart.update(item.product.id,item.size,item.color,item.quantity+1)} style={{width:24,height:24,borderRadius:6,background:'var(--sf-surface)',border:'1px solid var(--sf-border)',cursor:'pointer',color:'var(--sf-text2)',display:'flex',alignItems:'center',justifyContent:'center'}}><Plus size={10}/></button>
+                        </div>
+                        <span style={{fontSize:14,fontWeight:700,color:'var(--sf-primary)'}}>{(item.product.price*item.quantity).toLocaleString()} {cur}</span>
+                      </div>
+                    </div>
+                    <button onClick={()=>cart.remove(item.product.id,item.size,item.color)} style={{width:26,height:26,borderRadius:6,background:'#FEF2F2',border:'none',cursor:'pointer',color:'#EF4444',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginTop:2}}><X size={12}/></button>
                   </div>
-                  <div style={{ display:'flex',justifyContent:'space-between',fontSize:13,color:'var(--ink2)',marginBottom:12 }}>
-                    <span>التوصيل</span><span style={{ color:'var(--ink3)' }}>يُحسب حسب المدينة</span>
-                  </div>
-                  <button onClick={()=>setStep('checkout')} style={{
-                    width:'100%',height:48,background:'var(--ember)',border:'none',
-                    borderRadius:'var(--r)',color:'#fff',fontSize:15,fontWeight:700,cursor:'pointer',
-                    display:'flex',alignItems:'center',justifyContent:'center',gap:8,
-                    boxShadow:'0 4px 16px rgba(255,106,0,.35)',
-                  }}>
+                ))}
+                <div style={{padding:'14px 0',marginTop:8}}>
+                  <button onClick={()=>setStep('checkout')} style={{width:'100%',height:50,background:'var(--sf-primary)',border:'none',borderRadius:14,color:'#fff',fontSize:15,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8,boxShadow:'0 4px 16px rgba(255,106,0,.3)'}}>
                     متابعة الطلب <ArrowRight size={16}/>
                   </button>
                 </div>
@@ -1121,129 +625,73 @@ function CartSidebar({ cart, storeInfo, userId, onClose, onOrderSuccess }: { car
           </div>
         )}
 
-        {/* Step: Checkout */}
-        {step === 'checkout' && (
-          <div style={{ flex:1,overflow:'auto',padding:'16px 18px' }}>
-            <div style={{ display:'flex',flexDirection:'column',gap:12 }}>
-              <input className="glass-input" placeholder="الاسم الكامل *" value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} />
-              <input className="glass-input" placeholder="رقم الهاتف *" value={form.phone} onChange={e=>setForm(f=>({...f,phone:e.target.value}))} dir="ltr" type="tel" />
-
-              {/* City with autocomplete */}
-              <div style={{ position:'relative' }}>
-                <input className="glass-input" placeholder="المدينة *"
-                  value={citySearch||form.city}
-                  onChange={e=>{setCitySearch(e.target.value);setShowCities(true);setForm(f=>({...f,city:e.target.value}))}}
-                  onFocus={()=>setShowCities(true)} onBlur={()=>setTimeout(()=>setShowCities(false),200)}
-                />
-                {showCities && filteredCities.length > 0 && (
-                  <div style={{ position:'absolute',top:'100%',right:0,left:0,background:'var(--panel2)',border:'1px solid var(--border)',borderRadius:8,maxHeight:180,overflowY:'auto',zIndex:10,marginTop:4 }}>
-                    {filteredCities.map(city=>(
-                      <div key={city} onClick={()=>{setForm(f=>({...f,city}));setCitySearch(city);setShowCities(false)}}
-                        style={{ padding:'8px 14px',fontSize:13,color:'var(--ink1)',cursor:'pointer',borderBottom:'1px solid var(--border)' }}
-                        onMouseOver={e=>(e.currentTarget.style.background='var(--panel3)')}
-                        onMouseOut={e=>(e.currentTarget.style.background='')}
-                      >{city}</div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <textarea className="glass-input" placeholder="العنوان بالتفصيل (الشارع، الحي...)" rows={2}
-                value={form.address} onChange={e=>setForm(f=>({...f,address:e.target.value}))}
-                style={{ resize:'none' }} />
-              <textarea className="glass-input" placeholder="ملاحظة للبائع (اختياري)" rows={2}
-                value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))}
-                style={{ resize:'none' }} />
-
-              {/* Payment method */}
-              <div>
-                <div style={{ fontSize:12,fontWeight:700,color:'var(--ink3)',marginBottom:8 }}>💳 طريقة الدفع</div>
-                <div style={{ display:'flex',gap:8 }}>
-                  {[['cod','💵 دفع عند الاستلام'],['virement','🏦 تحويل بنكي']].map(([v,l]) => (
-                    <button key={v} onClick={()=>setForm(f=>({...f,paymentMethod:v as any}))}
-                      style={{ flex:1,padding:'10px',borderRadius:10,border:`1.5px solid ${form.paymentMethod===v?'var(--ember)':'var(--border)'}`,background:form.paymentMethod===v?'rgba(255,106,0,.1)':'transparent',color:form.paymentMethod===v?'var(--ember2)':'var(--ink2)',fontSize:12,fontWeight:700,cursor:'pointer' }}>
-                      {l}
-                    </button>
+        {step==='checkout'&&(
+          <div style={{flex:1,overflow:'auto',padding:'16px 18px',display:'flex',flexDirection:'column',gap:10}}>
+            <input style={inputStyle} placeholder="الاسم الكامل *" value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))}/>
+            <input style={inputStyle} placeholder="رقم الهاتف *" value={form.phone} onChange={e=>setForm(f=>({...f,phone:e.target.value}))} dir="ltr" type="tel"/>
+            <div style={{position:'relative'}}>
+              <input style={inputStyle} placeholder="المدينة *" value={citySearch||form.city} onChange={e=>{setCitySearch(e.target.value);setShowCities(true);setForm(f=>({...f,city:e.target.value}));}} onFocus={()=>setShowCities(true)} onBlur={()=>setTimeout(()=>setShowCities(false),200)}/>
+              {showCities&&filteredCities.length>0&&(
+                <div style={{position:'absolute',top:'100%',right:0,left:0,background:'var(--sf-surface)',border:'1px solid var(--sf-border)',borderRadius:10,maxHeight:180,overflowY:'auto',zIndex:10,marginTop:4,boxShadow:'var(--sf-shadow-lg)'}}>
+                  {filteredCities.map(city=>(
+                    <div key={city} onClick={()=>{setForm(f=>({...f,city}));setCitySearch(city);setShowCities(false);}} style={{padding:'9px 14px',fontSize:13,color:'var(--sf-text)',cursor:'pointer',borderBottom:'1px solid var(--sf-border)'}} onMouseOver={e=>(e.currentTarget.style.background='var(--sf-surface2)')} onMouseOut={e=>(e.currentTarget.style.background='')}>{city}</div>
                   ))}
                 </div>
-              </div>
-
-              {/* Coupon code */}
-              <div>
-                <div style={{ fontSize:12,fontWeight:700,color:'var(--ink3)',marginBottom:8 }}>🏷️ كود الخصم (اختياري)</div>
-                <div style={{ display:'flex',gap:8 }}>
-                  <input className="glass-input" placeholder="أدخل كود الخصم" value={couponCode}
-                    onChange={e=>{setCouponCode(e.target.value.toUpperCase());setCouponMsg('');}}
-                    style={{ flex:1,textTransform:'uppercase' }} dir="ltr"/>
-                  <button onClick={applyCoupon} style={{ padding:'0 16px',borderRadius:10,background:'var(--void2)',border:'1px solid var(--border)',color:'var(--ink2)',fontSize:12,fontWeight:700,cursor:'pointer' }}>
-                    تطبيق
-                  </button>
-                </div>
-                {couponMsg && <div style={{ fontSize:11,marginTop:4,color:couponDiscount>0?'var(--mint)':'var(--ember)',fontWeight:700 }}>{couponMsg}</div>}
-              </div>
-
-              <label style={{ display:'flex',alignItems:'center',gap:10,cursor:'pointer',fontSize:13,color:'var(--ink2)' }}>
-                <input type="checkbox" checked={form.subscribe} onChange={e=>setForm(f=>({...f,subscribe:e.target.checked}))} style={{ accentColor:'var(--ember)',width:16,height:16 }}/>
-                أريد استقبال العروض والمنتجات الجديدة عبر واتساب
-              </label>
-
-              {/* Order summary — always visible in checkout */}
-              <div style={{ background:'var(--void2)',borderRadius:'var(--r)',padding:'14px 16px',border:'1px solid var(--border)' }}>
-                <div style={{ fontSize:12,fontWeight:700,color:'var(--ink3)',marginBottom:10,letterSpacing:'.06em' }}>ملخص الطلب</div>
-                {cart.items.map((item,i)=>(
-                  <div key={i} style={{ display:'flex',justifyContent:'space-between',fontSize:12,color:'var(--ink2)',marginBottom:5,gap:8 }}>
-                    <span style={{ flex:1 }}>{item.product.name}{item.size?` (${item.size})`:''}  {item.color?`· ${item.color}`:''} ×{item.quantity}</span>
-                    <span style={{ flexShrink:0,fontWeight:700 }}>{(item.product.price*item.quantity).toLocaleString()} {cur}</span>
-                  </div>
-                ))}
-                <div style={{ paddingTop:8,borderTop:'1px solid var(--border)',marginTop:8,display:'flex',flexDirection:'column',gap:5 }}>
-                  <div style={{ display:'flex',justifyContent:'space-between',fontSize:12,color:'var(--ink2)' }}>
-                    <span>المجموع الفرعي</span><span>{cart.total.toLocaleString()} {cur}</span>
-                  </div>
-                  {couponDiscount > 0 && (
-                    <div style={{ display:'flex',justifyContent:'space-between',fontSize:12,color:'var(--mint)',fontWeight:700 }}>
-                      <span>🏷️ الخصم</span><span>-{couponDiscount.toLocaleString()} {cur}</span>
-                    </div>
-                  )}
-                  <div style={{ display:'flex',justifyContent:'space-between',fontSize:12,color:'var(--ink2)' }}>
-                    <span>🚚 التوصيل إلى {form.city||'—'}</span>
-                    <span>{form.city ? `${deliveryCost} ${cur}` : 'يُحسب بعد اختيار المدينة'}</span>
-                  </div>
-                  <div style={{ display:'flex',justifyContent:'space-between',fontSize:16,fontWeight:900,color:'var(--ink1)',paddingTop:8,marginTop:2,borderTop:'1px solid var(--border)' }}>
-                    <span>💰 الإجمالي</span>
-                    <span style={{ color:'var(--ember)' }}>{grandTotal.toLocaleString()} {cur}</span>
-                  </div>
-                </div>
-              </div>
-
-              <button onClick={handleOrder} disabled={loading} style={{
-                width:'100%',height:52,background:'var(--ember)',border:'none',
-                borderRadius:'var(--r)',color:'#fff',fontSize:15,fontWeight:700,cursor:'pointer',
-                display:'flex',alignItems:'center',justifyContent:'center',gap:8,
-                boxShadow:'0 4px 16px rgba(255,106,0,.35)',opacity:loading?0.7:1,
-              }}>
-                {loading ? '⟳ جارٍ إرسال الطلب...' : <><MessageCircle size={16}/> تأكيد الطلب عبر واتساب</>}
-              </button>
-              <button onClick={()=>setStep('cart')} style={{ background:'none',border:'none',color:'var(--ink3)',cursor:'pointer',fontSize:13,padding:'4px' }}>← رجوع للسلة</button>
+              )}
             </div>
+            <textarea style={{...inputStyle,resize:'none'} as any} placeholder="العنوان بالتفصيل" rows={2} value={form.address} onChange={e=>setForm(f=>({...f,address:e.target.value}))}/>
+            <textarea style={{...inputStyle,resize:'none'} as any} placeholder="ملاحظة للبائع (اختياري)" rows={2} value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))}/>
+            <div>
+              <div style={{fontSize:12,fontWeight:700,color:'var(--sf-text3)',marginBottom:8}}>💳 طريقة الدفع</div>
+              <div style={{display:'flex',gap:8}}>
+                {[['cod','💵 عند الاستلام'],['virement','🏦 تحويل بنكي']].map(([v,l])=>(
+                  <button key={v} onClick={()=>setForm(f=>({...f,paymentMethod:v as any}))} style={{flex:1,padding:'10px',borderRadius:10,border:`1.5px solid ${form.paymentMethod===v?'var(--sf-primary)':'var(--sf-border)'}`,background:form.paymentMethod===v?'var(--sf-p10)':'var(--sf-surface2)',color:form.paymentMethod===v?'var(--sf-primary)':'var(--sf-text2)',fontSize:12,fontWeight:700,cursor:'pointer'}}>{l}</button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div style={{fontSize:12,fontWeight:700,color:'var(--sf-text3)',marginBottom:8}}>🏷️ كود الخصم</div>
+              <div style={{display:'flex',gap:8}}>
+                <input style={{...inputStyle,flex:1,textTransform:'uppercase'}} placeholder="أدخل كود الخصم" value={couponCode} onChange={e=>{setCouponCode(e.target.value.toUpperCase());setCouponMsg('');}} dir="ltr"/>
+                <button onClick={applyCoupon} style={{padding:'0 14px',borderRadius:10,background:'var(--sf-surface2)',border:'1px solid var(--sf-border)',color:'var(--sf-text2)',fontSize:12,fontWeight:700,cursor:'pointer',flexShrink:0}}>تطبيق</button>
+              </div>
+              {couponMsg&&<div style={{fontSize:11,marginTop:4,color:couponDiscount>0?'#16A34A':'#EF4444',fontWeight:700}}>{couponMsg}</div>}
+            </div>
+            <label style={{display:'flex',alignItems:'center',gap:10,cursor:'pointer',fontSize:13,color:'var(--sf-text2)'}}>
+              <input type="checkbox" checked={form.subscribe} onChange={e=>setForm(f=>({...f,subscribe:e.target.checked}))} style={{accentColor:'var(--sf-primary)',width:16,height:16}}/>
+              أريد استقبال العروض عبر واتساب
+            </label>
+            <div style={{background:'var(--sf-surface2)',borderRadius:12,padding:'14px 16px',border:'1px solid var(--sf-border)'}}>
+              <div style={{fontSize:12,fontWeight:700,color:'var(--sf-text3)',marginBottom:10}}>ملخص الطلب</div>
+              {cart.items.map((item,i)=>(
+                <div key={i} style={{display:'flex',justifyContent:'space-between',fontSize:12,color:'var(--sf-text2)',marginBottom:5,gap:8}}>
+                  <span style={{flex:1}}>{item.product.name}{item.size?` (${item.size})`:''} ×{item.quantity}</span>
+                  <span style={{flexShrink:0,fontWeight:700}}>{(item.product.price*item.quantity).toLocaleString()} {cur}</span>
+                </div>
+              ))}
+              <div style={{paddingTop:8,borderTop:'1px solid var(--sf-border)',marginTop:8,display:'flex',flexDirection:'column',gap:5}}>
+                <div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:'var(--sf-text2)'}}><span>المجموع</span><span>{cart.total.toLocaleString()} {cur}</span></div>
+                {couponDiscount>0&&<div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:'#16A34A',fontWeight:700}}><span>🏷️ الخصم</span><span>-{couponDiscount.toLocaleString()} {cur}</span></div>}
+                <div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:'var(--sf-text2)'}}><span>🚚 التوصيل — {form.city||'—'}</span><span>{form.city?`${deliveryCost} ${cur}`:'بعد المدينة'}</span></div>
+                <div style={{display:'flex',justifyContent:'space-between',fontSize:16,fontWeight:900,color:'var(--sf-text)',paddingTop:8,marginTop:4,borderTop:'1px solid var(--sf-border)'}}><span>الإجمالي</span><span style={{color:'var(--sf-primary)'}}>{grandTotal.toLocaleString()} {cur}</span></div>
+              </div>
+            </div>
+            <button onClick={handleOrder} disabled={loading} style={{width:'100%',height:52,background:'#25D366',border:'none',borderRadius:14,color:'#fff',fontSize:15,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8,boxShadow:'0 4px 16px rgba(37,211,102,.3)',opacity:loading?.7:1}}>
+              {loading?'⟳ جارٍ إرسال الطلب...':<><MessageCircle size={16}/> تأكيد الطلب عبر واتساب</>}
+            </button>
+            <button onClick={()=>setStep('cart')} style={{background:'none',border:'none',color:'var(--sf-text3)',cursor:'pointer',fontSize:13,padding:'4px',textAlign:'center'}}>← رجوع للسلة</button>
           </div>
         )}
 
-        {/* Step: Success */}
-        {step === 'success' && (
-          <div style={{ flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'40px 24px',textAlign:'center' }}>
-            <div style={{ width:72,height:72,borderRadius:'50%',background:'rgba(0,200,150,.12)',border:'2px solid var(--mint)',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:20 }}>
-              <Check size={36} style={{ color:'var(--mint)' }} />
+        {step==='success'&&(
+          <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'40px 24px',textAlign:'center'}}>
+            <div style={{width:72,height:72,borderRadius:'50%',background:'#ECFDF5',border:'2px solid #16A34A',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:20}}>
+              <Check size={36} color="#16A34A"/>
             </div>
-            <h2 style={{ fontSize:22,fontWeight:900,color:'var(--ink1)',marginBottom:10 }}>تم إرسال طلبك! 🎉</h2>
-            <p style={{ fontSize:14,color:'var(--ink2)',lineHeight:1.7,marginBottom:24 }}>
-              تم إرسال تفاصيل طلبك عبر واتساب.<br/>
-              سيتواصل معك البائع لتأكيد الطلب قريباً.
-            </p>
-            {orderId && <div style={{ fontSize:12,color:'var(--ink3)',background:'var(--void2)',borderRadius:8,padding:'6px 14px',marginBottom:20 }}>رقم الطلب: {orderId}</div>}
-            <button onClick={onClose} style={{ padding:'10px 28px',background:'var(--ember)',border:'none',borderRadius:10,color:'#fff',fontSize:14,fontWeight:700,cursor:'pointer' }}>
-              متابعة التسوق
-            </button>
+            <h2 style={{fontSize:22,fontWeight:900,color:'var(--sf-text)',marginBottom:10}}>تم إرسال طلبك! 🎉</h2>
+            <p style={{fontSize:14,color:'var(--sf-text2)',lineHeight:1.7,marginBottom:24}}>تم إرسال تفاصيل طلبك عبر واتساب.<br/>سيتواصل معك البائع لتأكيد الطلب.</p>
+            {orderId&&<div style={{fontSize:12,color:'var(--sf-text3)',background:'var(--sf-surface2)',borderRadius:8,padding:'6px 14px',marginBottom:20,border:'1px solid var(--sf-border)'}}>رقم الطلب: {orderId}</div>}
+            <button onClick={onClose} style={{padding:'11px 28px',background:'var(--sf-primary)',border:'none',borderRadius:10,color:'#fff',fontSize:14,fontWeight:700,cursor:'pointer'}}>متابعة التسوق</button>
           </div>
         )}
       </div>
@@ -1251,215 +699,70 @@ function CartSidebar({ cart, storeInfo, userId, onClose, onOrderSuccess }: { car
   );
 }
 
-/* Floating AI Chat */
-function FloatingChat({ userId, storeInfo }: { userId:string; storeInfo:StoreInfo }) {
-  const [open, setOpen] = useState(false);
-  const [msgs, setMsgs] = useState<ChatMsg[]>([{ role:'ai', content:`مرحباً! 👋 أنا مساعد ${storeInfo.brand.name||'المتجر'} الذكي.\nيمكنني مساعدتك في:\n• البحث عن منتج بالاسم أو الكود\n• الأسئلة عن التوصيل والمقاسات\n• تتبع طلبك\n\nكيف يمكنني مساعدتك؟` }]);
-  const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [unread, setUnread] = useState(0);
-  const endRef = useRef<HTMLDivElement>(null);
+// ─── TRACKING MODAL ───────────────────────────────────────────────────────────
+function TrackingModal({userId,storeInfo,onClose}:{userId:string;storeInfo:StoreInfo;onClose:()=>void}) {
+  const [query,setQuery]=useState('');
+  const [mode,setMode]=useState<'phone'|'code'>('code');
+  const [orders,setOrders]=useState<any[]>([]);
+  const [singleOrder,setSingleOrder]=useState<any>(null);
+  const [loading,setLoading]=useState(false);
+  const [searched,setSearched]=useState(false);
+  const cur=storeInfo.brand.currency||'MAD';
+  const STATUS_AR:Record<string,string>={pending:'⏳ بانتظار التأكيد',approved:'✅ تم التأكيد',processing:'⚙️ جارٍ التحضير',shipped:'🚚 في الطريق',delivered:'📦 وصل',cancelled:'❌ ملغي'};
+  const STATUS_COLOR:Record<string,string>={pending:'#F59E0B',approved:'#16A34A',processing:'#F59E0B',shipped:'#16A34A',delivered:'#16A34A',cancelled:'#EF4444'};
 
-  useEffect(() => { if (open) { setUnread(0); endRef.current?.scrollIntoView(); } }, [msgs, open]);
-
-  const send = async (msg?: string) => {
-    const text = msg || input.trim();
-    if (!text) return;
-    setInput('');
-    const newMsg: ChatMsg = { role:'user', content:text };
-    setMsgs(m => [...m, newMsg]);
-    setLoading(true);
-    try {
-      const r = await fetch('/api/ai/public-reply', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ message: text, history: msgs.slice(-8).map(m=>({role:m.role,content:m.content})), userId }),
-      });
-      const data = await r.json();
-      const aiMsg: ChatMsg = { role:'ai', content: data.reply, product: data.product };
-      setMsgs(m => [...m, aiMsg]);
-      if (!open) setUnread(n => n+1);
-    } catch { setMsgs(m => [...m, { role:'ai', content:'عذراً، حدث خطأ في الاتصال. حاول مرة أخرى.' }]); }
-    setLoading(false);
+  const search=async()=>{
+    if(!query.trim())return;
+    setLoading(true);setSingleOrder(null);setOrders([]);
+    try{
+      if(mode==='code'){const r=await fetch(`/api/orders/track-code/${encodeURIComponent(query.trim().toUpperCase())}?userId=${userId}`);const d=await r.json();if(r.ok)setSingleOrder(d);else setOrders([]);}
+      else{const r=await fetch(`/api/orders/track/${encodeURIComponent(query.trim())}?userId=${userId}`);const d=await r.json();setOrders(Array.isArray(d)?d:[]);}
+    }catch{}
+    setSearched(true);setLoading(false);
   };
 
   return (
-    <>
-      {/* FAB */}
-      <button onClick={()=>setOpen(v=>!v)} style={{
-        width:56, height:56, borderRadius:'50%',
-        background:'var(--ember)',
-        border:'none', cursor:'pointer',
-        display:'flex', alignItems:'center', justifyContent:'center',
-        boxShadow:'0 4px 20px rgba(255,106,0,.5)',
-        animation: open ? 'none' : 'pulse-chat 2s infinite',
-        transition:'all .2s',
-        position:'fixed', bottom:24, left:24, zIndex:200,
-        color:'#fff',
-      }}>
-        {open ? <X size={22}/> : <Bot size={22}/>}
-        {unread > 0 && !open && (
-          <div style={{ position:'absolute',top:-4,right:-4,width:18,height:18,background:'var(--mint)',borderRadius:'50%',fontSize:11,fontWeight:900,display:'flex',alignItems:'center',justifyContent:'center',border:'2px solid var(--void)' }}>{unread}</div>
-        )}
-      </button>
-
-      {/* Chat panel */}
-      {open && (
-        <div style={{
-          position:'fixed',bottom:92,left:16,right:16,maxWidth:360,marginLeft:'auto',
-          background:'var(--panel)',border:'1px solid var(--border2)',borderRadius:'var(--r-xl)',
-          boxShadow:'0 16px 48px rgba(0,0,0,.5)',zIndex:200,overflow:'hidden',
-          animation:'fade-up .2s ease',
-          display:'flex',flexDirection:'column',maxHeight:460,
-        }}>
-          {/* Header */}
-          <div style={{ padding:'12px 16px',background:'var(--ember)',display:'flex',alignItems:'center',gap:10 }}>
-            <div style={{ width:32,height:32,borderRadius:'50%',background:'rgba(255,255,255,.2)',display:'flex',alignItems:'center',justifyContent:'center' }}><Bot size={16} style={{ color:'#fff' }}/></div>
-            <div>
-              <div style={{ fontSize:13,fontWeight:700,color:'#fff' }}>مساعد {storeInfo.brand.name}</div>
-              <div style={{ fontSize:10,color:'rgba(255,255,255,.7)' }}>متاح الآن · يرد بالدارجة</div>
-            </div>
-          </div>
-
-          {/* Messages */}
-          <div style={{ flex:1,overflow:'auto',padding:'12px',display:'flex',flexDirection:'column',gap:10 }}>
-            {msgs.map((m,i) => (
-              <div key={i} style={{ maxWidth:'85%', alignSelf:m.role==='user'?'flex-end':'flex-start' }}>
-                <div className={m.role==='ai'?'bubble-ai':'bubble-out'}
-                  style={{ whiteSpace:'pre-wrap', fontSize:12 }}>
-                  {m.content}
-                </div>
-              </div>
-            ))}
-            {loading && (
-              <div className="bubble-ai" style={{ fontSize:12,color:'var(--ink3)',alignSelf:'flex-start' }}>
-                <span style={{ animation:'blink 1s infinite' }}>يكتب...</span>
-              </div>
-            )}
-            <div ref={endRef} />
-          </div>
-
-          {/* Quick replies */}
-          <div style={{ padding:'8px 10px',display:'flex',gap:6,flexWrap:'wrap',borderTop:'1px solid var(--border)' }}>
-            {['اشوف المنتجات','بكام التوصيل؟','تتبع طلبي'].map(q=>(
-              <button key={q} onClick={()=>send(q)} style={{ fontSize:10,padding:'4px 9px',borderRadius:99,background:'var(--panel2)',border:'1px solid var(--border2)',color:'var(--ink2)',cursor:'pointer' }}>{q}</button>
-            ))}
-          </div>
-
-          {/* Input */}
-          <div style={{ padding:'8px 10px',borderTop:'1px solid var(--border)',display:'flex',gap:8 }}>
-            <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&!e.shiftKey&&send()}
-              placeholder="اكتب سؤالك..." className="glass-input"
-              style={{ flex:1,padding:'7px 12px',fontSize:12 }} />
-            <button onClick={()=>send()} disabled={!input.trim()||loading}
-              style={{ width:34,height:34,borderRadius:'50%',background:'var(--ember)',border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',opacity:(!input.trim()||loading)?0.5:1 }}>
-              <Send size={14} style={{ color:'#fff' }}/>
-            </button>
-          </div>
+    <div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',backdropFilter:'blur(6px)',zIndex:300,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
+      <div onClick={e=>e.stopPropagation()} style={{background:'var(--sf-surface)',borderRadius:20,width:'100%',maxWidth:440,padding:24,boxShadow:'var(--sf-shadow-lg)'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
+          <h2 style={{fontSize:18,fontWeight:900,color:'var(--sf-text)'}}>📦 تتبع طلبك</h2>
+          <button onClick={onClose} style={{width:32,height:32,borderRadius:8,background:'var(--sf-surface2)',border:'1px solid var(--sf-border)',cursor:'pointer',color:'var(--sf-text2)',display:'flex',alignItems:'center',justifyContent:'center'}}><X size={14}/></button>
         </div>
-      )}
-    </>
-  );
-}
-
-/* Order Tracking */
-function TrackingModal({ userId, storeInfo, onClose }: { userId:string; storeInfo:StoreInfo; onClose:()=>void }) {
-  const [query, setQuery] = useState('');
-  const [mode, setMode] = useState<'phone'|'code'>('code');
-  const [orders, setOrders] = useState<any[]>([]);
-  const [singleOrder, setSingleOrder] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
-  const [searched, setSearched] = useState(false);
-  const cur = storeInfo.brand.currency || 'MAD';
-
-  const STATUS_AR: Record<string,string> = { pending:'⏳ بانتظار التأكيد', approved:'✅ تم التأكيد', processing:'⚙️ جارٍ التحضير', shipped:'🚚 في الطريق', delivered:'📦 وصل', cancelled:'❌ ملغي' };
-  const STATUS_COLOR: Record<string,string> = { pending:'var(--gold)', approved:'var(--mint)', processing:'var(--gold)', shipped:'var(--mint)', delivered:'var(--mint)', cancelled:'var(--ember)' };
-
-  const search = async () => {
-    if (!query.trim()) return;
-    setLoading(true);
-    setSingleOrder(null);
-    setOrders([]);
-    try {
-      if (mode === 'code') {
-        // Track by customer code
-        const r = await fetch(`/api/orders/track-code/${encodeURIComponent(query.trim().toUpperCase())}?userId=${userId}`);
-        const data = await r.json();
-        if (r.ok) setSingleOrder(data);
-        else setOrders([]);
-      } else {
-        // Track by phone
-        const r = await fetch(`/api/orders/track/${encodeURIComponent(query.trim())}?userId=${userId}`);
-        const data = await r.json();
-        setOrders(Array.isArray(data) ? data : []);
-      }
-    } catch {}
-    setSearched(true);
-    setLoading(false);
-  };
-
-  return (
-    <div onClick={onClose} style={{ position:'fixed',inset:0,background:'rgba(0,0,0,.7)',backdropFilter:'blur(6px)',zIndex:300,display:'flex',alignItems:'center',justifyContent:'center',padding:16 }}>
-      <div onClick={e=>e.stopPropagation()} style={{ background:'var(--panel)',borderRadius:'var(--r-xl)',width:'100%',maxWidth:440,padding:24 }}>
-        <div style={{ display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20 }}>
-          <h2 style={{ fontSize:18,fontWeight:900,color:'var(--ink1)' }}>📦 تتبع طلبك</h2>
-          <button onClick={onClose} style={{ width:30,height:30,borderRadius:8,background:'var(--panel2)',border:'1px solid var(--border)',cursor:'pointer',color:'var(--ink2)',display:'flex',alignItems:'center',justifyContent:'center' }}><X size={14}/></button>
-        </div>
-        {/* Mode toggle */}
-        <div style={{ display:'flex',gap:6,marginBottom:12 }}>
+        <div style={{display:'flex',gap:6,marginBottom:12}}>
           {[['code','🔑 كود التتبع'],['phone','📱 رقم الهاتف']].map(([m,l])=>(
-            <button key={m} onClick={()=>{setMode(m as 'code'|'phone');setQuery('');setSearched(false);setSingleOrder(null);setOrders([])}}
-              style={{ flex:1,padding:'7px',borderRadius:8,border:`1.5px solid ${mode===m?'var(--ember)':'var(--border)'}`,background:mode===m?'rgba(255,106,0,.1)':'var(--void2)',color:mode===m?'var(--ember2)':'var(--ink3)',fontSize:12,fontWeight:700,cursor:'pointer' }}>
-              {l}
-            </button>
+            <button key={m} onClick={()=>{setMode(m as any);setQuery('');setSearched(false);setSingleOrder(null);setOrders([]);}} style={{flex:1,padding:'8px',borderRadius:9,border:`1.5px solid ${mode===m?'var(--sf-primary)':'var(--sf-border)'}`,background:mode===m?'var(--sf-p10)':'var(--sf-surface2)',color:mode===m?'var(--sf-primary)':'var(--sf-text3)',fontSize:12,fontWeight:700,cursor:'pointer'}}>{l}</button>
           ))}
         </div>
-        <div style={{ display:'flex',gap:8,marginBottom:16 }}>
-          <input className="glass-input"
-            placeholder={mode==='code'?'أدخل كودك مثل: AB12CD':'أدخل رقم هاتفك'}
-            value={query} onChange={e=>setQuery(e.target.value)}
-            onKeyDown={e=>e.key==='Enter'&&search()}
-            dir={mode==='code'?'ltr':'ltr'}
-            style={{ flex:1,textTransform:mode==='code'?'uppercase':'none' }} />
-          <button onClick={search} disabled={loading} style={{ padding:'8px 18px',background:'var(--ember)',border:'none',borderRadius:10,color:'#fff',fontWeight:700,cursor:'pointer',fontSize:14 }}>
-            {loading?'⟳':'بحث'}
-          </button>
+        <div style={{display:'flex',gap:8,marginBottom:16}}>
+          <input placeholder={mode==='code'?'أدخل كودك مثل: AB12CD':'أدخل رقم هاتفك'} value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>e.key==='Enter'&&search()} dir="ltr"
+            style={{flex:1,padding:'10px 14px',borderRadius:10,border:'1.5px solid var(--sf-border)',background:'var(--sf-surface)',color:'var(--sf-text)',fontSize:13,outline:'none',textTransform:mode==='code'?'uppercase':'none',fontFamily:'Tajawal,sans-serif'}}/>
+          <button onClick={search} disabled={loading} style={{padding:'8px 18px',background:'var(--sf-primary)',border:'none',borderRadius:10,color:'#fff',fontWeight:700,cursor:'pointer',fontSize:14,flexShrink:0}}>{loading?'⟳':'بحث'}</button>
         </div>
-        {searched && !singleOrder && orders.length === 0 && (
-          <p style={{ color:'var(--ink3)',textAlign:'center',fontSize:13,padding:'12px 0' }}>
-            {mode==='code'?'لم نجد طلباً بهذا الكود':'لم نجد طلبات بهذا الرقم'}
-          </p>
-        )}
-        {/* Single order by code */}
-        {singleOrder && (
-          <div style={{ background:'rgba(0,200,150,.06)',border:'2px solid rgba(0,200,150,.25)',borderRadius:14,padding:'16px' }}>
-            <div style={{ display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10 }}>
-              <span style={{ fontSize:14,fontWeight:900,color:'var(--ink1)' }}>طلبك</span>
-              <span style={{ fontSize:13,fontWeight:800,color:STATUS_COLOR[singleOrder.status]||'var(--ink2)' }}>{STATUS_AR[singleOrder.status]||singleOrder.status}</span>
+        {searched&&!singleOrder&&orders.length===0&&<p style={{color:'var(--sf-text3)',textAlign:'center',fontSize:13,padding:'12px 0'}}>لم نجد طلبات</p>}
+        {singleOrder&&(
+          <div style={{background:'#ECFDF5',border:'1px solid #BBF7D0',borderRadius:12,padding:'14px'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+              <span style={{fontSize:14,fontWeight:900,color:'var(--sf-text)'}}>طلبك</span>
+              <span style={{fontSize:13,fontWeight:800,color:STATUS_COLOR[singleOrder.status]||'var(--sf-text2)'}}>{STATUS_AR[singleOrder.status]||singleOrder.status}</span>
             </div>
-            {(singleOrder.items||[]).map((item:any,i:number)=>(
-              <div key={i} style={{ fontSize:13,color:'var(--ink2)',marginBottom:4 }}>• {item.productName} × {item.quantity}</div>
-            ))}
-            <div style={{ display:'flex',justifyContent:'space-between',marginTop:10,paddingTop:8,borderTop:'1px solid var(--border)' }}>
-              <span style={{ fontSize:11,color:'var(--ink3)' }}>{singleOrder.city}</span>
-              <span style={{ fontSize:14,fontWeight:700,color:'var(--ember)' }}>{singleOrder.total} {cur}</span>
+            {(singleOrder.items||[]).map((item:any,i:number)=><div key={i} style={{fontSize:12,color:'var(--sf-text2)',marginBottom:3}}>• {item.productName} × {item.quantity}</div>)}
+            <div style={{display:'flex',justifyContent:'space-between',marginTop:8,paddingTop:8,borderTop:'1px solid #BBF7D0'}}>
+              <span style={{fontSize:11,color:'var(--sf-text3)'}}>{singleOrder.city}</span>
+              <span style={{fontSize:14,fontWeight:700,color:'var(--sf-primary)'}}>{singleOrder.total} {cur}</span>
             </div>
-            {singleOrder.trackingNumber && <div style={{ marginTop:6,fontSize:12,color:'var(--mint)',fontWeight:700 }}>🚚 رقم التتبع: {singleOrder.trackingNumber}</div>}
           </div>
         )}
-        {orders.map(o=>(
-          <div key={o.id} style={{ background:'var(--void2)',borderRadius:'var(--r)',padding:'14px 16px',marginBottom:10,border:'1px solid var(--border)' }}>
-            <div style={{ display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8 }}>
-              <span style={{ fontSize:11,color:'var(--ink3)',fontFamily:'var(--font-mono)' }}>{o.id}</span>
-              <span style={{ fontSize:12,fontWeight:700,color:STATUS_COLOR[o.status]||'var(--ink2)' }}>{STATUS_AR[o.status]||o.status}</span>
+        {orders.map((o:any)=>(
+          <div key={o.id} style={{background:'var(--sf-surface2)',borderRadius:12,padding:'12px 14px',marginBottom:8,border:'1px solid var(--sf-border)'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
+              <span style={{fontSize:10,color:'var(--sf-text3)',fontFamily:'monospace'}}>{o.id}</span>
+              <span style={{fontSize:12,fontWeight:700,color:STATUS_COLOR[o.status]||'var(--sf-text2)'}}>{STATUS_AR[o.status]||o.status}</span>
             </div>
-            {(o.items||[]).map((item:any,i:number)=>(
-              <div key={i} style={{ fontSize:12,color:'var(--ink2)',marginBottom:3 }}>• {item.productName} x{item.quantity}</div>
-            ))}
-            <div style={{ display:'flex',justifyContent:'space-between',marginTop:8,fontSize:12 }}>
-              <span style={{ color:'var(--ink3)' }}>{new Date(o.createdAt).toLocaleDateString('ar-MA')}</span>
-              <span style={{ fontWeight:700,color:'var(--ink1)' }}>{o.total} {cur}</span>
+            {(o.items||[]).map((item:any,i:number)=><div key={i} style={{fontSize:12,color:'var(--sf-text2)',marginBottom:2}}>• {item.productName} x{item.quantity}</div>)}
+            <div style={{display:'flex',justifyContent:'space-between',marginTop:6,fontSize:12}}>
+              <span style={{color:'var(--sf-text3)'}}>{new Date(o.createdAt).toLocaleDateString('ar-MA')}</span>
+              <span style={{fontWeight:700,color:'var(--sf-primary)'}}>{o.total} {cur}</span>
             </div>
-            {o.trackingNumber && <div style={{ marginTop:6,fontSize:11,color:'var(--mint)' }}>🚚 رقم التتبع: {o.trackingNumber}</div>}
           </div>
         ))}
       </div>
@@ -1467,573 +770,491 @@ function TrackingModal({ userId, storeInfo, onClose }: { userId:string; storeInf
   );
 }
 
-// ══════════════════════════════════════════════
-// MAIN STOREFRONT
-// ══════════════════════════════════════════════
+// ─── FLOATING CHAT ────────────────────────────────────────────────────────────
+function FloatingChat({userId,storeInfo}:{userId:string;storeInfo:StoreInfo}) {
+  const [open,setOpen]=useState(false);
+  const [msgs,setMsgs]=useState<ChatMsg[]>([{role:'ai',content:`مرحباً! 👋 أنا مساعد ${storeInfo.brand.name||'المتجر'} الذكي.\nكيف يمكنني مساعدتك؟`}]);
+  const [input,setInput]=useState('');
+  const [loading,setLoading]=useState(false);
+  const [unread,setUnread]=useState(0);
+  const endRef=useRef<HTMLDivElement>(null);
+  useEffect(()=>{if(open){setUnread(0);endRef.current?.scrollIntoView();}}, [msgs,open]);
+  const send=async(msg?:string)=>{
+    const text=msg||input.trim();if(!text)return;setInput('');
+    setMsgs(m=>[...m,{role:'user',content:text}]);setLoading(true);
+    try{
+      const r=await fetch('/api/ai/public-reply',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,history:msgs.slice(-8).map(m=>({role:m.role,content:m.content})),userId})});
+      const d=await r.json();setMsgs(m=>[...m,{role:'ai',content:d.reply,product:d.product}]);
+      if(!open)setUnread(n=>n+1);
+    }catch{setMsgs(m=>[...m,{role:'ai',content:'عذراً، حدث خطأ. حاول مرة أخرى.'}]);}
+    setLoading(false);
+  };
+  return (<>
+    <button onClick={()=>setOpen(v=>!v)} style={{width:54,height:54,borderRadius:'50%',background:'var(--sf-primary)',border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 4px 20px rgba(255,106,0,.45)',position:'fixed',bottom:28,left:20,zIndex:200,color:'#fff',transition:'all .2s'}}>
+      {open?<X size={22}/>:<Bot size={22}/>}
+      {unread>0&&!open&&<div style={{position:'absolute',top:-4,right:-4,width:18,height:18,background:'#EF4444',borderRadius:'50%',fontSize:11,fontWeight:900,display:'flex',alignItems:'center',justifyContent:'center',border:'2px solid white'}}>{unread}</div>}
+    </button>
+    {open&&(
+      <div style={{position:'fixed',bottom:96,left:16,right:16,maxWidth:360,marginLeft:'auto',background:'var(--sf-surface)',border:'1px solid var(--sf-border)',borderRadius:20,boxShadow:'var(--sf-shadow-lg)',zIndex:200,overflow:'hidden',display:'flex',flexDirection:'column',maxHeight:460}}>
+        <div style={{padding:'12px 16px',background:'var(--sf-primary)',display:'flex',alignItems:'center',gap:10}}>
+          <div style={{width:32,height:32,borderRadius:'50%',background:'rgba(255,255,255,.2)',display:'flex',alignItems:'center',justifyContent:'center'}}><Bot size={16} color="#fff"/></div>
+          <div><div style={{fontSize:13,fontWeight:700,color:'#fff'}}>مساعد {storeInfo.brand.name}</div><div style={{fontSize:10,color:'rgba(255,255,255,.7)'}}>متاح الآن</div></div>
+          <button onClick={()=>setOpen(false)} style={{marginRight:'auto',background:'none',border:'none',cursor:'pointer',color:'rgba(255,255,255,.8)',display:'flex',alignItems:'center',justifyContent:'center'}}><X size={16}/></button>
+        </div>
+        <div style={{flex:1,overflow:'auto',padding:'12px',display:'flex',flexDirection:'column',gap:8}}>
+          {msgs.map((m,i)=>(
+            <div key={i} style={{maxWidth:'85%',alignSelf:m.role==='user'?'flex-end':'flex-start'}}>
+              <div style={{padding:'8px 12px',borderRadius:m.role==='user'?'14px 14px 4px 14px':'14px 14px 14px 4px',background:m.role==='user'?'var(--sf-primary)':'var(--sf-surface2)',color:m.role==='user'?'#fff':'var(--sf-text)',fontSize:12,lineHeight:1.5,whiteSpace:'pre-wrap'}}>{m.content}</div>
+            </div>
+          ))}
+          {loading&&<div style={{padding:'8px 12px',borderRadius:'14px 14px 14px 4px',background:'var(--sf-surface2)',color:'var(--sf-text3)',fontSize:12,alignSelf:'flex-start'}}>يكتب...</div>}
+          <div ref={endRef}/>
+        </div>
+        <div style={{padding:'6px 10px',display:'flex',gap:5,flexWrap:'wrap',borderTop:'1px solid var(--sf-border)'}}>
+          {['اشوف المنتجات','بكام التوصيل؟','تتبع طلبي'].map(q=>(
+            <button key={q} onClick={()=>send(q)} style={{fontSize:10,padding:'4px 9px',borderRadius:99,background:'var(--sf-surface2)',border:'1px solid var(--sf-border)',color:'var(--sf-text2)',cursor:'pointer'}}>{q}</button>
+          ))}
+        </div>
+        <div style={{padding:'8px 10px',borderTop:'1px solid var(--sf-border)',display:'flex',gap:8}}>
+          <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&!e.shiftKey&&send()} placeholder="اكتب سؤالك..."
+            style={{flex:1,padding:'7px 12px',fontSize:12,borderRadius:10,border:'1px solid var(--sf-border)',background:'var(--sf-surface)',color:'var(--sf-text)',outline:'none',fontFamily:'Tajawal,sans-serif'}}/>
+          <button onClick={()=>send()} disabled={!input.trim()||loading} style={{width:34,height:34,borderRadius:'50%',background:'var(--sf-primary)',border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',opacity:(!input.trim()||loading)?.5:1}}><Send size={14} color="#fff"/></button>
+        </div>
+      </div>
+    )}
+  </>);
+}
+
+// ─── SCROLL TO TOP ────────────────────────────────────────────────────────────
+function ScrollToTop() {
+  const [show,setShow]=useState(false);
+  useEffect(()=>{const h=()=>setShow(window.scrollY>400);window.addEventListener('scroll',h);return()=>window.removeEventListener('scroll',h);},[]);
+  if(!show)return null;
+  return (
+    <button onClick={()=>window.scrollTo({top:0,behavior:'smooth'})} style={{position:'fixed',bottom:100,right:20,zIndex:150,width:42,height:42,borderRadius:'50%',background:'var(--sf-surface)',border:'1px solid var(--sf-border)',color:'var(--sf-primary)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'var(--sf-shadow-lg)',transition:'all .2s'}}><ChevronUp size={18}/></button>
+  );
+}
+
+// ─── FILTER DRAWER ────────────────────────────────────────────────────────────
+function FilterDrawer({onClose,priceMin,priceMax,setPriceMin,setPriceMax,typeFilter,setTypeFilter,sortBy,setSortBy,maxP}:{onClose:()=>void;priceMin:number;priceMax:number;setPriceMin:(v:number)=>void;setPriceMax:(v:number)=>void;typeFilter:string;setTypeFilter:(v:string)=>void;sortBy:string;setSortBy:(v:any)=>void;maxP:number}) {
+  const [lMin,setLMin]=useState(priceMin);
+  const [lMax,setLMax]=useState(priceMax||maxP);
+  const apply=()=>{setPriceMin(lMin);setPriceMax(lMax>=maxP?0:lMax);onClose();};
+  const reset=()=>{setLMin(0);setLMax(maxP);setPriceMin(0);setPriceMax(0);setTypeFilter('all');onClose();};
+  return (
+    <div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.45)',backdropFilter:'blur(4px)',zIndex:400,display:'flex',alignItems:'flex-end',justifyContent:'center'}}>
+      <div onClick={e=>e.stopPropagation()} style={{width:'100%',maxWidth:520,background:'var(--sf-surface)',borderRadius:'22px 22px 0 0',padding:'20px 20px 32px'}}>
+        <div style={{width:40,height:4,background:'var(--sf-border)',borderRadius:99,margin:'0 auto 18px'}}/>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
+          <h3 style={{fontSize:16,fontWeight:900,color:'var(--sf-text)',display:'flex',alignItems:'center',gap:8}}><SlidersHorizontal size={16} color="var(--sf-primary)"/> الفلاتر</h3>
+          <button onClick={reset} style={{fontSize:12,color:'var(--sf-primary)',background:'var(--sf-p10)',border:'none',cursor:'pointer',fontWeight:700,padding:'4px 12px',borderRadius:8}}>إعادة تعيين</button>
+        </div>
+        <div style={{marginBottom:20}}>
+          <div style={{fontSize:12,fontWeight:700,color:'var(--sf-text3)',marginBottom:10}}>نوع المنتج</div>
+          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+            {[['all','🛍️ الكل'],['product','📦 منتجات'],['service','🔧 خدمات'],['digital','💻 رقمي']].map(([v,l])=>(
+              <button key={v} onClick={()=>setTypeFilter(v)} style={{padding:'7px 14px',borderRadius:99,border:`1.5px solid ${typeFilter===v?'var(--sf-primary)':'var(--sf-border)'}`,background:typeFilter===v?'var(--sf-p10)':'var(--sf-surface2)',color:typeFilter===v?'var(--sf-primary)':'var(--sf-text2)',fontSize:12,fontWeight:700,cursor:'pointer'}}>{l}</button>
+            ))}
+          </div>
+        </div>
+        <div style={{marginBottom:20}}>
+          <div style={{fontSize:12,fontWeight:700,color:'var(--sf-text3)',marginBottom:10}}>السعر: <span style={{color:'var(--sf-primary)'}}>{lMin} — {lMax>=maxP?'∞':lMax} {}</span></div>
+          <div style={{display:'flex',gap:12}}>
+            <div style={{flex:1}}><div style={{fontSize:10,color:'var(--sf-text3)',marginBottom:4}}>من</div><input type="range" min={0} max={maxP} step={10} value={lMin} onChange={e=>setLMin(Math.min(+e.target.value,lMax-10))} style={{width:'100%',accentColor:'var(--sf-primary)'}}/></div>
+            <div style={{flex:1}}><div style={{fontSize:10,color:'var(--sf-text3)',marginBottom:4}}>إلى</div><input type="range" min={0} max={maxP} step={10} value={lMax} onChange={e=>setLMax(Math.max(+e.target.value,lMin+10))} style={{width:'100%',accentColor:'var(--sf-primary)'}}/></div>
+          </div>
+        </div>
+        <div style={{marginBottom:24}}>
+          <div style={{fontSize:12,fontWeight:700,color:'var(--sf-text3)',marginBottom:10}}>الترتيب</div>
+          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+            {[['popular','🔥 الأكثر طلباً'],['newest','✨ الأحدث'],['price-asc','💰 الأقل سعراً'],['price-desc','💎 الأعلى سعراً']].map(([v,l])=>(
+              <button key={v} onClick={()=>setSortBy(v)} style={{padding:'7px 12px',borderRadius:99,border:`1.5px solid ${sortBy===v?'var(--sf-primary)':'var(--sf-border)'}`,background:sortBy===v?'var(--sf-p10)':'var(--sf-surface2)',color:sortBy===v?'var(--sf-primary)':'var(--sf-text2)',fontSize:12,fontWeight:700,cursor:'pointer'}}>{l}</button>
+            ))}
+          </div>
+        </div>
+        <button onClick={apply} style={{width:'100%',height:48,background:'var(--sf-primary)',border:'none',borderRadius:14,color:'#fff',fontSize:15,fontWeight:700,cursor:'pointer',boxShadow:'0 4px 16px rgba(255,106,0,.3)'}}>تطبيق</button>
+      </div>
+    </div>
+  );
+}
+
+
+// ─── MAIN STOREFRONT ──────────────────────────────────────────────────────────
 export default function Storefront() {
-  // Get userId from URL or window
-  const userId = (() => {
-    // From URL path: /store/USER_ID
-    const path = window.location.pathname;
-    const match = path.match(/\/store\/([^\/\?]+)/);
-    if (match) return match[1];
-    // From query string: ?userId=XXX or ?user=XXX
-    const params = new URLSearchParams(window.location.search);
-    const qId = params.get('userId') || params.get('user') || params.get('id');
-    if (qId) return qId;
-    // From hash: #USER_ID
-    const hash = window.location.hash.replace('#', '');
-    if (hash && hash.length > 5) return hash;
+  const userId=(()=>{
+    const path=window.location.pathname;
+    const m=path.match(/\/store\/([^\/\?]+)/);if(m)return m[1];
+    const p=new URLSearchParams(window.location.search);
+    const q=p.get('userId')||p.get('user')||p.get('id');if(q)return q;
+    const h=window.location.hash.replace('#','');if(h&&h.length>5)return h;
     return '';
   })();
 
-  const { products, storeInfo, loading, error } = useStorefront(userId);
-  const cart = useCart();
+  const {products,storeInfo,loading,error}=useStorefront(userId);
+  const cart=useCart();
 
-  const [lang, setLang]          = useState<'ar'|'fr'>('ar');
-  const t = (ar: string, fr: string) => lang === 'ar' ? ar : fr;
-  const [search,     setSearch]     = useState('');
-  const [activeTab,  setActiveTab]  = useState('all');
-  const [sortBy,     setSortBy]     = useState<'popular'|'newest'|'price-asc'|'price-desc'>('popular');
-  const [viewProduct,setViewProduct]= useState<SProduct|null>(null);
-  const [viewMode, setViewMode]    = useState<'grid'|'list'>('grid');
-  const [priceMin, setPriceMin]    = useState(0);
-  const [priceMax, setPriceMax]    = useState(0); // 0 = no filter
-  const [typeFilter, setTypeFilter] = useState('all');
+  const [search,setSearch]=useState('');
+  const [activeTab,setActiveTab]=useState('all');
+  const [sortBy,setSortBy]=useState<'popular'|'newest'|'price-asc'|'price-desc'>('popular');
+  const [viewProduct,setViewProduct]=useState<SProduct|null>(null);
+  const [priceMin,setPriceMin]=useState(0);
+  const [priceMax,setPriceMax]=useState(0);
+  const [typeFilter,setTypeFilter]=useState('all');
   const [showFilters,setShowFilters]=useState(false);
-  const [showCart,   setShowCart]   = useState(false);
-  const [showTrack,  setShowTrack]  = useState(false);
-  const [cartAnim,   setCartAnim]   = useState(false);
-  const [successOrderId,setSuccessOrderId] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [showCart,setShowCart]=useState(false);
+  const [showTrack,setShowTrack]=useState(false);
+  const [cartAnim,setCartAnim]=useState(false);
+  const [successOrderId,setSuccessOrderId]=useState('');
+  const [selectedCategory,setSelectedCategory]=useState('all');
 
-  const handleAddToCart = (p: SProduct, size?: string, color?: string) => {
-    cart.add(p, size||p.sizes?.[0]||'', color||p.colors?.[0]||'');
-    setCartAnim(true);
-    setTimeout(() => setCartAnim(false), 600);
+  const maxP=useMemo(()=>Math.max(...products.map(p=>p.price),500),[products]);
+  const handleAddToCart=(p:SProduct,size?:string,color?:string)=>{
+    cart.add(p,size||p.sizes?.[0]||'',color||p.colors?.[0]||'');
+    setCartAnim(true);setTimeout(()=>setCartAnim(false),600);
   };
 
-  // Expose products globally for related products in modal
-  useEffect(() => { (window as any).__sfProducts = products; }, [products]);
+  useEffect(()=>{(window as any).__sfProducts=products;},[products]);
+  useEffect(()=>{
+    if(!products.length)return;
+    const pid=new URLSearchParams(window.location.search).get('p');
+    if(pid){const f=products.find(x=>x.id===pid);if(f)setViewProduct(f);}
+  },[products]);
+  useEffect(()=>{if(viewProduct)trackStoreEvent(userId,'view',{id:viewProduct.id,name:viewProduct.name});},[viewProduct?.id]);
 
-  // Handle ?p= URL param — auto-open product
-  useEffect(() => {
-    if (!products.length) return;
-    const pid = new URLSearchParams(window.location.search).get('p');
-    if (pid) { const found = products.find(x => x.id === pid); if (found) setViewProduct(found); }
-  }, [products]);
+  const trackViewed=useCallback((p:SProduct)=>{
+    try{const k=`sahar_viewed_${userId}`;const prev:string[]=JSON.parse(localStorage.getItem(k)||'[]');localStorage.setItem(k,JSON.stringify([p.id,...prev.filter(id=>id!==p.id)].slice(0,20)));}catch{}
+  },[userId]);
 
-  // Track product views (any entry point) to backend analytics
-  useEffect(() => {
-    if (viewProduct) trackStoreEvent(userId, 'view', { id: viewProduct.id, name: viewProduct.name });
-  }, [viewProduct?.id]);
+  const allProducts=products.filter(p=>(!p.type||p.type==='product'));
+  const allServices=products.filter(p=>p.type==='service');
+  const allDigital=products.filter(p=>p.type==='digital');
+  const categories=['all',...Array.from(new Set(products.map(p=>p.category).filter(Boolean)))];
 
-  // Track recently viewed (persisted in localStorage)
-  const trackViewed = useCallback((p: SProduct) => {
-    try {
-      const key = `sahar_viewed_${userId}`;
-      const prev: string[] = JSON.parse(localStorage.getItem(key) || '[]');
-      const next = [p.id, ...prev.filter(id => id !== p.id)].slice(0, 20);
-      localStorage.setItem(key, JSON.stringify(next));
-    } catch {}
-  }, [userId]);
-
-  const categories = ['all', ...Array.from(new Set(products.map(p=>p.category).filter(Boolean)))];
-
-  const heroCategories = useMemo(() => {
-    const cats = [...new Set(products.map(p => p.category).filter(Boolean))];
-    return cats;
-  }, [products]);
-
-  // Map category names (Arabic) to image files in /categories/
-  // User drops their PNG files here: public/categories/<key>.png
-  const CAT_IMAGE_MAP: Record<string, string> = {
-    'أحذية':           '/categories/shoes',
-    'أحذية رياضية':    '/categories/shoes',
-    'shoes':           '/categories/shoes',
-    'ملابس نسائية':    '/categories/women',
-    'نسائي':           '/categories/women',
-    'women':           '/categories/women',
-    'فساتين':          '/categories/women',
-    'ملابس رجالية':    '/categories/men',
-    'رجالي':           '/categories/men',
-    'men':             '/categories/men',
-    'بدلات':           '/categories/men',
-    'ملابس أطفال':     '/categories/kids',
-    'أطفال':           '/categories/kids',
-    'kids':            '/categories/kids',
-    'بيبي':            '/categories/kids',
-    'إكسسوارات':       '/categories/accessories',
-    'اكسسوارات':       '/categories/accessories',
-    'accessories':     '/categories/accessories',
-    'هدايا':           '/categories/accessories',
+  const filterBySearch=(list:SProduct[])=>list.filter(p=>
+    (!search||p.name.includes(search)||p.description?.includes(search)||p.sku?.includes(search))
+    &&(priceMax===0||p.price<=priceMax)&&(priceMin===0||p.price>=priceMin)
+    &&(activeTab==='all'||p.category===activeTab)
+    &&(selectedCategory==='all'||p.category===selectedCategory)
+  );
+  const sortList=(list:SProduct[])=>{
+    if(sortBy==='popular')return [...list].sort((a,b)=>b.sales-a.sales);
+    if(sortBy==='newest')return [...list].sort((a,b)=>new Date(b.createdAt||0).getTime()-new Date(a.createdAt||0).getTime());
+    if(sortBy==='price-asc')return [...list].sort((a,b)=>a.price-b.price);
+    if(sortBy==='price-desc')return [...list].sort((a,b)=>b.price-a.price);
+    return list;
   };
+  const filteredProducts=sortList(filterBySearch(typeFilter==='all'||typeFilter==='product'?allProducts:[]));
+  const filteredServices=sortList(filterBySearch(typeFilter==='all'||typeFilter==='service'?allServices:[]));
+  const filteredDigital=sortList(filterBySearch(typeFilter==='all'||typeFilter==='digital'?allDigital:[]));
+  const hasActiveFilter=priceMin>0||priceMax>0||typeFilter!=='all';
 
-  function getCatImage(cat: string): string | null {
-    const key = Object.keys(CAT_IMAGE_MAP).find(k => cat.includes(k) || k.includes(cat));
-    if (!key) return null;
-    return CAT_IMAGE_MAP[key];
-  }
-
-  const filteredProducts = selectedCategory === 'all'
-    ? products
-    : products.filter(p => p.category === selectedCategory);
-
-  const maxProductPrice = useMemo(() => Math.max(...products.map(p => p.price), 500), [products]);
-
-  let filtered = filteredProducts
-    .filter(p => (activeTab==='all' || p.category===activeTab)
-      && (!search || p.name.includes(search) || p.description?.includes(search) || p.sku?.includes(search) || (p.colors||[]).some(cl=>cl.includes(search)))
-      && (priceMax === 0 || p.price <= priceMax)
-      && (priceMin === 0 || p.price >= priceMin)
-      && (typeFilter === 'all' || (p.type || 'product') === typeFilter));
-
-  if (sortBy === 'popular')    filtered = [...filtered].sort((a,b) => b.sales - a.sales);
-  if (sortBy === 'newest')     filtered = [...filtered].sort((a,b) => new Date(b.createdAt||0).getTime() - new Date(a.createdAt||0).getTime());
-  if (sortBy === 'price-asc')  filtered = [...filtered].sort((a,b) => a.price - b.price);
-  if (sortBy === 'price-desc') filtered = [...filtered].sort((a,b) => b.price - a.price);
-
-  if (loading) return (
-    <div dir="rtl" style={{ minHeight:'100dvh',background:'var(--void)',padding:16,fontFamily:'Tajawal,system-ui,sans-serif' }}>
-      <style>{`
-        @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
-        .skel{background:linear-gradient(90deg,var(--void2) 25%,var(--panel) 50%,var(--void2) 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;border-radius:10px;}
-      `}</style>
-      {/* Header skeleton */}
-      <div style={{ height:56,background:'var(--panel)',borderRadius:16,marginBottom:16 }} className="skel"/>
-      {/* Hero skeleton */}
-      <div style={{ height:120,borderRadius:20,marginBottom:16 }} className="skel"/>
-      {/* Search skeleton */}
-      <div style={{ height:44,borderRadius:12,marginBottom:12 }} className="skel"/>
-      {/* Tabs skeleton */}
-      <div style={{ display:'flex',gap:8,marginBottom:16 }}>
-        {[80,100,90,110].map(w => <div key={w} style={{ width:w,height:32,borderRadius:99,flexShrink:0 }} className="skel"/>)}
-      </div>
-      {/* Products grid skeleton */}
-      <div style={{ display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(140px,1fr))',gap:14 }}>
-        {Array.from({length:8}).map((_,i) => (
-          <div key={i} style={{ borderRadius:20,overflow:'hidden' }}>
-            <div style={{ height:210 }} className="skel"/>
-            <div style={{ padding:'10px 12px',display:'flex',flexDirection:'column',gap:7 }}>
-              <div style={{ height:10,width:'60%' }} className="skel"/>
-              <div style={{ height:14,width:'90%' }} className="skel"/>
-              <div style={{ height:12,width:'40%' }} className="skel"/>
-            </div>
-          </div>
+  // ── Loading
+  if(loading) return (
+    <div dir="rtl" style={{...SF,minHeight:'100dvh',background:'var(--sf-bg)',padding:16,fontFamily:'Tajawal,system-ui,sans-serif'} as React.CSSProperties}>
+      <style>{`@keyframes sfshim{0%{background-position:200% 0}100%{background-position:-200% 0}}.sfsk{background:linear-gradient(90deg,#EAEAF2 25%,#F3F4F8 50%,#EAEAF2 75%);background-size:200% 100%;animation:sfshim 1.4s infinite;border-radius:10px;}`}</style>
+      <div style={{height:48,borderRadius:14,marginBottom:12}} className="sfsk"/>
+      <div style={{height:110,borderRadius:18,marginBottom:14}} className="sfsk"/>
+      <div style={{height:36,borderRadius:99,marginBottom:14}} className="sfsk"/>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+        {Array.from({length:6}).map((_,i)=>(
+          <div key={i} style={{borderRadius:16,overflow:'hidden'}}><div style={{height:180}} className="sfsk"/><div style={{padding:'10px 12px',display:'flex',flexDirection:'column',gap:6}}><div style={{height:10,width:'60%'}} className="sfsk"/><div style={{height:14,width:'90%'}} className="sfsk"/><div style={{height:18,width:'40%'}} className="sfsk"/></div></div>
         ))}
       </div>
     </div>
   );
 
-  if (!userId) return (
-    <div dir="rtl" style={{ minHeight:'100dvh',background:'var(--void)',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--ink2)',textAlign:'center',padding:24,flexDirection:'column',gap:20 }}>
-      <div style={{ fontSize:56 }}>🏪</div>
-      <div style={{ fontSize:22,fontWeight:900,color:'var(--ink1)' }}>متجر Sahar Shop</div>
-      <div style={{ fontSize:14,color:'var(--ink3)',maxWidth:360,lineHeight:1.8 }}>
-        مرحباً! للدخول لصفحة المتجر، اطلب من التاجر مشاركة رابط متجره الخاص معك عبر واتساب أو إنستغرام.
-      </div>
-      <div style={{ display:'flex',gap:12,flexWrap:'wrap',justifyContent:'center' }}>
-        <a href="/" style={{ padding:'10px 24px',background:'var(--ember)',borderRadius:10,color:'#fff',fontWeight:700,fontSize:14,textDecoration:'none' }}>
-          الصفحة الرئيسية
-        </a>
-        <a href="/login" style={{ padding:'10px 24px',background:'var(--panel)',border:'1px solid var(--border)',borderRadius:10,color:'var(--ink2)',fontWeight:700,fontSize:14,textDecoration:'none' }}>
-          دخول التاجر
-        </a>
-      </div>
+  // ── No userId
+  if(!userId) return (
+    <div dir="rtl" style={{...SF,minHeight:'100dvh',background:'var(--sf-bg)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:24,textAlign:'center',gap:16,fontFamily:'Tajawal,system-ui,sans-serif'} as React.CSSProperties}>
+      <div style={{fontSize:56}}>🏪</div>
+      <div style={{fontSize:22,fontWeight:900,color:'var(--sf-text)'}}>متجر SAHAR Shop</div>
+      <div style={{fontSize:14,color:'var(--sf-text3)',maxWidth:320,lineHeight:1.8}}>اطلب من التاجر مشاركة رابط متجره الخاص معك.</div>
+      <a href="/" style={{padding:'10px 24px',background:'var(--sf-primary)',borderRadius:12,color:'#fff',fontWeight:700,fontSize:14,textDecoration:'none'}}>الصفحة الرئيسية</a>
     </div>
   );
 
-  if (error || (!loading && !storeInfo)) return (
-    <div style={{ minHeight:'100dvh',background:'var(--void)',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--ink2)',textAlign:'center',padding:24 }}>
-      <div><div style={{ fontSize:40,marginBottom:16 }}>🏪</div><div style={{ fontSize:18,fontWeight:700,color:'var(--ink1)',marginBottom:8 }}>المتجر غير موجود</div><div style={{ fontSize:14 }}>{error||'تحقق من الرابط'}</div></div>
+  // ── Error
+  if(error||(!loading&&!storeInfo)) return (
+    <div dir="rtl" style={{...SF,minHeight:'100dvh',background:'var(--sf-bg)',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--sf-text2)',textAlign:'center',padding:24,fontFamily:'Tajawal,system-ui,sans-serif'} as React.CSSProperties}>
+      <div><div style={{fontSize:40,marginBottom:16}}>🏪</div><div style={{fontSize:18,fontWeight:700,color:'var(--sf-text)',marginBottom:8}}>المتجر غير موجود</div><div style={{fontSize:14}}>{error||'تحقق من الرابط'}</div></div>
     </div>
   );
 
-  const brand = storeInfo!.brand;
-  const cur   = brand.currency || 'MAD';
+  const brand=storeInfo!.brand;
+  const cur=brand.currency||'MAD';
 
-  // Empty store — merchant registered but no products yet
-  if (!loading && !error && storeInfo && products.length === 0) return (
-    <div dir="rtl" style={{ minHeight:'100dvh', background:'var(--void)', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'32px 24px', textAlign:'center', gap:0 }}>
-      {/* Zellige strip */}
-      <svg style={{ position:'fixed',top:0,left:0,width:'100%',height:28,pointerEvents:'none',zIndex:1 }} viewBox="0 0 800 28" preserveAspectRatio="xMidYMid slice">
-        {Array.from({length:40},(_,i)=>(
-          <polygon key={i} points={`${i*22-11},0 ${i*22},10 ${i*22-11},20 ${i*22-22},10`}
-            fill={['#FF6A00','#C9954C','#00C896','#FF6A00','#C9954C'][i%5]} opacity={0.35}/>
-        ))}
-      </svg>
-      {/* Logo */}
-      <div style={{ width:72,height:72,borderRadius:18,overflow:'hidden',background:'var(--panel)',border:'2px solid rgba(255,106,0,.25)',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:20,boxShadow:'0 4px 20px rgba(255,106,0,.15)' }}>
-        {brand.logo
-          ? <img src={brand.logo} alt="logo" style={{ width:'100%',height:'100%',objectFit:'contain' }}/>
-          : <span style={{ fontSize:32 }}>🏪</span>}
+  // ── Empty store
+  if(!loading&&!error&&storeInfo&&products.length===0) return (
+    <div dir="rtl" style={{...SF,minHeight:'100dvh',background:'var(--sf-bg)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'32px 24px',textAlign:'center',gap:0,fontFamily:'Tajawal,system-ui,sans-serif'} as React.CSSProperties}>
+      <div style={{width:72,height:72,borderRadius:18,overflow:'hidden',background:'var(--sf-surface)',border:'2px solid var(--sf-border)',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:20,boxShadow:'var(--sf-shadow)'}}>
+        {brand.logo?<img src={brand.logo} alt="logo" style={{width:'100%',height:'100%',objectFit:'contain'}}/>:<span style={{fontSize:32}}>🏪</span>}
       </div>
-      <h1 style={{ fontSize:'clamp(20px,5vw,28px)',fontWeight:900,color:'var(--ember)',marginBottom:8 }}>{brand.name || 'المتجر'}</h1>
-      {brand.description && <p style={{ fontSize:14,color:'var(--ink3)',maxWidth:320,lineHeight:1.7,marginBottom:4 }}>{brand.description}</p>}
-      {/* Big emoji */}
-      <div style={{ fontSize:72,margin:'24px 0 16px',lineHeight:1 }}>📦</div>
-      <h2 style={{ fontSize:20,fontWeight:800,color:'var(--ink1)',marginBottom:8 }}>المتجر قيد التجهيز</h2>
-      <p style={{ fontSize:14,color:'var(--ink3)',maxWidth:300,lineHeight:1.8,marginBottom:28 }}>
-        سيضاف المنتجات قريباً — تابعونا!
-        <br/>
-        <span style={{ fontSize:12,opacity:.7 }}>نعمل على تجهيز أفضل المنتجات لكم</span>
-      </p>
-      {/* Contact buttons */}
-      <div style={{ display:'flex',flexDirection:'column',gap:10,width:'100%',maxWidth:280 }}>
-        {brand.phone && (
-          <a href={`https://wa.me/${brand.phone.replace(/\D/g,'')}`} target="_blank" rel="noreferrer"
-            style={{ display:'flex',alignItems:'center',justifyContent:'center',gap:8,padding:'13px 20px',borderRadius:12,background:'rgba(37,211,102,.15)',border:'1px solid rgba(37,211,102,.35)',color:'#25D366',fontSize:14,fontWeight:700,textDecoration:'none' }}>
-            💬 تواصل معنا على واتساب
-          </a>
-        )}
-        {brand.instagram && (
-          <a href={`https://instagram.com/${brand.instagram}`} target="_blank" rel="noreferrer"
-            style={{ display:'flex',alignItems:'center',justifyContent:'center',gap:8,padding:'11px 20px',borderRadius:12,background:'rgba(225,48,108,.1)',border:'1px solid rgba(225,48,108,.25)',color:'#E1306C',fontSize:13,fontWeight:700,textDecoration:'none' }}>
-            📸 تابعنا على Instagram
-          </a>
-        )}
-      </div>
-      <p style={{ marginTop:32,fontSize:11,color:'var(--ink3)',opacity:.5 }}>Powered by SAHAR shop</p>
+      <h1 style={{fontSize:26,fontWeight:900,color:'var(--sf-primary)',marginBottom:8}}>{brand.name||'المتجر'}</h1>
+      <div style={{fontSize:64,margin:'20px 0 14px'}}>📦</div>
+      <h2 style={{fontSize:18,fontWeight:800,color:'var(--sf-text)',marginBottom:8}}>المتجر قيد التجهيز</h2>
+      <p style={{fontSize:14,color:'var(--sf-text3)',maxWidth:300,lineHeight:1.8,marginBottom:28}}>سيضاف المنتجات قريباً — تابعونا!</p>
+      {brand.phone&&<a href={`https://wa.me/${brand.phone.replace(/\D/g,'')}`} target="_blank" rel="noreferrer" style={{padding:'12px 24px',borderRadius:12,background:'#25D366',color:'#fff',fontSize:14,fontWeight:700,textDecoration:'none'}}>💬 تواصل معنا</a>}
     </div>
   );
+
+  // Best sellers horizontal strip
+  const bestSellers=[...products].sort((a,b)=>(b.sales||0)-(a.sales||0)).slice(0,6).filter(p=>(p.sales||0)>0);
+  const recentlyViewedIds:string[]=JSON.parse(localStorage.getItem(`sahar_viewed_${userId}`)||'[]');
+  const recentlyViewed=recentlyViewedIds.slice(0,8).map(id=>products.find(p=>p.id===id)).filter(Boolean) as SProduct[];
 
   return (
-    <div dir="rtl" style={{ minHeight:'100dvh',background:'var(--void)',color:'var(--ink1)',fontFamily:'Tajawal,system-ui,sans-serif' }}>
+    <div dir="rtl" style={{...SF,minHeight:'100dvh',background:'var(--sf-bg)',color:'var(--sf-text)',fontFamily:'Tajawal,system-ui,sans-serif'} as React.CSSProperties}>
       <style>{`
-        @keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
-        @keyframes spin{to{transform:rotate(360deg)}}
-        @keyframes pulse-chat{0%,100%{box-shadow:0 4px 20px rgba(255,106,0,.5),0 0 0 0 rgba(255,106,0,.4)}50%{box-shadow:0 4px 20px rgba(255,106,0,.5),0 0 0 12px rgba(255,106,0,0)}}
-        body{background:var(--void)!important}
-        .product-hover:hover{transform:translateY(-3px)!important;border-color:var(--border2)!important}
+        @keyframes sfmarquee{0%{transform:translateX(-50%)}100%{transform:translateX(0%)}}
+        @keyframes sfshim{0%{background-position:200% 0}100%{background-position:-200% 0}}
+        .sfsk{background:linear-gradient(90deg,#EAEAF2 25%,#F3F4F8 50%,#EAEAF2 75%);background-size:200% 100%;animation:sfshim 1.4s infinite;border-radius:10px;}
+        body{background:#F7F8FC!important}
+        .sf-input:focus{border-color:var(--sf-primary)!important;outline:none!important}
       `}</style>
 
-      {/* ── HEADER ───────────────────────────── */}
-      <header style={{
-        position:'sticky',top:0,zIndex:100,
-        background:'rgba(7,8,13,.92)',backdropFilter:'blur(20px)',
-        borderBottom:'1px solid var(--border)',
-        padding:'0 16px',height:60,
-        display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,
-      }}>
-        <div style={{ display:'flex',alignItems:'center',gap:10 }}>
-          <div style={{ width:38,height:38,borderRadius:10,overflow:'hidden',background:'#07080D',border:'1px solid rgba(255,255,255,.1)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,boxShadow:'0 2px 8px rgba(255,106,0,.2)' }}>
-            {brand.logo
-              ? <img src={brand.logo} alt="logo" style={{ width:'100%',height:'100%',objectFit:'contain' }}/>
-              : <img src="/sahar-logo-text.png" alt="S" style={{ width:'100%',height:'100%',objectFit:'contain' }}
-                  onError={e => { (e.currentTarget as HTMLImageElement).style.display='none'; (e.currentTarget.parentElement as HTMLElement).innerHTML='<span style="font-size:16px;font-weight:900;color:#FF6A00">' + (brand.name?.[0]?.toUpperCase()||'S') + '</span>'; }}
-                />
-            }
+      <PromoBar/>
+
+      {/* ── HEADER */}
+      <header style={{position:'sticky',top:0,zIndex:100,background:'rgba(255,255,255,0.97)',backdropFilter:'blur(12px)',borderBottom:'1px solid var(--sf-border)',padding:'0 14px',height:62,display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,boxShadow:'0 1px 8px rgba(0,0,0,0.06)'}}>
+        <div style={{display:'flex',alignItems:'center',gap:10,flexShrink:0}}>
+          <div style={{width:38,height:38,borderRadius:10,overflow:'hidden',background:'var(--sf-surface2)',border:'1px solid var(--sf-border)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+            {brand.logo?<img src={brand.logo} alt="logo" style={{width:'100%',height:'100%',objectFit:'contain'}}/>
+              :<span style={{fontSize:16,fontWeight:900,color:'var(--sf-primary)'}}>{brand.name?.[0]?.toUpperCase()||'S'}</span>}
           </div>
-          <div>
-            <div style={{ fontSize:14,fontWeight:900,color:'var(--ink1)' }}>{brand.name}</div>
-            {brand.description && <div style={{ fontSize:10,color:'var(--ink3)',marginTop:1 }}>{brand.description}</div>}
-          </div>
+          <div style={{fontSize:14,fontWeight:800,color:'var(--sf-text)',maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{brand.name}</div>
         </div>
-        <div style={{ display:'flex',gap:8,alignItems:'center' }}>
-          <button onClick={()=>setShowTrack(true)} style={{ padding:'5px 10px',borderRadius:8,background:'var(--panel)',border:'1px solid var(--border)',color:'var(--ink2)',fontSize:12,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',gap:5 }}>
-            <Package size={13}/> طلباتي
-          </button>
-          {brand.phone && (
-            <a href={`https://wa.me/${brand.phone.replace(/\D/g,'')}`} target="_blank" rel="noreferrer"
-              style={{ padding:'5px 10px',borderRadius:8,background:'rgba(37,211,102,.12)',border:'1px solid rgba(37,211,102,.25)',color:'#25D366',fontSize:12,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',gap:5,textDecoration:'none' }}>
-              <MessageCircle size={13}/> واتساب
-            </a>
-          )}
-          <button onClick={()=>setShowCart(true)} style={{
-            position:'relative',width:40,height:40,borderRadius:10,
-            background:cartAnim?'var(--ember)':'var(--panel)',border:'1px solid var(--border)',
-            color:cartAnim?'#fff':'var(--ink2)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',
-            transition:'all .2s',
-          }}>
+        {/* Search */}
+        <div style={{flex:1,maxWidth:260,position:'relative'}}>
+          <Search size={14} style={{position:'absolute',right:11,top:'50%',transform:'translateY(-50%)',color:'var(--sf-text3)',pointerEvents:'none'}}/>
+          <input className="sf-input" placeholder="ابحث..." value={search} onChange={e=>setSearch(e.target.value)}
+            style={{width:'100%',paddingRight:34,paddingLeft:12,height:36,borderRadius:99,border:'1.5px solid var(--sf-border)',background:'var(--sf-surface2)',color:'var(--sf-text)',fontSize:13,outline:'none',boxSizing:'border-box',fontFamily:'Tajawal,sans-serif'}}/>
+        </div>
+        <div style={{display:'flex',gap:7,alignItems:'center',flexShrink:0}}>
+          <button onClick={()=>setShowTrack(true)} style={{padding:'5px 10px',borderRadius:8,background:'var(--sf-surface2)',border:'1px solid var(--sf-border)',color:'var(--sf-text2)',fontSize:11,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',gap:4}}><Package size={12}/> طلباتي</button>
+          {brand.phone&&<a href={`https://wa.me/${brand.phone.replace(/\D/g,'')}`} target="_blank" rel="noreferrer" style={{padding:'5px 10px',borderRadius:8,background:'rgba(37,211,102,.1)',border:'1px solid rgba(37,211,102,.25)',color:'#16A34A',fontSize:11,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',gap:4,textDecoration:'none'}}><MessageCircle size={12}/> واتساب</a>}
+          <button onClick={()=>setShowCart(true)} style={{position:'relative',width:40,height:40,borderRadius:10,background:cartAnim?'var(--sf-primary)':'var(--sf-surface2)',border:`1px solid ${cartAnim?'var(--sf-primary)':'var(--sf-border)'}`,color:cartAnim?'#fff':'var(--sf-text2)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',transition:'all .2s'}}>
             <ShoppingCart size={18}/>
-            {cart.count > 0 && (
-              <span style={{ position:'absolute',top:-5,left:-5,width:18,height:18,background:'var(--ember)',borderRadius:'50%',fontSize:11,fontWeight:900,color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',border:'2px solid var(--void)' }}>{cart.count}</span>
-            )}
+            {cart.count>0&&<span style={{position:'absolute',top:-5,left:-5,width:18,height:18,background:'var(--sf-primary)',borderRadius:'50%',fontSize:10,fontWeight:900,color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',border:'2px solid white'}}>{cart.count}</span>}
           </button>
         </div>
       </header>
 
-      {/* ── HERO ─────────────────────────────── */}
-      <div style={{ padding:'16px 16px 0' }}>
-        {/* Store Hero */}
-        <div style={{
-          background:'linear-gradient(135deg, rgba(255,106,0,.12) 0%, rgba(0,200,150,.08) 100%)',
-          border:'1px solid rgba(255,106,0,.15)',
-          borderRadius:20,
-          padding:'20px 20px 16px',
-          marginBottom:16,
-          textAlign:'center',
-        }}>
-          {brand.logo && (
-            <img src={brand.logo} alt="logo" style={{ width:64,height:64,borderRadius:16,objectFit:'cover',marginBottom:8,border:'2px solid rgba(255,106,0,.3)' }}/>
-          )}
-          <h1 style={{ fontSize:'clamp(20px,5vw,28px)',fontWeight:900,color:'var(--ember)',margin:'0 0 4px' }}>
-            {brand.name || 'المتجر'}
-          </h1>
-          {brand.description && (
-            <p style={{ fontSize:13,color:'rgba(255,255,255,.5)',marginBottom:10,lineHeight:1.5 }}>
-              {brand.description}
-            </p>
-          )}
-          {/* Social links */}
-          <div style={{ display:'flex',justifyContent:'center',gap:8,flexWrap:'wrap',marginBottom: heroCategories.length > 1 ? 0 : 4 }}>
-            {brand.phone && <a href={`https://wa.me/${brand.phone.replace(/\D/g,'')}`} target="_blank" rel="noreferrer" style={{ padding:'5px 12px',borderRadius:99,background:'rgba(37,211,102,.1)',border:'1px solid rgba(37,211,102,.2)',color:'#25D366',fontSize:12,fontWeight:700,textDecoration:'none',display:'flex',alignItems:'center',gap:5 }}><MessageCircle size={12}/>واتساب</a>}
-            {brand.instagram && <a href={`https://instagram.com/${brand.instagram}`} target="_blank" rel="noreferrer" style={{ padding:'5px 12px',borderRadius:99,background:'rgba(225,48,108,.1)',border:'1px solid rgba(225,48,108,.2)',color:'#E1306C',fontSize:12,fontWeight:700,textDecoration:'none' }}>📸 Instagram</a>}
-            {brand.facebook && <a href={`https://facebook.com/${brand.facebook}`} target="_blank" rel="noreferrer" style={{ padding:'5px 12px',borderRadius:99,background:'rgba(24,119,242,.1)',border:'1px solid rgba(24,119,242,.2)',color:'#1877F2',fontSize:12,fontWeight:700,textDecoration:'none' }}>📘 Facebook</a>}
-            <button onClick={()=>{navigator.share?.({ title:brand.name, url:window.location.href }).catch(()=>{})||navigator.clipboard?.writeText(window.location.href)}} style={{ padding:'5px 12px',borderRadius:99,background:'var(--panel)',border:'1px solid var(--border)',color:'var(--ink2)',fontSize:12,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',gap:5 }}>
-              <Share2 size={12}/> مشاركة
-            </button>
+      {/* ── STORE HERO */}
+      <div style={{background:'linear-gradient(135deg,#FF6A00 0%,#FF8C33 40%,#FFB380 100%)',padding:'24px 16px 0',position:'relative',overflow:'hidden'}}>
+        <div style={{position:'absolute',top:-20,left:-20,width:200,height:200,borderRadius:'50%',background:'rgba(255,255,255,.08)'}}/>
+        <div style={{position:'absolute',bottom:-30,right:-10,width:160,height:160,borderRadius:'50%',background:'rgba(255,255,255,.06)'}}/>
+        <div style={{position:'relative',zIndex:1,display:'flex',alignItems:'flex-start',gap:14,marginBottom:20}}>
+          <div style={{width:64,height:64,borderRadius:18,overflow:'hidden',background:'rgba(255,255,255,.2)',border:'2px solid rgba(255,255,255,.4)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,boxShadow:'0 4px 16px rgba(0,0,0,.15)'}}>
+            {brand.logo?<img src={brand.logo} alt="logo" style={{width:'100%',height:'100%',objectFit:'contain'}}/>:<span style={{fontSize:26,fontWeight:900,color:'#fff'}}>{brand.name?.[0]?.toUpperCase()||'S'}</span>}
           </div>
-          {/* Category image cards */}
-          {heroCategories.length > 1 && (
-            <div style={{ overflowX:'auto', marginTop:16, paddingBottom:4,
-              scrollbarWidth:'none', msOverflowStyle:'none' }}>
-              <style>{`.cat-scroll::-webkit-scrollbar{display:none}
-                .cat-card{transition:transform .18s,box-shadow .18s}
-                .cat-card:hover{transform:translateY(-3px);box-shadow:0 8px 24px rgba(0,0,0,.5)!important}
-                .cat-card:active{transform:scale(.96)}`}
-              </style>
-              <div className="cat-scroll" style={{ display:'flex', gap:10, paddingInline:4, width:'max-content', margin:'0 auto' }}>
-                {/* "All" card */}
-                <button onClick={() => setSelectedCategory('all')} className="cat-card"
-                  style={{
-                    width:80, flexShrink:0, background:'none', border:'none', cursor:'pointer', padding:0,
-                    display:'flex', flexDirection:'column', alignItems:'center', gap:6,
-                  }}>
-                  <span style={{
-                    fontSize:60, lineHeight:1, display:'block',
-                    filter: selectedCategory==='all'
-                      ? 'drop-shadow(0 0 12px rgba(255,106,0,0.8)) drop-shadow(0 4px 8px rgba(0,0,0,0.4))'
-                      : 'drop-shadow(0 4px 10px rgba(0,0,0,0.5))',
-                    transition:'filter .18s',
-                  }}>🛍️</span>
-                  <span style={{ fontSize:11, fontWeight:700, color: selectedCategory==='all' ? 'var(--ember)' : 'rgba(255,255,255,.6)', lineHeight:1 }}>
-                    الكل
-                  </span>
-                  <span style={{ fontSize:10, color:'rgba(255,255,255,.35)', marginTop:-2 }}>
-                    {products.length}
-                  </span>
-                </button>
-
-                {heroCategories.map(cat => {
-                  const imgBase = getCatImage(cat);
-                  const count = products.filter(p => p.category === cat).length;
-                  const active = selectedCategory === cat;
-                  return (
-                    <button key={cat} onClick={() => setSelectedCategory(cat)} className="cat-card"
-                      style={{
-                        width:80, flexShrink:0, background:'none', border:'none', cursor:'pointer', padding:0,
-                        display:'flex', flexDirection:'column', alignItems:'center', gap:6,
-                      }}>
-                      {/* Icon — raw image only, no frame, no background */}
-                      {imgBase ? (
-                        <>
-                          <img
-                            src={`${imgBase}.png`}
-                            onError={e => {
-                              const t = e.currentTarget;
-                              if (!t.dataset.tried) { t.dataset.tried = '1'; t.src = `${imgBase}.svg`; }
-                              else { t.style.display = 'none'; (t.nextElementSibling as HTMLElement).style.display = 'block'; }
-                            }}
-                            alt={cat}
-                            style={{
-                              width:110, height:110, objectFit:'contain', display:'block',
-                              filter: active
-                                ? 'drop-shadow(0 0 12px rgba(255,106,0,0.7)) drop-shadow(0 4px 8px rgba(0,0,0,0.4))'
-                                : 'drop-shadow(0 4px 10px rgba(0,0,0,0.5))',
-                              transition:'filter .18s',
-                            }}
-                          />
-                          <span style={{ fontSize:56, display:'none' }}>
-                            {cat.includes('أحذية') ? '👟' : cat.includes('نسائي') ? '👗'
-                              : cat.includes('رجال') ? '🤵' : cat.includes('أطفال') ? '👶' : '🏷️'}
-                          </span>
-                        </>
-                      ) : (
-                        <span style={{ fontSize:60 }}>
-                          {cat.includes('أحذية') ? '👟' : cat.includes('نسائي') ? '👗'
-                            : cat.includes('رجال') ? '🤵' : cat.includes('أطفال') ? '👶' : '🏷️'}
-                        </span>
-                      )}
-                      <span style={{
-                        fontSize:11, fontWeight:700, lineHeight:1, textAlign:'center', maxWidth:80,
-                        color: active ? 'var(--ember)' : 'rgba(255,255,255,.7)',
-                        overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', width:'100%',
-                      }}>
-                        {cat}
-                      </span>
-                      <span style={{ fontSize:10, color:'rgba(255,255,255,.35)', marginTop:-2 }}>
-                        {count}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+          <div style={{flex:1}}>
+            <h1 style={{fontSize:'clamp(18px,5vw,26px)',fontWeight:900,color:'#fff',margin:'0 0 4px',lineHeight:1.2}}>{brand.name||'المتجر'}</h1>
+            {brand.description&&<p style={{fontSize:13,color:'rgba(255,255,255,.85)',margin:'0 0 10px',lineHeight:1.5}}>{brand.description}</p>}
+            <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+              {brand.phone&&<a href={`https://wa.me/${brand.phone.replace(/\D/g,'')}`} target="_blank" rel="noreferrer" style={{padding:'4px 11px',borderRadius:99,background:'rgba(255,255,255,.2)',border:'1px solid rgba(255,255,255,.3)',color:'#fff',fontSize:11,fontWeight:700,textDecoration:'none',backdropFilter:'blur(4px)'}}>💬 واتساب</a>}
+              {brand.instagram&&<a href={`https://instagram.com/${brand.instagram}`} target="_blank" rel="noreferrer" style={{padding:'4px 11px',borderRadius:99,background:'rgba(255,255,255,.2)',border:'1px solid rgba(255,255,255,.3)',color:'#fff',fontSize:11,fontWeight:700,textDecoration:'none',backdropFilter:'blur(4px)'}}>📸 Instagram</a>}
+              {brand.facebook&&<a href={`https://facebook.com/${brand.facebook}`} target="_blank" rel="noreferrer" style={{padding:'4px 11px',borderRadius:99,background:'rgba(255,255,255,.2)',border:'1px solid rgba(255,255,255,.3)',color:'#fff',fontSize:11,fontWeight:700,textDecoration:'none',backdropFilter:'blur(4px)'}}>📘 Facebook</a>}
+              <button onClick={()=>{navigator.share?.({title:brand.name,url:window.location.href}).catch(()=>{})||navigator.clipboard?.writeText(window.location.href);}} style={{padding:'4px 11px',borderRadius:99,background:'rgba(255,255,255,.2)',border:'1px solid rgba(255,255,255,.3)',color:'#fff',fontSize:11,fontWeight:700,cursor:'pointer',backdropFilter:'blur(4px)',display:'flex',alignItems:'center',gap:4}}><Share2 size={10}/> مشاركة</button>
             </div>
-          )}
+          </div>
+        </div>
+        {/* Stats bar */}
+        <div style={{background:'rgba(255,255,255,.15)',backdropFilter:'blur(8px)',borderRadius:'14px 14px 0 0',padding:'12px 16px',display:'flex',gap:0,justifyContent:'space-around',border:'1px solid rgba(255,255,255,.2)',borderBottom:'none'}}>
+          {[{n:products.length,l:'منتج وخدمة'},{n:allProducts.length,l:'منتج'},{n:allServices.length,l:'خدمة'}].map((s,i)=>(
+            <div key={i} style={{textAlign:'center',flex:1,borderLeft:i>0?'1px solid rgba(255,255,255,.2)':'none'}}>
+              <div style={{fontSize:20,fontWeight:900,color:'#fff'}}>{s.n}</div>
+              <div style={{fontSize:10,color:'rgba(255,255,255,.8)',fontWeight:600}}>{s.l}</div>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* ── SEARCH + FILTER ──────────────────── */}
-      <div style={{ padding:'0 16px',marginBottom:16 }}>
-        <div style={{ display:'flex',gap:8,marginBottom:12 }}>
-          <div style={{ position:'relative',flex:1 }}>
-            <Search size={16} style={{ position:'absolute',right:14,top:'50%',transform:'translateY(-50%)',color:'var(--ink3)',pointerEvents:'none' }}/>
-            <input className="glass-input" style={{ paddingRight:42,width:'100%' }}
-              placeholder="ابحث بالاسم أو الكود..."
-              value={search} onChange={e=>setSearch(e.target.value)} />
-          </div>
-          <button onClick={()=>setShowFilters(true)} style={{
-            flexShrink:0,width:44,height:44,borderRadius:12,
-            background:(priceMin>0||priceMax>0||typeFilter!=='all')?'var(--ember)':'var(--panel)',
-            border:`1px solid ${(priceMin>0||priceMax>0||typeFilter!=='all')?'var(--ember)':'var(--border)'}`,
-            color:(priceMin>0||priceMax>0||typeFilter!=='all')?'#fff':'var(--ink2)',
-            cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',
-            position:'relative',transition:'all .2s',
-          }}>
-            <Filter size={16}/>
-            {(priceMin>0||priceMax>0||typeFilter!=='all') && (
-              <span style={{ position:'absolute',top:-4,right:-4,width:14,height:14,background:'#ef4444',borderRadius:'50%',fontSize:9,fontWeight:900,color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',border:'2px solid var(--void)' }}>!</span>
-            )}
+      {/* ── CATEGORY BAR */}
+      <div style={{background:'var(--sf-surface)',borderBottom:'1px solid var(--sf-border)',padding:'10px 0 10px',position:'sticky',top:62,zIndex:90,boxShadow:'0 2px 8px rgba(0,0,0,.04)'}}>
+        <div style={{display:'flex',gap:8,overflowX:'auto',padding:'0 14px',scrollbarWidth:'none'}}>
+          <style>{`.sf-catbar::-webkit-scrollbar{display:none}`}</style>
+          {categories.map(cat=>{
+            const count=cat==='all'?products.length:products.filter(p=>p.category===cat).length;
+            const EMOJI_MAP:Record<string,string>={'أحذية':'👟','ملابس نسائية':'👗','نسائي':'👗','ملابس رجالية':'👔','رجالي':'👔','أطفال':'👶','إكسسوارات':'💍','هدايا':'🎁','إلكترونيات':'📱','طعام':'🍽️','خدمات':'🔧'};
+            const emoji=Object.entries(EMOJI_MAP).find(([k])=>cat.includes(k))?.[1]||(cat==='all'?'🛍️':'🏷️');
+            return (
+              <button key={cat} onClick={()=>{setActiveTab(cat);setSelectedCategory(cat);}}
+                style={{flexShrink:0,padding:'7px 14px',borderRadius:99,fontSize:12,fontWeight:700,cursor:'pointer',border:`1.5px solid ${activeTab===cat?'var(--sf-primary)':'var(--sf-border)'}`,background:activeTab===cat?'var(--sf-primary)':'var(--sf-surface)',color:activeTab===cat?'#fff':'var(--sf-text2)',transition:'all .15s',display:'flex',alignItems:'center',gap:5,whiteSpace:'nowrap'}}>
+                <span>{emoji}</span>{cat==='all'?'الكل':cat}<span style={{fontSize:10,opacity:.75,fontWeight:500}}>({count})</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── SEARCH + FILTER ROW */}
+      <div style={{padding:'12px 14px 0',display:'flex',alignItems:'center',justifyContent:'space-between',gap:10}}>
+        <span style={{fontSize:12,color:'var(--sf-text3)',fontWeight:600}}>
+          {filteredProducts.length+filteredServices.length+filteredDigital.length} نتيجة
+          {hasActiveFilter&&<button onClick={()=>{setPriceMin(0);setPriceMax(0);setTypeFilter('all');}} style={{marginRight:6,fontSize:10,color:'var(--sf-primary)',background:'var(--sf-p10)',border:'none',borderRadius:99,padding:'2px 8px',cursor:'pointer',fontWeight:700}}>× مسح الفلاتر</button>}
+        </span>
+        <div style={{display:'flex',gap:6}}>
+          <select value={sortBy} onChange={e=>setSortBy(e.target.value as any)} style={{background:'var(--sf-surface)',border:'1px solid var(--sf-border)',borderRadius:8,padding:'5px 10px',color:'var(--sf-text2)',fontSize:12,cursor:'pointer',outline:'none'}}>
+            <option value="popular">الأكثر طلباً</option>
+            <option value="newest">الأحدث</option>
+            <option value="price-asc">الأقل سعراً</option>
+            <option value="price-desc">الأعلى سعراً</option>
+          </select>
+          <button onClick={()=>setShowFilters(true)} style={{width:36,height:36,borderRadius:8,background:hasActiveFilter?'var(--sf-primary)':'var(--sf-surface)',border:`1px solid ${hasActiveFilter?'var(--sf-primary)':'var(--sf-border)'}`,color:hasActiveFilter?'#fff':'var(--sf-text2)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',position:'relative'}}>
+            <Filter size={14}/>
+            {hasActiveFilter&&<span style={{position:'absolute',top:-4,right:-4,width:12,height:12,background:'#EF4444',borderRadius:'50%',border:'2px solid white'}}/>}
           </button>
         </div>
-        {/* Trust badges */}
-        <div style={{ padding:'10px 16px',display:'flex',gap:10,overflowX:'auto',borderBottom:'1px solid var(--border)' }}>
-          {[
-            { icon:'🚚', text:'توصيل سريع 24-48h' },
-            { icon:'💵', text:'دفع عند الاستلام' },
-            { icon:'🔄', text:'إرجاع خلال 7 أيام' },
-            { icon:'🔒', text:'دفع آمن 100%' },
-            { icon:'⭐', text:'جودة مضمونة' },
-          ].map(b => (
-            <div key={b.text} style={{ display:'flex',alignItems:'center',gap:5,whiteSpace:'nowrap',fontSize:11,color:'var(--ink3)',fontWeight:600,padding:'5px 10px',borderRadius:99,background:'var(--void2)',border:'1px solid var(--border)',flexShrink:0 }}>
-              <span>{b.icon}</span><span>{b.text}</span>
+      </div>
+
+      {/* ── TRUST BADGES */}
+      <div style={{padding:'10px 14px',display:'flex',gap:8,overflowX:'auto',scrollbarWidth:'none'}}>
+        {[{i:'🚚',t:'توصيل 24-48h'},{i:'💵',t:'دفع عند الاستلام'},{i:'🔄',t:'إرجاع 7 أيام'},{i:'🔒',t:'دفع آمن'},{i:'⭐',t:'جودة مضمونة'}].map(b=>(
+          <div key={b.t} style={{display:'flex',alignItems:'center',gap:5,whiteSpace:'nowrap',fontSize:11,color:'var(--sf-text2)',fontWeight:600,padding:'5px 10px',borderRadius:99,background:'var(--sf-surface)',border:'1px solid var(--sf-border)',flexShrink:0,boxShadow:'0 1px 4px rgba(0,0,0,.04)'}}>
+            <span>{b.i}</span><span>{b.t}</span>
+          </div>
+        ))}
+      </div>
+
+      <div style={{padding:'0 14px 100px'}}>
+        {/* ── BEST SELLERS */}
+        {bestSellers.length>=2&&!search&&activeTab==='all'&&(
+          <div style={{marginBottom:24}}>
+            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}>
+              <Flame size={16} color="#FF6A00"/>
+              <span style={{fontSize:14,fontWeight:800,color:'var(--sf-text)'}}>الأكثر طلباً</span>
             </div>
-          ))}
-        </div>
-
-        {/* Category tabs */}
-        <div style={{ display:'flex',gap:8,overflowX:'auto',paddingBottom:4 }}>
-          {categories.map(cat=>(
-            <button key={cat} onClick={()=>setActiveTab(cat)} style={{
-              flexShrink:0,padding:'6px 14px',borderRadius:99,fontSize:12,fontWeight:600,cursor:'pointer',
-              border:`1px solid ${activeTab===cat?'var(--ember)':'var(--border)'}`,
-              background:activeTab===cat?'rgba(255,106,0,.12)':'var(--panel)',
-              color:activeTab===cat?'var(--ember2)':'var(--ink2)',transition:'all .15s',
-            }}>{cat==='all'?'الكل':cat}</button>
-          ))}
-        </div>
-      </div>
-
-      {/* ── SORT ─────────────────────────────── */}
-      <div style={{ padding:'0 16px',marginBottom:16,display:'flex',alignItems:'center',justifyContent:'space-between' }}>
-        <span style={{ fontSize:12,color:'var(--ink3)',fontWeight:600 }}>
-          {filtered.length} منتج
-          {(priceMin>0||priceMax>0||typeFilter!=='all') && (
-            <button onClick={()=>{setPriceMin(0);setPriceMax(0);setTypeFilter('all');}} style={{ marginRight:6,fontSize:10,color:'var(--ember)',background:'rgba(255,106,0,.1)',border:'1px solid rgba(255,106,0,.25)',borderRadius:99,padding:'2px 8px',cursor:'pointer',fontWeight:700 }}>
-              × مسح الفلاتر
-            </button>
-          )}
-        </span>
-        {/* View mode toggle */}
-        <div style={{ display:'flex',gap:3,background:'var(--void2)',border:'1px solid var(--border)',borderRadius:8,padding:3 }}>
-          <button onClick={()=>setViewMode('grid')} style={{ width:28,height:26,borderRadius:6,border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',background:viewMode==='grid'?'var(--panel)':'transparent',color:viewMode==='grid'?'var(--ember)':'var(--ink3)',fontSize:14 }}>⊞</button>
-          <button onClick={()=>setViewMode('list')} style={{ width:28,height:26,borderRadius:6,border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',background:viewMode==='list'?'var(--panel)':'transparent',color:viewMode==='list'?'var(--ember)':'var(--ink3)',fontSize:14 }}>≡</button>
-        </div>
-        <select value={sortBy} onChange={e=>setSortBy(e.target.value as typeof sortBy)}
-          style={{ background:'var(--panel)',border:'1px solid var(--border)',borderRadius:8,padding:'5px 10px',color:'var(--ink2)',fontSize:12,cursor:'pointer',outline:'none' }}>
-          <option value="popular">الأكثر طلباً</option>
-          <option value="newest">الأحدث</option>
-          <option value="price-asc">السعر: من الأقل</option>
-          <option value="price-desc">السعر: من الأعلى</option>
-        </select>
-      </div>
-
-      {/* ── PRODUCTS GRID ───────────────────── */}
-      <p style={{ fontSize:12,color:'rgba(255,255,255,.4)',marginBottom:12,textAlign:'center' }}>
-        {filtered.length} منتج متوفر
-        {selectedCategory !== 'all' && ` في "${selectedCategory}"`}
-      </p>
-      {/* Featured / Most Popular — show only on 'all' tab with no search */}
-      {activeTab === 'all' && !search && filtered.length > 0 && (() => {
-        const popular = [...filtered].sort((a,b)=>(b.sales||0)-(a.sales||0)).slice(0,3).filter(p=>(p.sales||0)>0);
-        if (popular.length < 2) return null;
-        return (
-          <div style={{ padding:'0 16px 16px' }}>
-            <div style={{ fontSize:12,fontWeight:800,color:'var(--ink3)',marginBottom:10,letterSpacing:'.06em' }}>🔥 الأكثر طلباً</div>
-            <div style={{ display:'flex',gap:10,overflowX:'auto',paddingBottom:4 }}>
-              {popular.map(p => (
-                <div key={p.id} onClick={()=>setViewProduct(p)}
-                  style={{ flexShrink:0,width:240,borderRadius:16,overflow:'hidden',cursor:'pointer',background:'var(--panel)',border:'1px solid rgba(255,106,0,.2)',boxShadow:'0 4px 20px rgba(255,106,0,.1)',transition:'all .2s' }}
-                  onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.transform='translateY(-3px)';(e.currentTarget as HTMLElement).style.borderColor='rgba(255,106,0,.5)';}}
-                  onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.transform='';(e.currentTarget as HTMLElement).style.borderColor='rgba(255,106,0,.2)';}}>
-                  <div style={{ height:120,position:'relative',background:p.imageUrl?'#000':'var(--void2)',overflow:'hidden' }}>
-                    {p.imageUrl ? <img src={p.imageUrl} alt={p.name} style={{ width:'100%',height:'100%',objectFit:'cover' }} loading="lazy"/> : <div style={{ width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:40 }}>{p.emoji||'📦'}</div>}
-                    <span style={{ position:'absolute',top:8,right:8,background:'rgba(255,106,0,.9)',color:'#fff',fontSize:9,fontWeight:800,padding:'3px 8px',borderRadius:99 }}>🔥 #{popular.indexOf(p)+1}</span>
+            <div style={{display:'flex',gap:10,overflowX:'auto',paddingBottom:4,scrollbarWidth:'none'}}>
+              {bestSellers.map(p=>(
+                <div key={p.id} onClick={()=>{trackViewed(p);setViewProduct(p);}} style={{flexShrink:0,width:220,borderRadius:14,overflow:'hidden',cursor:'pointer',background:'var(--sf-surface)',border:'1px solid var(--sf-border)',boxShadow:'var(--sf-shadow)',transition:'all .2s'}}
+                  onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.boxShadow='var(--sf-shadow-lg)';(e.currentTarget as HTMLElement).style.transform='translateY(-2px)';}} onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.boxShadow='var(--sf-shadow)';(e.currentTarget as HTMLElement).style.transform='';}}>
+                  <div style={{height:110,position:'relative',background:'#F9FAFB',overflow:'hidden'}}>
+                    {p.imageUrl?<img src={p.imageUrl} alt={p.name} style={{width:'100%',height:'100%',objectFit:'cover'}} loading="lazy"/>:<div style={{width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:40}}>{p.emoji||'📦'}</div>}
+                    <span style={{position:'absolute',top:8,right:8,background:'var(--sf-primary)',color:'#fff',fontSize:9,fontWeight:800,padding:'3px 8px',borderRadius:99}}>🔥 #{bestSellers.indexOf(p)+1}</span>
                   </div>
-                  <div style={{ padding:'10px 12px',display:'flex',justifyContent:'space-between',alignItems:'center' }}>
-                    <div>
-                      <div style={{ fontSize:12,fontWeight:800,color:'var(--ink1)' }}>{p.name}</div>
-                      <div style={{ fontSize:10,color:'var(--ink3)' }}>{p.sales||0} طلب</div>
-                    </div>
-                    <div style={{ fontSize:16,fontWeight:900,color:'var(--ember)' }}>{p.price.toLocaleString()} {cur}</div>
+                  <div style={{padding:'10px 12px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                    <div><div style={{fontSize:12,fontWeight:700,color:'var(--sf-text)',overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis',maxWidth:120}}>{p.name}</div><div style={{fontSize:10,color:'var(--sf-text3)'}}>{p.sales} طلب</div></div>
+                    <div style={{fontSize:15,fontWeight:900,color:'var(--sf-primary)',flexShrink:0}}>{p.price.toLocaleString()} {cur}</div>
                   </div>
                 </div>
               ))}
             </div>
           </div>
-        );
-      })()}
+        )}
 
-      <div style={{ padding:'0 16px 120px',display:viewMode==='list'?'flex':'grid', flexDirection:viewMode==='list'?'column':'row', gridTemplateColumns:viewMode==='grid'?'repeat(auto-fill,minmax(140px,1fr))':'none', gap:viewMode==='list'?10:14 }}>
-        {filtered.map(p => (
-          <ProductCard key={p.id} p={p} currency={cur}
-            onAdd={handleAddToCart}
-            onView={p => { trackViewed(p); setViewProduct(p); }}
-          />
-        ))}
-        {filtered.length === 0 && (
-          <div style={{ gridColumn:'1/-1',textAlign:'center',padding:'60px 20px',color:'var(--ink3)' }}>
-            <Package size={48} style={{ margin:'0 auto 16px',opacity:.3 }}/>
-            <div style={{ fontSize:16,fontWeight:700,marginBottom:8 }}>لم نجد منتجات</div>
-            <div style={{ fontSize:13 }}>جرب كلمة بحث أخرى</div>
+        {/* ── PRODUCTS SECTION */}
+        {filteredProducts.length>0&&(
+          <div style={{marginBottom:28}}>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
+              <div style={{display:'flex',alignItems:'center',gap:8}}>
+                <div style={{width:4,height:20,background:'var(--sf-primary)',borderRadius:99}}/>
+                <span style={{fontSize:16,fontWeight:900,color:'var(--sf-text)'}}>منتجاتنا</span>
+                <span style={{fontSize:12,color:'var(--sf-text3)',background:'var(--sf-surface2)',padding:'2px 9px',borderRadius:99,border:'1px solid var(--sf-border)'}}>{filteredProducts.length}</span>
+              </div>
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(148px,1fr))',gap:14}}>
+              {filteredProducts.map(p=>(
+                <ProductCard key={p.id} p={p} currency={cur} onAdd={handleAddToCart} onView={p=>{trackViewed(p);setViewProduct(p);}}/>
+              ))}
+            </div>
+            {filteredProducts.length===0&&(
+              <div style={{textAlign:'center',padding:'40px 20px',color:'var(--sf-text3)',background:'var(--sf-surface)',borderRadius:14,border:'1px solid var(--sf-border)'}}>
+                <Package size={36} style={{margin:'0 auto 12px',opacity:.3}}/><div style={{fontSize:14,fontWeight:600}}>لا توجد منتجات</div>
+              </div>
+            )}
           </div>
         )}
+
+        {/* ── SERVICES SECTION */}
+        {filteredServices.length>0&&(
+          <div style={{marginBottom:28}}>
+            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14}}>
+              <div style={{width:4,height:20,background:'#7C3AED',borderRadius:99}}/>
+              <span style={{fontSize:16,fontWeight:900,color:'var(--sf-text)'}}>خدماتنا</span>
+              <span style={{fontSize:12,color:'var(--sf-text3)',background:'var(--sf-surface2)',padding:'2px 9px',borderRadius:99,border:'1px solid var(--sf-border)'}}>{filteredServices.length}</span>
+            </div>
+            <div style={{display:'flex',flexDirection:'column',gap:10}}>
+              {filteredServices.map(p=>(
+                <ServiceCard key={p.id} p={p} currency={cur} onView={p=>{trackViewed(p);setViewProduct(p);}}/>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── DIGITAL SECTION */}
+        {filteredDigital.length>0&&(
+          <div style={{marginBottom:28}}>
+            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14}}>
+              <div style={{width:4,height:20,background:'#0EA5E9',borderRadius:99}}/>
+              <span style={{fontSize:16,fontWeight:900,color:'var(--sf-text)'}}>المنتجات الرقمية</span>
+              <span style={{fontSize:12,color:'var(--sf-text3)',background:'var(--sf-surface2)',padding:'2px 9px',borderRadius:99,border:'1px solid var(--sf-border)'}}>{filteredDigital.length}</span>
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(148px,1fr))',gap:14}}>
+              {filteredDigital.map(p=><ProductCard key={p.id} p={p} currency={cur} onAdd={handleAddToCart} onView={p=>{trackViewed(p);setViewProduct(p);}}/>)}
+            </div>
+          </div>
+        )}
+
+        {/* ── RECENTLY VIEWED */}
+        {recentlyViewed.length>0&&!search&&(
+          <div style={{marginBottom:16}}>
+            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}>
+              <Eye size={14} color="var(--sf-text3)"/>
+              <span style={{fontSize:13,fontWeight:700,color:'var(--sf-text2)'}}>شاهدتها مؤخراً</span>
+            </div>
+            <div style={{display:'flex',gap:8,overflowX:'auto',paddingBottom:4,scrollbarWidth:'none'}}>
+              {recentlyViewed.filter(p=>!viewProduct||p.id!==viewProduct.id).slice(0,6).map(p=>(
+                <div key={p.id} onClick={()=>{trackViewed(p);setViewProduct(p);}} style={{flexShrink:0,width:90,borderRadius:10,overflow:'hidden',cursor:'pointer',background:'var(--sf-surface)',border:'1px solid var(--sf-border)',boxShadow:'var(--sf-shadow)'}}>
+                  <div style={{height:72,background:'#F9FAFB',overflow:'hidden'}}>
+                    {p.imageUrl?<img src={p.imageUrl} alt={p.name} style={{width:'100%',height:'100%',objectFit:'cover'}} loading="lazy"/>:<div style={{width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:24}}>{p.emoji||'📦'}</div>}
+                  </div>
+                  <div style={{padding:'5px 7px'}}><div style={{fontSize:10,fontWeight:700,color:'var(--sf-text)',overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis'}}>{p.name}</div><div style={{fontSize:11,fontWeight:900,color:'var(--sf-primary)'}}>{p.price.toLocaleString()}</div></div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── EMPTY (all sections empty) */}
+        {filteredProducts.length===0&&filteredServices.length===0&&filteredDigital.length===0&&(search||hasActiveFilter)&&(
+          <div style={{textAlign:'center',padding:'60px 20px',color:'var(--sf-text3)',background:'var(--sf-surface)',borderRadius:16,border:'1px solid var(--sf-border)'}}>
+            <Package size={48} style={{margin:'0 auto 16px',opacity:.25}}/>
+            <div style={{fontSize:16,fontWeight:700,color:'var(--sf-text2)',marginBottom:8}}>لم نجد نتائج</div>
+            <div style={{fontSize:13,marginBottom:16}}>جرب كلمة أخرى أو امسح الفلاتر</div>
+            <button onClick={()=>{setSearch('');setPriceMin(0);setPriceMax(0);setTypeFilter('all');setActiveTab('all');setSelectedCategory('all');}} style={{padding:'9px 22px',background:'var(--sf-primary)',border:'none',borderRadius:10,color:'#fff',cursor:'pointer',fontWeight:700,fontSize:13}}>مسح الكل</button>
+          </div>
+        )}
+
+        {/* ── FOOTER */}
+        <div style={{marginTop:32,paddingTop:20,borderTop:'1px solid var(--sf-border)',textAlign:'center'}}>
+          <div style={{fontSize:12,color:'var(--sf-text3)',marginBottom:6}}>{brand.name}</div>
+          <div style={{display:'flex',justifyContent:'center',gap:12,marginBottom:12}}>
+            {brand.phone&&<a href={`https://wa.me/${brand.phone.replace(/\D/g,'')}`} target="_blank" rel="noreferrer" style={{fontSize:11,color:'#16A34A',fontWeight:700,textDecoration:'none'}}>💬 واتساب</a>}
+            {brand.instagram&&<a href={`https://instagram.com/${brand.instagram}`} target="_blank" rel="noreferrer" style={{fontSize:11,color:'#E1306C',fontWeight:700,textDecoration:'none'}}>📸 Instagram</a>}
+            {brand.facebook&&<a href={`https://facebook.com/${brand.facebook}`} target="_blank" rel="noreferrer" style={{fontSize:11,color:'#1877F2',fontWeight:700,textDecoration:'none'}}>📘 Facebook</a>}
+          </div>
+          <div style={{fontSize:10,color:'var(--sf-text3)',opacity:.6}}>Powered by SAHAR Shop 🇲🇦</div>
+        </div>
       </div>
 
-      {/* ── STICKY CART BUTTON ───────────────── */}
-      {cart.count > 0 && !showCart && (
-        <div style={{ position:'fixed',bottom:20,right:16,left:16,zIndex:150 }}>
-          <button onClick={()=>setShowCart(true)} style={{
-            width:'100%',height:52,background:'var(--ember)',border:'none',borderRadius:'var(--r)',
-            color:'#fff',fontSize:15,fontWeight:700,cursor:'pointer',
-            display:'flex',alignItems:'center',justifyContent:'center',gap:10,
-            boxShadow:'0 8px 24px rgba(255,106,0,.45)',
-          }}>
+      {/* ── STICKY CART BUTTON */}
+      {cart.count>0&&!showCart&&(
+        <div style={{position:'fixed',bottom:20,right:14,left:14,zIndex:150}}>
+          <button onClick={()=>setShowCart(true)} style={{width:'100%',height:52,background:'var(--sf-primary)',border:'none',borderRadius:16,color:'#fff',fontSize:15,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:10,boxShadow:'0 8px 24px rgba(255,106,0,.4)'}}>
             <ShoppingCart size={18}/>
-            عرض السلة ({cart.count} منتج)
-            <span style={{ background:'rgba(255,255,255,.2)',borderRadius:99,padding:'2px 10px',fontSize:13 }}>
-              {cart.total.toLocaleString()} {cur}
-            </span>
+            السلة ({cart.count})
+            <span style={{background:'rgba(255,255,255,.2)',borderRadius:99,padding:'2px 12px',fontSize:13}}>{cart.total.toLocaleString()} {cur}</span>
           </button>
         </div>
       )}
 
-      {/* ── MODALS ──────────────────────────── */}
-      {viewProduct && <ProductModal p={viewProduct} cart={cart} onClose={()=>setViewProduct(null)} currency={cur} userId={userId}/>}
-      {showCart && <CartSidebar cart={cart} storeInfo={storeInfo!} userId={userId} onClose={()=>setShowCart(false)} onOrderSuccess={id=>{setSuccessOrderId(id);setShowCart(false)}}/>}
-      {showTrack && <TrackingModal userId={userId} storeInfo={storeInfo!} onClose={()=>setShowTrack(false)}/>}
-      {showFilters && (
-        <FilterDrawer
-          onClose={()=>setShowFilters(false)}
-          priceMin={priceMin} priceMax={priceMax || maxProductPrice}
-          setPriceMin={setPriceMin} setPriceMax={setPriceMax}
-          typeFilter={typeFilter} setTypeFilter={setTypeFilter}
-          sortBy={sortBy} setSortBy={setSortBy}
-          maxProductPrice={maxProductPrice}
-        />
-      )}
+      {/* ── MODALS */}
+      {viewProduct&&<ProductModal p={viewProduct} cart={cart} onClose={()=>setViewProduct(null)} currency={cur} userId={userId}/>}
+      {showCart&&<CartSidebar cart={cart} storeInfo={storeInfo!} userId={userId} onClose={()=>setShowCart(false)} onOrderSuccess={id=>{setSuccessOrderId(id);setShowCart(false);}}/>}
+      {showTrack&&<TrackingModal userId={userId} storeInfo={storeInfo!} onClose={()=>setShowTrack(false)}/>}
+      {showFilters&&<FilterDrawer onClose={()=>setShowFilters(false)} priceMin={priceMin} priceMax={priceMax||maxP} setPriceMin={setPriceMin} setPriceMax={setPriceMax} typeFilter={typeFilter} setTypeFilter={setTypeFilter} sortBy={sortBy} setSortBy={setSortBy} maxP={maxP}/>}
       <FloatingChat userId={userId} storeInfo={storeInfo!}/>
+      <ScrollToTop/>
     </div>
   );
 }
