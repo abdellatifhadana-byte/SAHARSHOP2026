@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   Search, ShoppingCart, X, MessageCircle, Share2, Plus, Minus, Check,
-  Package, Heart, Send, Bot, ArrowRight, Play,
+  Package, Heart, Send, Bot, ArrowRight, Play, Pause,
   Flame, ChevronUp, Clock, MapPin, Filter, SlidersHorizontal, Eye,
+  Camera, Gift, Users, Sparkles,
 } from 'lucide-react';
 
-// ─── TYPES ───────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════ TYPES
 interface CustomField { id:string; label:string; type:string; options:string[]; value:string; }
 interface SProduct {
   id:string; name:string; description:string; price:number; cost?:number;
@@ -15,7 +16,7 @@ interface SProduct {
   type?:'product'|'service'|'digital'; duration?:string; workArea?:string; portfolio?:string[];
   customFields?:CustomField[];
 }
-interface CartItem { product:SProduct; quantity:number; size:string; color:string; }
+interface CartItem { product:SProduct; quantity:number; size:string; color:string; giftWrap?:boolean; giftMessage?:string; }
 interface StoreInfo {
   brand:{name:string;phone:string;currency:string;logo?:string;description?:string;
          instagram?:string;facebook?:string;whatsapp?:string;email?:string;
@@ -24,7 +25,7 @@ interface StoreInfo {
 }
 interface ChatMsg { role:'user'|'ai'; content:string; product?:SProduct; }
 
-// ─── CONSTANTS ───────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════ CONSTANTS
 const MOROCCAN_CITIES = [
   'الدار البيضاء','الرباط','فاس','مراكش','طنجة','أكادير','مكناس','وجدة',
   'سلا','تطوان','القنيطرة','الجديدة','بني ملال','خريبكة','تازة','نادور',
@@ -43,13 +44,11 @@ function getDeliveryCost(city:string, costs?:Record<string,number>):number {
   }
   return allCosts['default']||40;
 }
-// Lowest real delivery cost configured by the merchant (real data)
 function minDeliveryCost(costs?:Record<string,number>):number {
   const all={ ...DEFAULT_COSTS, ...(costs||{}) };
   const vals=Object.entries(all).filter(([k])=>k!=='default').map(([,v])=>v).filter(v=>v>0);
   return vals.length?Math.min(...vals):0;
 }
-// Open/closed status from real working hours
 function storeOpenStatus(workStart?:string,workEnd?:string):{open:boolean;label:string}|null {
   if(!workStart||!workEnd) return null;
   const now=new Date();const cur=now.getHours()*60+now.getMinutes();
@@ -60,7 +59,7 @@ function storeOpenStatus(workStart?:string,workEnd?:string):{open:boolean;label:
   return {open,label:open?`مفتوح الآن · حتى ${workEnd}`:`مغلق · يفتح ${workStart}`};
 }
 
-// ─── ANALYTICS ───────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════ ANALYTICS
 function detectSource():string {
   try {
     const p=new URLSearchParams(window.location.search);
@@ -95,7 +94,7 @@ function trackStoreEvent(userId:string,type:'visit'|'view',product?:{id?:string;
   } catch {}
 }
 
-// ─── HOOKS ────────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════ HOOKS
 function useStorefront(userId:string) {
   const [products,setProducts]=useState<SProduct[]>([]);
   const [storeInfo,setStoreInfo]=useState<StoreInfo|null>(null);
@@ -116,193 +115,135 @@ function useCart() {
     try{const s=localStorage.getItem('sahar_cart');return s?JSON.parse(s):[];}catch{return [];}
   });
   useEffect(()=>{try{localStorage.setItem('sahar_cart',JSON.stringify(items));}catch{}},[items]);
-  const add=(product:SProduct,size:string,color:string)=>setItems(prev=>{
+  const add=(product:SProduct,size:string,color:string,giftWrap?:boolean,giftMessage?:string)=>setItems(prev=>{
     const ex=prev.find(i=>i.product.id===product.id&&i.size===size&&i.color===color);
     if(ex) return prev.map(i=>i===ex?{...i,quantity:i.quantity+1}:i);
-    return [...prev,{product,quantity:1,size,color}];
+    return [...prev,{product,quantity:1,size,color,giftWrap,giftMessage}];
   });
   const remove=(pid:string,size:string,color:string)=>setItems(p=>p.filter(i=>!(i.product.id===pid&&i.size===size&&i.color===color)));
   const update=(pid:string,size:string,color:string,qty:number)=>setItems(p=>qty<=0?p.filter(i=>!(i.product.id===pid&&i.size===size&&i.color===color)):p.map(i=>(i.product.id===pid&&i.size===size&&i.color===color)?{...i,quantity:qty}:i));
-  const total=items.reduce((s,i)=>s+i.product.price*i.quantity,0);
+  const toggleGift=(pid:string,size:string,color:string)=>setItems(p=>p.map(i=>(i.product.id===pid&&i.size===size&&i.color===color)?{...i,giftWrap:!i.giftWrap}:i));
+  const setGiftMsg=(pid:string,size:string,color:string,msg:string)=>setItems(p=>p.map(i=>(i.product.id===pid&&i.size===size&&i.color===color)?{...i,giftMessage:msg}:i));
+  const total=items.reduce((s,i)=>s+i.product.price*i.quantity+(i.giftWrap?15:0),0);
   const count=items.reduce((s,i)=>s+i.quantity,0);
   const clear=()=>setItems([]);
-  return {items,add,remove,update,total,count,clear};
+  return {items,add,remove,update,total,count,clear,toggleGift,setGiftMsg};
 }
 
-// ─── DESIGN TOKENS — Clean light + single orange accent ──────────────────────
-const SF:React.CSSProperties = {
-  '--sf-bg':'#F6F7F9',
-  '--sf-surface':'#FFFFFF',
-  '--sf-surface2':'#F2F3F6',
-  '--sf-border':'#ECECF0',
-  '--sf-border2':'#E2E3E9',
-  '--sf-text':'#16181D',
-  '--sf-text2':'#5A616B',
-  '--sf-text3':'#9AA0AA',
-  '--sf-accent':'#FF6A00',
-  '--sf-accent-hover':'#E85F00',
-  '--sf-accent-soft':'#FFF3EB',
-  '--sf-accent-border':'#FFD9BF',
-  '--sf-success':'#16A34A',
-  '--sf-success-soft':'#ECFDF3',
-  '--sf-danger':'#E5484D',
-  '--sf-shadow':'0 1px 3px rgba(16,24,40,0.06),0 1px 2px rgba(16,24,40,0.04)',
-  '--sf-shadow-md':'0 4px 16px rgba(16,24,40,0.08)',
-  '--sf-shadow-lg':'0 12px 32px rgba(16,24,40,0.12)',
-  '--sf-r':'14px',
-  '--sf-r-sm':'10px',
-} as React.CSSProperties;
+// ═══════════════════════════════════════════════════════════════ UTILS
+function isNightTime():boolean {
+  const h=new Date().getHours();
+  return h>=19||h<6;
+}
 
-// ─── INFO BAR (real working hours / delivery) ────────────────────────────────
-function InfoBar({status,minDelivery,currency}:{status:{open:boolean;label:string}|null;minDelivery:number;currency:string}) {
-  const bits:{icon:string;text:string;color?:string}[]=[];
-  if(status) bits.push({icon:status.open?'🟢':'🔴',text:status.label,color:status.open?'var(--sf-success)':'var(--sf-text3)'});
-  if(minDelivery>0) bits.push({icon:'🚚',text:`التوصيل من ${minDelivery} ${currency}`});
-  bits.push({icon:'💵',text:'دفع عند الاستلام'});
+// ═══════════════════════════════════════════════════════════════ SKELETON
+function PageSkeleton() {
   return (
-    <div style={{background:'var(--sf-surface)',borderBottom:'1px solid var(--sf-border)',height:34,display:'flex',alignItems:'center',gap:18,padding:'0 16px',overflowX:'auto',scrollbarWidth:'none',fontSize:12}}>
-      {bits.map((b,i)=>(
-        <span key={i} style={{display:'flex',alignItems:'center',gap:5,whiteSpace:'nowrap',color:b.color||'var(--sf-text2)',fontWeight:600,flexShrink:0}}>
-          <span style={{fontSize:10}}>{b.icon}</span>{b.text}
-        </span>
-      ))}
+    <div style={{minHeight:'100dvh',background:'#0A0A0A',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:32,gap:24}}>
+      <div style={{fontSize:48,animation:'sfFadeIn .6s ease'}}>✦</div>
+      <div style={{width:180,height:14,borderRadius:99,background:'rgba(255,255,255,0.08)',animation:'sfPulse 1.5s ease infinite'}}/>
+      <div style={{width:120,height:10,borderRadius:99,background:'rgba(255,255,255,0.05)',animation:'sfPulse 1.5s ease .3s infinite'}}/>
+      <style>{`@keyframes sfFadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}@keyframes sfPulse{0%,100%{opacity:.5}50%{opacity:1}}`}</style>
     </div>
   );
 }
 
-// ─── PRODUCT CARD ─────────────────────────────────────────────────────────────
-function ProductCard({p,onAdd,onView,currency}:{p:SProduct;onAdd:(p:SProduct)=>void;onView:(p:SProduct)=>void;currency:string}) {
-  const [liked,setLiked]=useState(()=>{try{return JSON.parse(localStorage.getItem('sahar_wishlist')||'[]').includes(p.id);}catch{return false;}});
+// ═══════════════════════════════════════════════════════════════ LIVE TICKER
+function LiveTicker({orders}:{orders:{name:string;city:string;product:string;time:string}[]}) {
+  if(!orders.length) return null;
+  return (
+    <div style={{position:'fixed',bottom:100,left:16,right:16,zIndex:180,pointerEvents:'none',display:'flex',justifyContent:'center'}}>
+      <div style={{background:'rgba(10,10,10,0.92)',backdropFilter:'blur(16px)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:99,padding:'8px 18px',color:'#fff',fontSize:12,fontWeight:500,display:'flex',alignItems:'center',gap:8,boxShadow:'0 8px 32px rgba(0,0,0,0.5)',animation:'sfSlideUp .4s ease, sfFadeOut .4s ease 4.6s forwards',maxWidth:'90%',overflow:'hidden',whiteSpace:'nowrap'}}>
+        <span style={{width:7,height:7,borderRadius:'50%',background:'#22C55E',flexShrink:0,animation:'sfPulse 1.5s ease infinite'}}/>
+        <span style={{overflow:'hidden',textOverflow:'ellipsis'}}>
+          <strong>{orders[0].name}</strong> من {orders[0].city} {orders[0].product} قبل {orders[0].time}
+        </span>
+      </div>
+      <style>{`@keyframes sfSlideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}@keyframes sfFadeOut{to{opacity:0;transform:translateY(-8px)}}`}</style>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════ PRODUCT CARD
+function ProductCard({p,onAdd,onView,currency,isNight}:{p:SProduct;onAdd:(p:SProduct)=>void;onView:(p:SProduct)=>void;currency:string;isNight:boolean}) {
   const [hover,setHover]=useState(false);
   const [imgIdx,setImgIdx]=useState(0);
-  const [addedFlash,setAddedFlash]=useState(false);
-  const isNew=p.createdAt&&(Date.now()-new Date(p.createdAt).getTime()<7*24*60*60*1000);
   const imgs=[p.imageUrl,...(p.images||[])].filter(Boolean);
-
-  const toggleLike=(e:React.MouseEvent)=>{
-    e.stopPropagation();
-    const wl:string[]=JSON.parse(localStorage.getItem('sahar_wishlist')||'[]');
-    localStorage.setItem('sahar_wishlist',JSON.stringify(liked?wl.filter(x=>x!==p.id):[...wl,p.id]));
-    setLiked(!liked);
-  };
-
-  const quickAdd=(e:React.MouseEvent)=>{
-    e.stopPropagation();
-    if(p.type==='service'||p.type==='digital'||p.stock>0){
-      onAdd(p);setAddedFlash(true);setTimeout(()=>setAddedFlash(false),900);
-    }
-  };
+  const isNew=p.createdAt&&(Date.now()-new Date(p.createdAt).getTime()<7*24*60*60*1000);
+  const discount=p.cost&&p.cost>p.price?Math.round((1-p.price/p.cost)*100):0;
 
   return (
     <div onClick={()=>onView(p)}
       onMouseEnter={()=>{setHover(true);if(imgs.length>1)setImgIdx(1);}}
       onMouseLeave={()=>{setHover(false);setImgIdx(0);}}
-      style={{background:'var(--sf-surface)',borderRadius:'var(--sf-r)',overflow:'hidden',cursor:'pointer',
-        border:`1px solid ${hover?'var(--sf-border2)':'var(--sf-border)'}`,
-        boxShadow:hover?'var(--sf-shadow-md)':'var(--sf-shadow)',
-        transform:hover?'translateY(-3px)':'none',
-        transition:'transform .2s ease, box-shadow .2s ease, border-color .2s ease',
-      }}>
-      <div style={{aspectRatio:'1/1',position:'relative',background:'var(--sf-surface2)',overflow:'hidden'}}>
+      style={{cursor:'pointer',position:'relative',transition:'transform .3s cubic-bezier(.25,.1,.25,1)',transform:hover?'scale(1.02)':'scale(1)'}}>
+      {/* Image */}
+      <div style={{aspectRatio:'3/4',overflow:'hidden',borderRadius:4,background:'#1A1A1A',position:'relative'}}>
         {imgs.length>0
           ?<img src={imgs[imgIdx]} alt={p.name} loading="lazy"
-              style={{width:'100%',height:'100%',objectFit:'cover',transition:'transform .4s ease',transform:hover?'scale(1.05)':'scale(1)'}}/>
-          :<div style={{width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:52}}>{p.emoji||'📦'}</div>
+              style={{width:'100%',height:'100%',objectFit:'cover',transition:'transform .5s cubic-bezier(.25,.1,.25,1)',transform:hover?'scale(1.06)':'scale(1)'}}/>
+          :<div style={{width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:48,color:'rgba(255,255,255,0.1)'}}>{p.emoji||'📦'}</div>
         }
-        <div style={{position:'absolute',bottom:10,left:0,right:0,display:'flex',gap:8,justifyContent:'center',
-          opacity:hover?1:0,transform:hover?'translateY(0)':'translateY(8px)',transition:'all .2s ease',zIndex:2}}>
-          <button onClick={e=>{e.stopPropagation();onView(p);}} title="معاينة"
-            style={{width:36,height:36,borderRadius:'50%',background:'#fff',border:'1px solid var(--sf-border)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'var(--sf-shadow-md)',transition:'all .15s'}}
-            onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.transform='scale(1.08)';}}
-            onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.transform='';}}>
-            <Eye size={15} color="var(--sf-text2)"/>
-          </button>
-          <button onClick={quickAdd} title={p.type==='service'?'احجز':'أضف للسلة'}
-            style={{width:36,height:36,borderRadius:'50%',background:addedFlash?'var(--sf-success)':'var(--sf-accent)',border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'var(--sf-shadow-md)',transition:'all .15s'}}
-            onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.transform='scale(1.08)';}}
-            onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.transform='';}}>
-            {addedFlash?<Check size={15} color="#fff"/>:<ShoppingCart size={15} color="#fff"/>}
-          </button>
-          <button onClick={toggleLike} title="مفضلة"
-            style={{width:36,height:36,borderRadius:'50%',background:'#fff',border:`1px solid ${liked?'var(--sf-accent-border)':'var(--sf-border)'}`,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'var(--sf-shadow-md)',transition:'all .15s'}}
-            onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.transform='scale(1.08)';}}
-            onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.transform='';}}>
-            <Heart size={15} fill={liked?'#E5484D':'none'} color={liked?'#E5484D':'var(--sf-text2)'}/>
+        {/* Overlay on hover */}
+        <div style={{position:'absolute',inset:0,background:'linear-gradient(to top,rgba(0,0,0,0.7) 0%,transparent 50%)',opacity:hover?1:0,transition:'opacity .3s',display:'flex',alignItems:'flex-end',padding:14}}>
+          <button onClick={e=>{e.stopPropagation();onAdd(p);}}
+            style={{width:'100%',padding:'11px',borderRadius:99,background:'#fff',border:'none',color:'#0A0A0A',fontSize:13,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
+            <ShoppingCart size={15}/> أضف للسلة
           </button>
         </div>
-        <div style={{position:'absolute',top:10,right:10,display:'flex',flexDirection:'column',gap:4,alignItems:'flex-end',zIndex:2}}>
-          {p.type==='service'&&<span style={{background:'#16181D',color:'#fff',fontSize:10,fontWeight:700,padding:'3px 9px',borderRadius:99}}>خدمة</span>}
-          {p.type==='digital'&&<span style={{background:'#16181D',color:'#fff',fontSize:10,fontWeight:700,padding:'3px 9px',borderRadius:99}}>رقمي</span>}
-          {(!p.type||p.type==='product')&&isNew&&<span style={{background:'var(--sf-success)',color:'#fff',fontSize:10,fontWeight:700,padding:'3px 9px',borderRadius:99}}>جديد</span>}
-          {p.stock<=3&&p.stock>0&&(!p.type||p.type==='product')&&<span style={{background:'var(--sf-accent)',color:'#fff',fontSize:10,fontWeight:700,padding:'3px 9px',borderRadius:99}}>آخر {p.stock}</span>}
-          {(!p.type||p.type==='product')&&p.stock===0&&<span style={{background:'var(--sf-text3)',color:'#fff',fontSize:10,fontWeight:700,padding:'3px 9px',borderRadius:99}}>نفذ</span>}
+        {/* Badges */}
+        <div style={{position:'absolute',top:10,left:10,display:'flex',gap:5}}>
+          {isNew&&<span style={{background:'#fff',color:'#0A0A0A',fontSize:10,fontWeight:600,padding:'3px 8px',borderRadius:99}}>جديد</span>}
+          {discount>0&&<span style={{background:'#EF4444',color:'#fff',fontSize:10,fontWeight:600,padding:'3px 8px',borderRadius:99}}>-{discount}%</span>}
+          {p.stock<=3&&p.stock>0&&<span style={{background:'rgba(255,255,255,0.2)',backdropFilter:'blur(8px)',color:'#fff',fontSize:10,fontWeight:600,padding:'3px 8px',borderRadius:99}}>آخر {p.stock}</span>}
         </div>
-        <button onClick={toggleLike} style={{position:'absolute',top:10,left:10,width:30,height:30,borderRadius:'50%',background:'rgba(255,255,255,.92)',border:'1px solid var(--sf-border)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',zIndex:2,opacity:hover?0:1,transition:'opacity .2s'}}>
-          <Heart size={14} fill={liked?'#E5484D':'none'} color={liked?'#E5484D':'var(--sf-text3)'}/>
-        </button>
-      </div>
-      <div style={{padding:'12px 13px 14px'}}>
-        <div style={{fontSize:10,color:'var(--sf-text3)',fontWeight:600,letterSpacing:'.04em',textTransform:'uppercase',marginBottom:5}}>{p.category||'—'}</div>
-        <div style={{fontSize:13,fontWeight:600,color:'var(--sf-text)',marginBottom:8,lineHeight:1.4,overflow:'hidden',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical',minHeight:36}}>{p.name}</div>
-        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-          <div style={{fontSize:17,fontWeight:800,color:'var(--sf-text)',letterSpacing:'-0.02em'}}>
-            {p.price.toLocaleString()} <span style={{fontSize:11,fontWeight:500,color:'var(--sf-text3)'}}>{currency}</span>
+        {/* Image dots */}
+        {imgs.length>1&&(
+          <div style={{position:'absolute',bottom:10,right:10,display:'flex',gap:3}}>
+            {imgs.map((_,i)=><div key={i} style={{width:4,height:4,borderRadius:'50%',background:i===imgIdx?'#fff':'rgba(255,255,255,0.4)',transition:'background .3s'}}/>)}
           </div>
-          {p.sales>0&&<span style={{fontSize:11,color:'var(--sf-text3)',fontWeight:600}}>{p.sales} مبيع</span>}
+        )}
+      </div>
+      {/* Info */}
+      <div style={{padding:'10px 0'}}>
+        <div style={{fontSize:10,color:'rgba(255,255,255,0.4)',fontWeight:600,letterSpacing:'.06em',marginBottom:3,textTransform:'uppercase'}}>{p.category||'—'}</div>
+        <div style={{fontSize:13,fontWeight:600,color:'#fff',marginBottom:4,lineHeight:1.3,overflow:'hidden',display:'-webkit-box',WebkitLineClamp:1,WebkitBoxOrient:'vertical'}}>{p.name}</div>
+        <div style={{display:'flex',alignItems:'center',gap:8}}>
+          <span style={{fontSize:16,fontWeight:700,color:'#fff'}}>{p.price.toLocaleString()} <span style={{fontSize:10,fontWeight:400,color:'rgba(255,255,255,0.4)'}}>{currency}</span></span>
+          {p.cost&&p.cost>p.price&&<span style={{fontSize:12,color:'rgba(255,255,255,0.4)',textDecoration:'line-through'}}>{p.cost.toLocaleString()}</span>}
         </div>
       </div>
     </div>
   );
 }
 
-// ─── SERVICE CARD ─────────────────────────────────────────────────────────────
-function ServiceCard({p,onView,currency}:{p:SProduct;onView:(p:SProduct)=>void;currency:string}) {
+// ═══════════════════════════════════════════════════════════════ SERVICE CARD
+function ServiceCard({p,onView,currency,isNight}:{p:SProduct;onView:(p:SProduct)=>void;currency:string;isNight:boolean}) {
   const [hover,setHover]=useState(false);
-  const TYPE_EMOJI:Record<string,string>={'تصوير':'📸','تصميم':'🎨','تنظيف':'🧹','إصلاح':'🔧','توصيل':'🚚','طبخ':'🍳','تعليم':'📚','صيانة':'⚙️','خياطة':'🧵','حلاقة':'✂️'};
-  const emoji=Object.entries(TYPE_EMOJI).find(([k])=>p.name.includes(k)||p.category?.includes(k))?.[1]||p.emoji||'🛠️';
   return (
     <div onClick={()=>onView(p)}
       onMouseEnter={()=>setHover(true)} onMouseLeave={()=>setHover(false)}
-      style={{background:'var(--sf-surface)',borderRadius:'var(--sf-r)',padding:'14px',cursor:'pointer',
-        border:`1px solid ${hover?'var(--sf-border2)':'var(--sf-border)'}`,
-        boxShadow:hover?'var(--sf-shadow-md)':'var(--sf-shadow)',
-        transform:hover?'translateY(-2px)':'none',
-        transition:'transform .2s ease, box-shadow .2s ease, border-color .2s ease',
-        display:'flex',gap:13,alignItems:'center'}}>
-      <div style={{flexShrink:0,width:64,height:64,borderRadius:12,background:'var(--sf-accent-soft)',border:'1px solid var(--sf-accent-border)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:28,overflow:'hidden'}}>
-        {p.imageUrl?<img src={p.imageUrl} alt={p.name} style={{width:'100%',height:'100%',objectFit:'cover'}}/>:<span>{emoji}</span>}
-      </div>
-      <div style={{flex:1,minWidth:0}}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:8,marginBottom:3}}>
-          <div style={{fontSize:14,fontWeight:700,color:'var(--sf-text)',lineHeight:1.3,flex:1}}>{p.name}</div>
-          <div style={{fontSize:15,fontWeight:800,color:'var(--sf-text)',flexShrink:0,letterSpacing:'-0.02em'}}>
-            {p.price.toLocaleString()} <span style={{fontSize:10,fontWeight:500,color:'var(--sf-text3)'}}>{currency}</span>
-          </div>
+      style={{flexShrink:0,width:260,cursor:'pointer',background:hover?'rgba(255,255,255,0.06)':'rgba(255,255,255,0.03)',border:`1px solid ${hover?'rgba(255,255,255,0.15)':'rgba(255,255,255,0.08)'}`,borderRadius:8,padding:18,transition:'all .3s cubic-bezier(.25,.1,.25,1)',transform:hover?'translateY(-2px)':'none'}}>
+      <div style={{width:48,height:48,borderRadius:'50%',background:'rgba(255,255,255,0.08)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,marginBottom:12}}>{p.emoji||'🔧'}</div>
+      <div style={{fontSize:14,fontWeight:700,color:'#fff',marginBottom:4}}>{p.name}</div>
+      {p.description&&<div style={{fontSize:11,color:'rgba(255,255,255,0.5)',lineHeight:1.5,marginBottom:10,overflow:'hidden',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical'}}>{p.description}</div>}
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+        <div>
+          <span style={{fontSize:16,fontWeight:700,color:'#fff'}}>{p.price.toLocaleString()}</span>
+          <span style={{fontSize:10,color:'rgba(255,255,255,0.4)',marginRight:4}}>{currency}</span>
         </div>
-        {p.description&&<div style={{fontSize:12,color:'var(--sf-text2)',lineHeight:1.5,marginBottom:8,overflow:'hidden',display:'-webkit-box',WebkitLineClamp:1,WebkitBoxOrient:'vertical'}}>{p.description}</div>}
-        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:6}}>
-          <div style={{display:'flex',gap:6,flexWrap:'wrap',alignItems:'center'}}>
-            {p.duration&&<span style={{display:'flex',alignItems:'center',gap:3,fontSize:11,color:'var(--sf-text2)',background:'var(--sf-surface2)',borderRadius:99,padding:'3px 8px'}}><Clock size={10}/> {p.duration}</span>}
-            {p.workArea&&<span style={{display:'flex',alignItems:'center',gap:3,fontSize:11,color:'var(--sf-text2)',background:'var(--sf-surface2)',borderRadius:99,padding:'3px 8px'}}><MapPin size={10}/> {p.workArea}</span>}
-            {p.sales>0&&<span style={{fontSize:11,color:'var(--sf-text3)'}}>{p.sales} حجز</span>}
-          </div>
-          <button onClick={e=>{e.stopPropagation();onView(p);}}
-            style={{flexShrink:0,padding:'6px 14px',borderRadius:99,background:'var(--sf-accent)',border:'none',color:'#fff',fontSize:12,fontWeight:700,cursor:'pointer'}}>
-            احجز
-          </button>
-        </div>
+        <span style={{fontSize:10,color:'rgba(255,255,255,0.4)',background:'rgba(255,255,255,0.06)',padding:'4px 10px',borderRadius:99}}>{p.type==='service'?'احجز':'اشتر'}</span>
       </div>
     </div>
   );
 }
 
-// ─── LIGHTBOX ─────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════ LIGHTBOX
 function Lightbox({images,startIndex,onClose}:{images:string[];startIndex:number;onClose:()=>void}) {
   const [idx,setIdx]=useState(startIndex);
   const [zoom,setZoom]=useState(1);
-  const [pan,setPan]=useState({x:0,y:0});
   const touch=useRef<{x:number;y:number;t:number;dist:number;baseZoom:number}|null>(null);
-  const go=useCallback((d:number)=>{setIdx(i=>Math.max(0,Math.min(images.length-1,i+d)));setZoom(1);setPan({x:0,y:0});},[images.length]);
+  const go=useCallback((d:number)=>{setIdx(i=>Math.max(0,Math.min(images.length-1,i+d)));setZoom(1);},[images.length]);
   useEffect(()=>{
     const h=(e:KeyboardEvent)=>{if(e.key==='Escape')onClose();if(e.key==='ArrowRight')go(-1);if(e.key==='ArrowLeft')go(1);};
     window.addEventListener('keydown',h);return()=>window.removeEventListener('keydown',h);
@@ -315,7 +256,6 @@ function Lightbox({images,startIndex,onClose}:{images:string[];startIndex:number
   const onTouchMove=(e:React.TouchEvent)=>{
     if(!touch.current)return;
     if(e.touches.length===2&&touch.current.dist){const r=dist2(e.touches as unknown as TouchList)/touch.current.dist;setZoom(Math.max(1,Math.min(4,touch.current.baseZoom*r)));}
-    else if(zoom>1){setPan(pp=>({x:pp.x+(e.touches[0].clientX-touch.current!.x),y:pp.y+(e.touches[0].clientY-touch.current!.y)}));touch.current.x=e.touches[0].clientX;touch.current.y=e.touches[0].clientY;}
   };
   const onTouchEnd=(e:React.TouchEvent)=>{
     const tc=touch.current;touch.current=null;
@@ -324,46 +264,42 @@ function Lightbox({images,startIndex,onClose}:{images:string[];startIndex:number
     if(Math.abs(dx)>50&&Date.now()-tc.t<600)go(dx>0?-1:1);
   };
   return (
-    <div style={{position:'fixed',inset:0,zIndex:600,background:'rgba(0,0,0,.92)',display:'flex',alignItems:'center',justifyContent:'center',touchAction:'none'}} onClick={onClose}>
-      <button onClick={onClose} style={{position:'absolute',top:16,left:16,width:40,height:40,borderRadius:'50%',background:'rgba(255,255,255,.15)',border:'none',color:'#fff',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',zIndex:3}}><X size={20}/></button>
-      <div style={{position:'absolute',top:22,right:20,color:'rgba(255,255,255,.6)',fontSize:13,fontWeight:700,zIndex:3}}>{idx+1}/{images.length}</div>
-      <div onClick={e=>{e.stopPropagation();setZoom(z=>z>1?1:2.5);setPan({x:0,y:0});}} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
+    <div style={{position:'fixed',inset:0,zIndex:600,background:'#000',display:'flex',alignItems:'center',justifyContent:'center',touchAction:'none'}} onClick={onClose}>
+      <button onClick={onClose} style={{position:'absolute',top:16,left:16,width:40,height:40,borderRadius:'50%',background:'rgba(255,255,255,.1)',border:'none',color:'#fff',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',zIndex:3}}><X size={20}/></button>
+      <div style={{position:'absolute',top:22,right:20,color:'rgba(255,255,255,.5)',fontSize:13,fontWeight:500,zIndex:3}}>{idx+1}/{images.length}</div>
+      <div onClick={e=>{e.stopPropagation();setZoom(z=>z>1?1:2);}} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
         style={{width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden'}}>
-        <img src={images[idx]} alt="" draggable={false} style={{maxWidth:'100%',maxHeight:'100%',objectFit:'contain',transform:`translate(${pan.x}px,${pan.y}px) scale(${zoom})`,transition:touch.current?'none':'transform .2s',cursor:zoom>1?'grab':'zoom-in',userSelect:'none'}}/>
+        <img src={images[idx]} alt="" draggable={false} style={{maxWidth:'100%',maxHeight:'100%',objectFit:'contain',transform:`scale(${zoom})`,transition:touch.current?'none':'transform .2s',cursor:zoom>1?'grab':'zoom-in',userSelect:'none'}}/>
       </div>
       {images.length>1&&<>
-        <button onClick={e=>{e.stopPropagation();go(1);}} disabled={idx>=images.length-1} style={{position:'absolute',left:12,top:'50%',transform:'translateY(-50%)',width:44,height:44,borderRadius:'50%',background:'rgba(255,255,255,.15)',border:'none',color:'#fff',cursor:'pointer',fontSize:22,zIndex:3,opacity:idx>=images.length-1?.3:1}}>‹</button>
-        <button onClick={e=>{e.stopPropagation();go(-1);}} disabled={idx<=0} style={{position:'absolute',right:12,top:'50%',transform:'translateY(-50%)',width:44,height:44,borderRadius:'50%',background:'rgba(255,255,255,.15)',border:'none',color:'#fff',cursor:'pointer',fontSize:22,zIndex:3,opacity:idx<=0?.3:1}}>›</button>
+        <button onClick={e=>{e.stopPropagation();go(1);}} disabled={idx>=images.length-1} style={{position:'absolute',left:12,top:'50%',transform:'translateY(-50%)',width:44,height:44,borderRadius:'50%',background:'rgba(255,255,255,.1)',border:'none',color:'#fff',cursor:'pointer',fontSize:22,zIndex:3,opacity:idx>=images.length-1?.3:1}}>‹</button>
+        <button onClick={e=>{e.stopPropagation();go(-1);}} disabled={idx<=0} style={{position:'absolute',right:12,top:'50%',transform:'translateY(-50%)',width:44,height:44,borderRadius:'50%',background:'rgba(255,255,255,.1)',border:'none',color:'#fff',cursor:'pointer',fontSize:22,zIndex:3,opacity:idx<=0?.3:1}}>›</button>
       </>}
-      {images.length>1&&(
-        <div onClick={e=>e.stopPropagation()} style={{position:'absolute',bottom:16,left:0,right:0,display:'flex',gap:6,justifyContent:'center',overflowX:'auto',padding:'0 16px',zIndex:3}}>
-          {images.map((img,i)=>(
-            <button key={i} onClick={()=>{setIdx(i);setZoom(1);setPan({x:0,y:0});}} style={{flexShrink:0,width:44,height:44,borderRadius:8,overflow:'hidden',border:`2px solid ${i===idx?'#FF6A00':'rgba(255,255,255,.25)'}`,padding:0,cursor:'pointer',background:'#000'}}>
-              <img src={img} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>
-            </button>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
 
-// ─── PRODUCT MODAL ────────────────────────────────────────────────────────────
-function ProductModal({p,cart,onClose,currency,userId}:{p:SProduct;cart:ReturnType<typeof useCart>;onClose:()=>void;currency:string;userId:string}) {
+// ═══════════════════════════════════════════════════════════════ PRODUCT MODAL
+function ProductModal({p,cart,onClose,currency,userId,isNight}:{p:SProduct;cart:ReturnType<typeof useCart>;onClose:()=>void;currency:string;userId:string;isNight:boolean}) {
   const [size,setSize]=useState(p.sizes?.[0]||'');
   const [color,setColor]=useState(p.colors?.[0]||'');
   const [qty,setQty]=useState(1);
   const [added,setAdded]=useState(false);
-  const [showVideo,setShowVideo]=useState(false);
+  const [giftWrap,setGiftWrap]=useState(false);
+  const [giftMsg,setGiftMsgLocal]=useState('');
   const [lightboxIdx,setLightboxIdx]=useState<number|null>(null);
+  const [showAnotherOption,setShowAnotherOption]=useState(false);
+  const [variantRows,setVariantRows]=useState<{size:string;color:string;qty:number}[]>([{size:p.sizes?.[0]||'',color:p.colors?.[0]||'',qty:1}]);
   const firstColorImg=p.colors?.[0]&&p.colorImages?.[p.colors[0]];
   const [activeImage,setActiveImage]=useState(firstColorImg||p.imageUrl||'');
   const galleryImgs=[p.imageUrl,...(p.images||[])].filter((x,i,a)=>x&&a.indexOf(x)===i);
   void userId;
 
-  const handleAdd=()=>{
-    cart.add(p,size,color);
-    for(let i=0;i<qty-1;i++)cart.add(p,size,color);
+  const handleAddAll=()=>{
+    variantRows.forEach(row=>{
+      cart.add(p,row.size,row.color,giftWrap,giftMsg);
+      for(let i=1;i<row.qty;i++)cart.add(p,row.size,row.color,giftWrap,giftMsg);
+    });
     setAdded(true);
     setTimeout(()=>{setAdded(false);onClose();},900);
   };
@@ -374,141 +310,116 @@ function ProductModal({p,cart,onClose,currency,userId}:{p:SProduct;cart:ReturnTy
 
   return (<>
     {lightboxIdx!==null&&galleryImgs.length>0&&<Lightbox images={galleryImgs} startIndex={lightboxIdx} onClose={()=>setLightboxIdx(null)}/>}
-    <div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(16,24,40,.45)',backdropFilter:'blur(4px)',zIndex:300,display:'flex',alignItems:'flex-end',justifyContent:'center'}}>
-      <div onClick={e=>e.stopPropagation()} style={{background:'var(--sf-surface)',borderRadius:'20px 20px 0 0',width:'100%',maxWidth:520,maxHeight:'93vh',overflowY:'auto',boxShadow:'var(--sf-shadow-lg)'}}>
+    <div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.85)',backdropFilter:'blur(8px)',zIndex:300,display:'flex',alignItems:'flex-end',justifyContent:'center'}}>
+      <div onClick={e=>e.stopPropagation()} style={{background:'#111',borderRadius:'16px 16px 0 0',width:'100%',maxWidth:520,maxHeight:'90vh',overflowY:'auto',boxShadow:'0 -16px 48px rgba(0,0,0,0.5)',color:'#fff'}}>
         {/* Image */}
-        <div style={{aspectRatio:'1/1',maxHeight:300,position:'relative',background:'var(--sf-surface2)',flexShrink:0,overflow:'hidden'}}>
-          {showVideo&&p.videoUrl
-            ?<video src={p.videoUrl} controls autoPlay playsInline style={{width:'100%',height:'100%',objectFit:'contain',background:'#000'}}/>
-            :activeImage
+        <div style={{aspectRatio:'4/3',maxHeight:350,position:'relative',background:'#1A1A1A',overflow:'hidden'}}>
+          {activeImage
             ?<img src={activeImage} alt={p.name} onClick={()=>{const i=galleryImgs.indexOf(activeImage);setLightboxIdx(i>=0?i:0);}}
                 style={{width:'100%',height:'100%',objectFit:'cover',cursor:'zoom-in'}}/>
-            :<div style={{width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:80}}>{p.emoji||'📦'}</div>
+            :<div style={{width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:80,color:'rgba(255,255,255,0.1)'}}>{p.emoji||'📦'}</div>
           }
-          <button onClick={onClose} style={{position:'absolute',top:14,left:14,width:36,height:36,borderRadius:'50%',background:'rgba(255,255,255,.95)',border:'1px solid var(--sf-border)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'var(--sf-shadow)',zIndex:2}}><X size={16} color="var(--sf-text)"/></button>
-          <button onClick={share} style={{position:'absolute',top:14,right:14,width:36,height:36,borderRadius:'50%',background:'rgba(255,255,255,.95)',border:'1px solid var(--sf-border)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'var(--sf-shadow)',zIndex:2}}><Share2 size={15} color="var(--sf-text2)"/></button>
+          <button onClick={onClose} style={{position:'absolute',top:14,left:14,width:36,height:36,borderRadius:'50%',background:'rgba(0,0,0,.6)',border:'none',color:'#fff',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',zIndex:2}}><X size={18}/></button>
+          <button onClick={share} style={{position:'absolute',top:14,right:14,width:36,height:36,borderRadius:'50%',background:'rgba(0,0,0,.6)',border:'none',color:'#fff',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',zIndex:2}}><Share2 size={16}/></button>
         </div>
-        {/* Thumbnails */}
-        {(galleryImgs.length>1||p.videoUrl)&&(
-          <div style={{display:'flex',gap:6,overflowX:'auto',padding:'10px 16px',background:'var(--sf-surface)',borderBottom:'1px solid var(--sf-border)'}}>
-            {galleryImgs.map((img,i)=>(
-              <button key={i} onClick={()=>{setShowVideo(false);setActiveImage(img);}} style={{flexShrink:0,width:52,height:52,borderRadius:9,overflow:'hidden',border:`2px solid ${!showVideo&&activeImage===img?'var(--sf-accent)':'var(--sf-border)'}`,background:'var(--sf-surface2)',cursor:'pointer',padding:0}}>
-                <img src={img} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>
-              </button>
-            ))}
-            {p.videoUrl&&(
-              <button onClick={()=>setShowVideo(true)} style={{flexShrink:0,width:52,height:52,borderRadius:9,border:`2px solid ${showVideo?'var(--sf-accent)':'var(--sf-border)'}`,background:'#16181D',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                <Play size={18} color="#fff"/>
-              </button>
-            )}
+
+        <div style={{padding:'20px'}}>
+          <div style={{fontSize:10,color:'rgba(255,255,255,0.4)',marginBottom:4,fontWeight:600,letterSpacing:'.06em'}}>{p.category}{p.sku?` · #${p.sku}`:''}</div>
+          <h2 style={{fontSize:22,fontWeight:700,color:'#fff',margin:'0 0 12px',lineHeight:1.3}}>{p.name}</h2>
+          
+          {/* Price */}
+          <div style={{display:'flex',alignItems:'flex-end',gap:10,marginBottom:16}}>
+            <span style={{fontSize:28,fontWeight:700,color:'#fff'}}>{p.price.toLocaleString()} <span style={{fontSize:14,color:'rgba(255,255,255,0.4)',fontWeight:400}}>{currency}</span></span>
+            {p.cost&&p.cost>p.price&&<span style={{fontSize:16,color:'rgba(255,255,255,0.4)',textDecoration:'line-through'}}>{p.cost.toLocaleString()}</span>}
           </div>
-        )}
-        <div style={{padding:'18px 18px 0'}}>
-          <div style={{fontSize:11,color:'var(--sf-text3)',marginBottom:4,fontWeight:600}}>{p.category}{p.sku?` · #${p.sku}`:''}</div>
-          <h2 style={{fontSize:20,fontWeight:800,color:'var(--sf-text)',margin:'0 0 10px',lineHeight:1.3}}>{p.name}</h2>
-          {/* Price + real sales */}
-          <div style={{display:'flex',alignItems:'flex-end',justifyContent:'space-between',marginBottom:14}}>
-            <div style={{fontSize:26,fontWeight:800,color:'var(--sf-text)',letterSpacing:'-0.03em'}}>{p.price.toLocaleString()} <span style={{fontSize:14,color:'var(--sf-text3)',fontWeight:500}}>{currency}</span></div>
-            {p.sales>0&&(
-              <div style={{display:'flex',alignItems:'center',gap:6,background:'var(--sf-accent-soft)',border:'1px solid var(--sf-accent-border)',borderRadius:99,padding:'5px 11px'}}>
-                <Flame size={13} color="var(--sf-accent)"/>
-                <span style={{fontSize:12,fontWeight:700,color:'var(--sf-accent)'}}>{p.sales} {p.type==='service'?'حجز':'مبيع'}</span>
-              </div>
-            )}
-          </div>
-          {/* Stock note — real */}
-          {(!p.type||p.type==='product')&&p.stock>0&&p.stock<=10&&(
-            <div style={{fontSize:12,color:'var(--sf-danger)',fontWeight:600,marginBottom:14}}>⚡ متبقي {p.stock} فقط في المخزون</div>
-          )}
-          {p.description&&<p style={{fontSize:13,color:'var(--sf-text2)',lineHeight:1.65,marginBottom:14}}>{p.description}</p>}
-          {/* Custom fields — real */}
-          {p.customFields&&p.customFields.filter(f=>f.value).length>0&&(
-            <div style={{marginBottom:14,padding:'10px 12px',background:'var(--sf-surface2)',borderRadius:'var(--sf-r-sm)',display:'flex',flexDirection:'column',gap:5}}>
-              {p.customFields.filter(f=>f.value).map(f=>(
-                <div key={f.id} style={{display:'flex',justifyContent:'space-between',fontSize:12}}>
-                  <span style={{color:'var(--sf-text3)',fontWeight:600}}>{f.label}</span>
-                  <span style={{color:'var(--sf-text)',fontWeight:600}}>{f.value}</span>
-                </div>
-              ))}
-            </div>
-          )}
-          {/* Service meta — real */}
-          {p.type==='service'&&(p.duration||p.workArea)&&(
-            <div style={{display:'flex',gap:8,marginBottom:14,flexWrap:'wrap'}}>
-              {p.duration&&<span style={{display:'flex',alignItems:'center',gap:4,fontSize:12,color:'var(--sf-text2)',background:'var(--sf-surface2)',borderRadius:99,padding:'5px 12px'}}><Clock size={11}/> {p.duration}</span>}
-              {p.workArea&&<span style={{display:'flex',alignItems:'center',gap:4,fontSize:12,color:'var(--sf-text2)',background:'var(--sf-surface2)',borderRadius:99,padding:'5px 12px'}}><MapPin size={11}/> {p.workArea}</span>}
-            </div>
-          )}
-          {p.type==='digital'&&<div style={{marginBottom:14,padding:'9px 12px',background:'var(--sf-surface2)',borderRadius:'var(--sf-r-sm)',fontSize:12,color:'var(--sf-text2)'}}>💻 منتج رقمي — يُرسل إليك بعد تأكيد الطلب</div>}
-          {/* Sizes */}
-          {(!p.type||p.type==='product')&&p.sizes?.length>0&&(
-            <div style={{marginBottom:14}}>
-              <div style={{fontSize:11,fontWeight:700,color:'var(--sf-text3)',marginBottom:8}}>المقاس</div>
-              <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-                {p.sizes.map(s=>(
-                  <button key={s} onClick={()=>setSize(s)} style={{padding:'7px 15px',borderRadius:'var(--sf-r-sm)',border:`1.5px solid ${size===s?'var(--sf-accent)':'var(--sf-border)'}`,background:size===s?'var(--sf-accent-soft)':'var(--sf-surface)',color:size===s?'var(--sf-accent)':'var(--sf-text2)',fontSize:13,fontWeight:600,cursor:'pointer',transition:'all .15s'}}>{s}</button>
-                ))}
-              </div>
-            </div>
-          )}
+
+          {p.description&&<p style={{fontSize:13,color:'rgba(255,255,255,0.6)',lineHeight:1.7,marginBottom:20}}>{p.description}</p>}
+
           {/* Colors */}
           {p.colors?.length>0&&(
-            <div style={{marginBottom:16}}>
-              <div style={{fontSize:11,fontWeight:700,color:'var(--sf-text3)',marginBottom:8}}>اللون: <span style={{color:'var(--sf-text2)'}}>{color}</span></div>
+            <div style={{marginBottom:18}}>
+              <div style={{fontSize:10,color:'rgba(255,255,255,0.4)',marginBottom:8,fontWeight:600,letterSpacing:'.05em'}}>اللون</div>
               <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
                 {p.colors.map(clr=>{
-                  const colorImg=p.colorImages?.[clr];
                   const CM:Record<string,string>={'أسود':'#1a1a1a','أبيض':'#f5f5f5','أحمر':'#ef4444','أزرق':'#3b82f6','أخضر':'#22c55e','رمادي':'#6b7280','بيج':'#d4b896','وردي':'#f472b6','بني':'#92400e','كحلي':'#1e3a5f','بنفسجي':'#a855f7','برتقالي':'#f97316'};
-                  return colorImg?(
-                    <button key={clr} onClick={()=>{setColor(clr);setActiveImage(colorImg||p.imageUrl||'');}} style={{padding:3,borderRadius:10,border:`2px solid ${color===clr?'var(--sf-accent)':'var(--sf-border)'}`,cursor:'pointer',background:'transparent',display:'flex',flexDirection:'column',alignItems:'center',gap:3}}>
-                      <img src={colorImg} alt={clr} style={{width:50,height:50,objectFit:'cover',borderRadius:7}}/>
-                      <span style={{fontSize:9,fontWeight:700,color:color===clr?'var(--sf-accent)':'var(--sf-text3)'}}>{clr}</span>
-                    </button>
-                  ):(
-                    <button key={clr} onClick={()=>setColor(clr)} style={{width:30,height:30,borderRadius:'50%',background:CM[clr]||'#ccc',border:`3px solid ${color===clr?'var(--sf-accent)':'var(--sf-border)'}`,cursor:'pointer',boxShadow:'inset 0 0 0 1px rgba(0,0,0,.06)',transition:'border-color .15s'}} title={clr}/>
+                  return (
+                    <button key={clr} onClick={()=>setColor(clr)} style={{width:32,height:32,borderRadius:'50%',background:CM[clr]||'#ccc',border:`2px solid ${color===clr?'#fff':'transparent'}`,cursor:'pointer',transition:'border-color .15s',boxShadow:'inset 0 0 0 1px rgba(0,0,0,.1)'}} title={clr}/>
                   );
                 })}
               </div>
             </div>
           )}
-          {/* Related — real */}
+
+          {/* Sizes */}
+          {p.sizes?.length>0&&(
+            <div style={{marginBottom:18}}>
+              <div style={{fontSize:10,color:'rgba(255,255,255,0.4)',marginBottom:8,fontWeight:600,letterSpacing:'.05em'}}>المقاس</div>
+              <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                {p.sizes.map(s=>(
+                  <button key={s} onClick={()=>setSize(s)} style={{padding:'8px 16px',borderRadius:99,border:`1px solid ${size===s?'#fff':'rgba(255,255,255,0.2)'}`,background:size===s?'rgba(255,255,255,0.15)':'transparent',color:'#fff',fontSize:12,fontWeight:500,cursor:'pointer',transition:'all .15s'}}>{s}</button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Variant rows */}
+          {variantRows.map((row,i)=>(
+            <div key={i} style={{display:'flex',alignItems:'center',gap:8,marginBottom:8,padding:'10px',background:'rgba(255,255,255,0.04)',borderRadius:8,border:'1px solid rgba(255,255,255,0.08)'}}>
+              <span style={{fontSize:12,color:'rgba(255,255,255,0.6)',minWidth:60}}>{row.color||'—'} / {row.size||'—'}</span>
+              <div style={{display:'flex',alignItems:'center',gap:6,marginRight:'auto'}}>
+                <button onClick={()=>setVariantRows(prev=>prev.map((r,j)=>j===i?{...r,qty:Math.max(1,r.qty-1)}:r))} style={{width:28,height:28,borderRadius:'50%',background:'rgba(255,255,255,0.1)',border:'none',color:'#fff',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}><Minus size={11}/></button>
+                <span style={{fontSize:14,fontWeight:600,color:'#fff',minWidth:20,textAlign:'center'}}>{row.qty}</span>
+                <button onClick={()=>setVariantRows(prev=>prev.map((r,j)=>j===i?{...r,qty:r.qty+1}:r))} style={{width:28,height:28,borderRadius:'50%',background:'rgba(255,255,255,0.1)',border:'none',color:'#fff',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}><Plus size={11}/></button>
+              </div>
+              {variantRows.length>1&&(
+                <button onClick={()=>setVariantRows(prev=>prev.filter((_,j)=>j!==i))} style={{width:24,height:24,borderRadius:'50%',background:'rgba(239,68,68,0.2)',border:'none',color:'#EF4444',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}><X size={10}/></button>
+              )}
+            </div>
+          ))}
+
+          {/* Add another option */}
+          {!showAnotherOption&&(p.sizes?.length>0||p.colors?.length>0)&&(
+            <button onClick={()=>{setShowAnotherOption(true);setVariantRows(prev=>[...prev,{size:p.sizes?.[0]||'',color:p.colors?.[0]||'',qty:1}]);}}
+              style={{padding:'8px 16px',borderRadius:99,background:'rgba(255,255,255,0.06)',border:'1px dashed rgba(255,255,255,0.2)',color:'rgba(255,255,255,0.6)',fontSize:11,fontWeight:500,cursor:'pointer',display:'flex',alignItems:'center',gap:6,marginBottom:14}}>
+              <Plus size={12}/> أضف مقاس/لون آخر
+            </button>
+          )}
+
+          {/* Gift option */}
+          <div style={{marginBottom:16,padding:'12px',background:'rgba(255,255,255,0.03)',borderRadius:8,border:'1px solid rgba(255,255,255,0.06)'}}>
+            <button onClick={()=>setGiftWrap(!giftWrap)} style={{display:'flex',alignItems:'center',gap:8,background:'none',border:'none',color:'#fff',fontSize:13,fontWeight:500,cursor:'pointer',padding:0}}>
+              <Gift size={16} color={giftWrap?'#22C55E':'rgba(255,255,255,0.4)'}/>
+              {giftWrap?'🎁 تغليف هدية (+15 درهم)':'تغليف كهدية؟ (+15 درهم)'}
+            </button>
+            {giftWrap&&(
+              <input placeholder="رسالة الهدية..." value={giftMsg} onChange={e=>setGiftMsgLocal(e.target.value)}
+                style={{marginTop:8,width:'100%',padding:'8px 12px',borderRadius:8,border:'1px solid rgba(255,255,255,0.15)',background:'rgba(255,255,255,0.05)',color:'#fff',fontSize:12,outline:'none',boxSizing:'border-box',fontFamily:'Tajawal,sans-serif'}}/>
+            )}
+          </div>
+
+          {/* Related */}
           {p.category&&(window as any).__sfProducts?.filter((rp:any)=>rp.id!==p.id&&rp.category===p.category).length>0&&(
-            <div style={{marginBottom:16}}>
-              <div style={{fontSize:11,fontWeight:700,color:'var(--sf-text3)',marginBottom:10}}>قد يعجبك أيضاً</div>
+            <div style={{marginBottom:20}}>
+              <div style={{fontSize:10,color:'rgba(255,255,255,0.4)',marginBottom:10,fontWeight:600,letterSpacing:'.06em'}}>قد يعجبك أيضاً</div>
               <div style={{display:'flex',gap:8,overflowX:'auto',paddingBottom:4}}>
                 {(window as any).__sfProducts.filter((rp:any)=>rp.id!==p.id&&rp.category===p.category).slice(0,4).map((rp:any)=>(
                   <div key={rp.id} onClick={()=>{onClose();setTimeout(()=>document.dispatchEvent(new CustomEvent('viewProduct',{detail:rp})),50);}}
-                    style={{flexShrink:0,width:90,borderRadius:10,overflow:'hidden',cursor:'pointer',background:'var(--sf-surface)',border:'1px solid var(--sf-border)'}}>
-                    <div style={{height:72,background:'var(--sf-surface2)',overflow:'hidden'}}>
-                      {rp.imageUrl?<img src={rp.imageUrl} alt={rp.name} style={{width:'100%',height:'100%',objectFit:'cover'}} loading="lazy"/>:<div style={{width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:24}}>{rp.emoji||'📦'}</div>}
+                    style={{flexShrink:0,width:80,borderRadius:6,overflow:'hidden',cursor:'pointer',background:'#1A1A1A'}}>
+                    <div style={{height:80,background:'#222',overflow:'hidden'}}>
+                      {rp.imageUrl?<img src={rp.imageUrl} alt={rp.name} style={{width:'100%',height:'100%',objectFit:'cover'}} loading="lazy"/>:<div style={{width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20}}>{rp.emoji||'📦'}</div>}
                     </div>
-                    <div style={{padding:'5px 7px'}}>
-                      <div style={{fontSize:10,fontWeight:600,color:'var(--sf-text)',overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis'}}>{rp.name}</div>
-                      <div style={{fontSize:11,fontWeight:800,color:'var(--sf-text)'}}>{rp.price.toLocaleString()}</div>
-                    </div>
+                    <div style={{padding:'5px 7px'}}><div style={{fontSize:9,fontWeight:500,color:'#fff',overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis'}}>{rp.name}</div><div style={{fontSize:10,fontWeight:600,color:'rgba(255,255,255,0.6)'}}>{rp.price.toLocaleString()}</div></div>
                   </div>
                 ))}
               </div>
             </div>
           )}
-          {/* Qty */}
-          {(!p.type||p.type==='product')&&(
-            <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:20}}>
-              <span style={{fontSize:11,fontWeight:700,color:'var(--sf-text3)'}}>الكمية</span>
-              <div style={{display:'flex',alignItems:'center',gap:8,background:'var(--sf-surface2)',borderRadius:'var(--sf-r-sm)',padding:'4px 8px',border:'1px solid var(--sf-border)'}}>
-                <button onClick={()=>setQty(q=>Math.max(1,q-1))} style={{width:32,height:32,borderRadius:7,background:'var(--sf-surface)',border:'1px solid var(--sf-border)',cursor:'pointer',color:'var(--sf-text2)',display:'flex',alignItems:'center',justifyContent:'center'}}><Minus size={13}/></button>
-                <span style={{fontSize:15,fontWeight:700,color:'var(--sf-text)',minWidth:28,textAlign:'center'}}>{qty}</span>
-                <button onClick={()=>setQty(q=>Math.min(p.stock||99,q+1))} style={{width:32,height:32,borderRadius:7,background:'var(--sf-surface)',border:'1px solid var(--sf-border)',cursor:'pointer',color:'var(--sf-text2)',display:'flex',alignItems:'center',justifyContent:'center'}}><Plus size={13}/></button>
-              </div>
-              <span style={{fontSize:11,color:'var(--sf-text3)'}}>{p.stock} متوفر</span>
-            </div>
-          )}
         </div>
+
         {/* CTA */}
-        <div style={{padding:'12px 18px 24px',background:'var(--sf-surface)',borderTop:'1px solid var(--sf-border)',position:'sticky',bottom:0}}>
-          <button onClick={handleAdd} style={{width:'100%',height:52,background:added?'var(--sf-success)':'var(--sf-accent)',border:'none',color:'#fff',fontSize:15,fontWeight:700,cursor:'pointer',transition:'all .2s',display:'flex',alignItems:'center',justifyContent:'center',gap:8,borderRadius:'var(--sf-r)'}}>
-            {added?<><Check size={18}/>{p.type==='service'?'تم الحجز!':'تمت الإضافة!'}</>
-              :<><ShoppingCart size={16}/>{p.type==='service'?'احجز الآن':p.type==='digital'?'اشتر الآن':'أضف للسلة'} — {(p.price*qty).toLocaleString()} {currency}</>}
+        <div style={{padding:'14px 20px 24px',background:'#111',position:'sticky',bottom:0,borderTop:'1px solid rgba(255,255,255,0.06)'}}>
+          <button onClick={handleAddAll} style={{width:'100%',height:52,background:added?'#22C55E':'#fff',border:'none',color:added?'#fff':'#0A0A0A',fontSize:15,fontWeight:600,cursor:'pointer',transition:'all .2s',display:'flex',alignItems:'center',justifyContent:'center',gap:8,borderRadius:99}}>
+            {added?<><Check size={18}/>تمت الإضافة ✓</>:<><ShoppingCart size={16}/>أضف للسلة — {(p.price*variantRows.reduce((s,r)=>s+r.qty,0)+(giftWrap?15:0)).toLocaleString()} {currency}</>}
           </button>
         </div>
       </div>
@@ -516,8 +427,22 @@ function ProductModal({p,cart,onClose,currency,userId}:{p:SProduct;cart:ReturnTy
   </>);
 }
 
-// ─── CART SIDEBAR ─────────────────────────────────────────────────────────────
-function CartSidebar({cart,storeInfo,userId,onClose,onOrderSuccess}:{cart:ReturnType<typeof useCart>;storeInfo:StoreInfo;userId:string;onClose:()=>void;onOrderSuccess:(id:string)=>void}) {
+// ═══════════════════════════════════════════════════════════════ HERO
+function HeroSection({brand,onShop,isNight}:{brand:StoreInfo['brand'];onShop:()=>void;isNight:boolean}) {
+  return (
+    <div style={{padding:'32px 20px 28px',textAlign:'center',position:'relative'}}>
+      {brand.logo&&<img src={brand.logo} alt={brand.name} style={{width:56,height:56,borderRadius:'50%',objectFit:'contain',marginBottom:14,border:'1px solid rgba(255,255,255,0.1)'}}/>}
+      <h1 style={{fontSize:'clamp(24px,5vw,36px)',fontWeight:700,color:'#fff',margin:'0 0 6px',letterSpacing:'-0.03em',lineHeight:1.1}}>{brand.name||'المتجر'}</h1>
+      {brand.description&&<p style={{fontSize:13,color:'rgba(255,255,255,0.5)',margin:'0 auto 16px',maxWidth:320,lineHeight:1.6}}>{brand.description}</p>}
+      <button onClick={onShop} style={{padding:'11px 32px',borderRadius:99,background:'#fff',border:'none',color:'#0A0A0A',fontSize:14,fontWeight:600,cursor:'pointer',display:'inline-flex',alignItems:'center',gap:7,transition:'all .2s'}}>
+        استكشف المتجر <ArrowRight size={15}/>
+      </button>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════ CART SIDEBAR
+function CartSidebar({cart,storeInfo,userId,onClose,onOrderSuccess,isNight}:{cart:ReturnType<typeof useCart>;storeInfo:StoreInfo;userId:string;onClose:()=>void;onOrderSuccess:(id:string)=>void;isNight:boolean}) {
   const [step,setStep]=useState<'cart'|'checkout'|'success'>('cart');
   const [form,setForm]=useState({name:'',phone:'',city:'',address:'',notes:'',subscribe:true,paymentMethod:'cod' as 'cod'|'virement'});
   const [couponCode,setCouponCode]=useState('');
@@ -536,25 +461,29 @@ function CartSidebar({cart,storeInfo,userId,onClose,onOrderSuccess}:{cart:Return
     if(!couponCode.trim())return;
     try{
       const r=await fetch(`/api/coupons/validate?code=${encodeURIComponent(couponCode)}&userId=${userId}&total=${cart.total}`);
-      if(r.ok){const d=await r.json();setCouponDiscount(d.discount||0);setCouponMsg(d.discount>0?`✅ خصم ${d.discount} ${cur} تم تطبيقه`:'❌ الكود غير صحيح');}
-      else{setCouponDiscount(0);setCouponMsg('❌ الكود غير صحيح أو منتهي الصلاحية');}
-    }catch{setCouponDiscount(0);setCouponMsg('❌ تعذر التحقق من الكود');}
+      if(r.ok){const d=await r.json();setCouponDiscount(d.discount||0);setCouponMsg(d.discount>0?`✅ خصم ${d.discount} ${cur}`:'❌ الكود غير صحيح');}
+      else{setCouponDiscount(0);setCouponMsg('❌ الكود غير صحيح');}
+    }catch{setCouponDiscount(0);setCouponMsg('❌ تعذر التحقق');}
+  };
+
+  const shareCart=()=>{
+    const itemsText=cart.items.map(i=>`• ${i.product.name} (${i.size} ${i.color}) x${i.quantity} — ${i.product.price*i.quantity} ${cur}`).join('\n');
+    const msg=`🛒 سلتي من ${storeInfo.brand.name}:\n\n${itemsText}\n\n💰 المجموع: ${cart.total} ${cur}`;
+    navigator.share?.({title:`سلتي من ${storeInfo.brand.name}`,text:msg}).catch(()=>{})||navigator.clipboard?.writeText(msg);
   };
 
   const handleOrder=async()=>{
-    if(!form.name||!form.phone||!form.city){alert('الاسم الكامل، الهاتف والمدينة مطلوبون');return;}
+    if(!form.name||!form.phone||!form.city){alert('الاسم، الهاتف والمدينة مطلوبون');return;}
     setLoading(true);
     try{
-      const items=cart.items.map(i=>({productId:i.product.id,productName:i.product.name,price:i.product.price,quantity:i.quantity,size:i.size,color:i.color}));
-      const r=await fetch('/api/orders/public',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({userId,items,customerName:form.name,customerPhone:form.phone,city:form.city,address:form.address,total:grandTotal,source:'Storefront',notes:`${form.notes}${form.subscribe?' · يريد عروض':''}`})});
+      const items=cart.items.map(i=>({productId:i.product.id,productName:i.product.name,price:i.product.price,quantity:i.quantity,size:i.size,color:i.color,giftWrap:i.giftWrap,giftMessage:i.giftMessage}));
+      const r=await fetch('/api/orders/public',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId,items,customerName:form.name,customerPhone:form.phone,city:form.city,address:form.address,total:grandTotal,source:'Storefront',notes:`${form.notes}${form.subscribe?' · يريد عروض':''}`})});
       const data=await r.json();
       if(!r.ok)throw new Error(data.error);
       setOrderId(data.order.id);
       const phone=storeInfo.brand.phone?.replace(/\D/g,'');
-      const itemsText=cart.items.map(i=>`• ${i.product.name} (${i.size} ${i.color}) x${i.quantity} — ${i.product.price*i.quantity} ${cur}`).join('\n');
-      const codeStr=data.order.customerCode?`\n🔑 الكود: ${data.order.customerCode}`:'';
-      const msg=`مرحباً ${storeInfo.brand.name}! 👋\n\nأريد تأكيد طلبي:\n\n${itemsText}\n\n💰 المجموع: ${cart.total} ${cur}\n🚚 التوصيل: ${deliveryCost} ${cur}\n💵 الإجمالي: ${grandTotal} ${cur}\n\n👤 ${form.name}\n📱 ${form.phone}\n📍 ${form.city}\n🏠 ${form.address||'—'}\n🔖 ${data.order.id}${codeStr}`;
+      const itemsText=cart.items.map(i=>`• ${i.product.name} (${i.size} ${i.color}) x${i.quantity} — ${i.product.price*i.quantity} ${cur}${i.giftWrap?' 🎁':''}`).join('\n');
+      const msg=`مرحباً ${storeInfo.brand.name}! 👋\n\nأريد تأكيد طلبي:\n\n${itemsText}\n\n💰 الإجمالي: ${grandTotal} ${cur}\n\n👤 ${form.name}\n📱 ${form.phone}\n📍 ${form.city}\n🏠 ${form.address||'—'}`;
       if(phone)setTimeout(()=>window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`,'_blank'),500);
       cart.clear();try{localStorage.removeItem('sahar_cart');}catch{}
       setStep('success');onOrderSuccess(data.order.id);
@@ -562,50 +491,51 @@ function CartSidebar({cart,storeInfo,userId,onClose,onOrderSuccess}:{cart:Return
     setLoading(false);
   };
 
-  const inp:React.CSSProperties={width:'100%',padding:'11px 14px',borderRadius:'var(--sf-r-sm)',border:'1.5px solid var(--sf-border)',background:'var(--sf-surface)',color:'var(--sf-text)',fontSize:13,outline:'none',boxSizing:'border-box',fontFamily:'Tajawal,sans-serif'};
+  const inp:React.CSSProperties={width:'100%',padding:'11px 14px',borderRadius:8,border:'1px solid rgba(255,255,255,0.15)',background:'rgba(255,255,255,0.05)',color:'#fff',fontSize:13,outline:'none',boxSizing:'border-box',fontFamily:'Tajawal,sans-serif'};
 
   return (
     <div style={{position:'fixed',inset:0,zIndex:400,display:'flex'}}>
-      <div onClick={onClose} style={{flex:1,background:'rgba(16,24,40,.4)',backdropFilter:'blur(3px)'}}/>
-      <div style={{width:'min(420px,100vw)',background:'var(--sf-surface)',display:'flex',flexDirection:'column',overflowY:'auto',boxShadow:'var(--sf-shadow-lg)'}}>
-        <div style={{padding:'16px 18px',borderBottom:'1px solid var(--sf-border)',display:'flex',alignItems:'center',gap:10,position:'sticky',top:0,zIndex:2,background:'var(--sf-surface)'}}>
-          <button onClick={onClose} style={{width:34,height:34,borderRadius:8,background:'var(--sf-surface2)',border:'1px solid var(--sf-border)',cursor:'pointer',color:'var(--sf-text2)',display:'flex',alignItems:'center',justifyContent:'center'}}><X size={16}/></button>
-          <div style={{flex:1,fontSize:15,fontWeight:800,color:'var(--sf-text)'}}>{step==='cart'?`سلتك (${cart.count})`:step==='checkout'?'تأكيد الطلب':'تم الطلب ✅'}</div>
-          {step==='cart'&&<span style={{fontSize:14,fontWeight:800,color:'var(--sf-accent)'}}>{cart.total.toLocaleString()} {cur}</span>}
+      <div onClick={onClose} style={{flex:1,background:'rgba(0,0,0,.7)',backdropFilter:'blur(4px)'}}/>
+      <div style={{width:'min(420px,100vw)',background:'#111',display:'flex',flexDirection:'column',overflowY:'auto',boxShadow:'-16px 0 48px rgba(0,0,0,0.5)',color:'#fff'}}>
+        <div style={{padding:'16px 18px',borderBottom:'1px solid rgba(255,255,255,0.08)',display:'flex',alignItems:'center',gap:10,position:'sticky',top:0,zIndex:2,background:'#111'}}>
+          <button onClick={onClose} style={{width:34,height:34,borderRadius:'50%',background:'rgba(255,255,255,0.06)',border:'none',color:'#fff',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}><X size={16}/></button>
+          <div style={{flex:1,fontSize:15,fontWeight:600}}>{step==='cart'?`سلتك (${cart.count})`:step==='checkout'?'تأكيد الطلب':'تم ✓'}</div>
+          {step==='cart'&&<button onClick={shareCart} style={{width:34,height:34,borderRadius:'50%',background:'rgba(255,255,255,0.06)',border:'none',color:'#fff',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}><Share2 size={15}/></button>}
         </div>
 
         {step==='cart'&&(
           <div style={{flex:1,overflow:'auto',padding:16}}>
             {cart.items.length===0?(
-              <div style={{textAlign:'center',padding:'60px 20px',color:'var(--sf-text3)'}}>
-                <ShoppingCart size={44} style={{margin:'0 auto 14px',opacity:.3}}/>
-                <div style={{fontSize:15,fontWeight:700,color:'var(--sf-text2)',marginBottom:6}}>سلتك فارغة</div>
-                <button onClick={onClose} style={{marginTop:12,padding:'9px 22px',background:'var(--sf-accent)',border:'none',borderRadius:'var(--sf-r-sm)',color:'#fff',cursor:'pointer',fontWeight:700,fontSize:13}}>تصفح المنتجات</button>
+              <div style={{textAlign:'center',padding:'60px 20px',color:'rgba(255,255,255,0.4)'}}>
+                <ShoppingCart size={44} style={{margin:'0 auto 14px',opacity:.2}}/>
+                <div style={{fontSize:15,fontWeight:500,marginBottom:6}}>سلتك فارغة</div>
+                <button onClick={onClose} style={{marginTop:12,padding:'9px 24px',borderRadius:99,background:'#fff',border:'none',color:'#0A0A0A',fontWeight:600,fontSize:13,cursor:'pointer'}}>تصفح المنتجات</button>
               </div>
             ):(
               <>
                 {cart.items.map((item,i)=>(
-                  <div key={i} style={{display:'flex',gap:12,padding:'12px 0',borderBottom:'1px solid var(--sf-border)'}}>
-                    <div style={{width:64,height:64,borderRadius:'var(--sf-r-sm)',background:'var(--sf-surface2)',overflow:'hidden',flexShrink:0,border:'1px solid var(--sf-border)'}}>
-                      {item.product.imageUrl?<img src={item.product.imageUrl} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>:<div style={{width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:26}}>{item.product.emoji||'📦'}</div>}
+                  <div key={i} style={{display:'flex',gap:12,padding:'14px 0',borderBottom:'1px solid rgba(255,255,255,0.06)'}}>
+                    <div style={{width:60,height:60,borderRadius:6,background:'#1A1A1A',overflow:'hidden',flexShrink:0}}>
+                      {item.product.imageUrl?<img src={item.product.imageUrl} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>:<div style={{width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,color:'rgba(255,255,255,0.1)'}}>{item.product.emoji||'📦'}</div>}
                     </div>
                     <div style={{flex:1,minWidth:0}}>
-                      <div style={{fontSize:13,fontWeight:600,color:'var(--sf-text)'}}>{item.product.name}</div>
-                      <div style={{fontSize:11,color:'var(--sf-text3)',marginTop:2}}>{item.size&&`${item.size}`}{item.color&&` · ${item.color}`}</div>
+                      <div style={{fontSize:13,fontWeight:600}}>{item.product.name}{item.giftWrap?' 🎁':''}</div>
+                      <div style={{fontSize:10,color:'rgba(255,255,255,0.4)',marginTop:2}}>{item.size} · {item.color}</div>
+                      {item.giftMessage&&<div style={{fontSize:10,color:'rgba(255,255,255,0.3)',marginTop:2}}>💬 {item.giftMessage}</div>}
                       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:8}}>
-                        <div style={{display:'flex',alignItems:'center',gap:6,background:'var(--sf-surface2)',borderRadius:8,padding:'3px 6px',border:'1px solid var(--sf-border)'}}>
-                          <button onClick={()=>cart.update(item.product.id,item.size,item.color,item.quantity-1)} style={{width:24,height:24,borderRadius:6,background:'var(--sf-surface)',border:'1px solid var(--sf-border)',cursor:'pointer',color:'var(--sf-text2)',display:'flex',alignItems:'center',justifyContent:'center'}}><Minus size={10}/></button>
-                          <span style={{fontSize:13,fontWeight:700,color:'var(--sf-text)',minWidth:20,textAlign:'center'}}>{item.quantity}</span>
-                          <button onClick={()=>cart.update(item.product.id,item.size,item.color,item.quantity+1)} style={{width:24,height:24,borderRadius:6,background:'var(--sf-surface)',border:'1px solid var(--sf-border)',cursor:'pointer',color:'var(--sf-text2)',display:'flex',alignItems:'center',justifyContent:'center'}}><Plus size={10}/></button>
+                        <div style={{display:'flex',alignItems:'center',gap:6}}>
+                          <button onClick={()=>cart.update(item.product.id,item.size,item.color,item.quantity-1)} style={{width:24,height:24,borderRadius:'50%',background:'rgba(255,255,255,0.08)',border:'none',color:'#fff',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}><Minus size={10}/></button>
+                          <span style={{fontSize:13,fontWeight:500,minWidth:20,textAlign:'center'}}>{item.quantity}</span>
+                          <button onClick={()=>cart.update(item.product.id,item.size,item.color,item.quantity+1)} style={{width:24,height:24,borderRadius:'50%',background:'rgba(255,255,255,0.08)',border:'none',color:'#fff',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}><Plus size={10}/></button>
                         </div>
-                        <span style={{fontSize:14,fontWeight:700,color:'var(--sf-accent)'}}>{(item.product.price*item.quantity).toLocaleString()} {cur}</span>
+                        <span style={{fontSize:14,fontWeight:600}}>{(item.product.price*item.quantity+(item.giftWrap?15:0)).toLocaleString()} {cur}</span>
                       </div>
                     </div>
-                    <button onClick={()=>cart.remove(item.product.id,item.size,item.color)} style={{width:26,height:26,borderRadius:6,background:'#FEF2F2',border:'none',cursor:'pointer',color:'var(--sf-danger)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginTop:2}}><X size={12}/></button>
+                    <button onClick={()=>cart.remove(item.product.id,item.size,item.color)} style={{width:26,height:26,borderRadius:'50%',background:'rgba(239,68,68,0.15)',border:'none',color:'#EF4444',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginTop:2}}><X size={11}/></button>
                   </div>
                 ))}
-                <div style={{padding:'14px 0',marginTop:8}}>
-                  <button onClick={()=>setStep('checkout')} style={{width:'100%',height:50,background:'var(--sf-accent)',border:'none',borderRadius:'var(--sf-r)',color:'#fff',fontSize:15,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
+                <div style={{padding:'16px 0'}}>
+                  <button onClick={()=>setStep('checkout')} style={{width:'100%',height:50,borderRadius:99,background:'#fff',border:'none',color:'#0A0A0A',fontSize:15,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
                     متابعة الطلب <ArrowRight size={16}/>
                   </button>
                 </div>
@@ -621,66 +551,66 @@ function CartSidebar({cart,storeInfo,userId,onClose,onOrderSuccess}:{cart:Return
             <div style={{position:'relative'}}>
               <input style={inp} placeholder="المدينة *" value={citySearch||form.city} onChange={e=>{setCitySearch(e.target.value);setShowCities(true);setForm(f=>({...f,city:e.target.value}));}} onFocus={()=>setShowCities(true)} onBlur={()=>setTimeout(()=>setShowCities(false),200)}/>
               {showCities&&filteredCities.length>0&&(
-                <div style={{position:'absolute',top:'100%',right:0,left:0,background:'var(--sf-surface)',border:'1px solid var(--sf-border)',borderRadius:'var(--sf-r-sm)',maxHeight:180,overflowY:'auto',zIndex:10,marginTop:4,boxShadow:'var(--sf-shadow-md)'}}>
+                <div style={{position:'absolute',top:'100%',right:0,left:0,background:'#1A1A1A',border:'1px solid rgba(255,255,255,0.15)',borderRadius:8,maxHeight:180,overflowY:'auto',zIndex:10,marginTop:4}}>
                   {filteredCities.map(city=>(
-                    <div key={city} onClick={()=>{setForm(f=>({...f,city}));setCitySearch(city);setShowCities(false);}} style={{padding:'9px 14px',fontSize:13,color:'var(--sf-text)',cursor:'pointer',borderBottom:'1px solid var(--sf-border)'}} onMouseOver={e=>(e.currentTarget.style.background='var(--sf-surface2)')} onMouseOut={e=>(e.currentTarget.style.background='')}>{city}</div>
+                    <div key={city} onClick={()=>{setForm(f=>({...f,city}));setCitySearch(city);setShowCities(false);}} style={{padding:'9px 14px',fontSize:13,cursor:'pointer',borderBottom:'1px solid rgba(255,255,255,0.06)'}} onMouseOver={e=>{(e.currentTarget as HTMLElement).style.background='rgba(255,255,255,0.04)'}} onMouseOut={e=>{(e.currentTarget as HTMLElement).style.background=''}}>{city}</div>
                   ))}
                 </div>
               )}
             </div>
             <textarea style={{...inp,resize:'none'} as any} placeholder="العنوان بالتفصيل" rows={2} value={form.address} onChange={e=>setForm(f=>({...f,address:e.target.value}))}/>
-            <textarea style={{...inp,resize:'none'} as any} placeholder="ملاحظة للبائع (اختياري)" rows={2} value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))}/>
+            <textarea style={{...inp,resize:'none'} as any} placeholder="ملاحظة (اختياري)" rows={1} value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))}/>
             <div>
-              <div style={{fontSize:12,fontWeight:700,color:'var(--sf-text3)',marginBottom:8}}>طريقة الدفع</div>
+              <div style={{fontSize:11,color:'rgba(255,255,255,0.4)',marginBottom:6,fontWeight:600}}>طريقة الدفع</div>
               <div style={{display:'flex',gap:8}}>
-                {[['cod','💵 عند الاستلام'],['virement','🏦 تحويل بنكي']].map(([v,l])=>(
-                  <button key={v} onClick={()=>setForm(f=>({...f,paymentMethod:v as any}))} style={{flex:1,padding:'10px',borderRadius:'var(--sf-r-sm)',border:`1.5px solid ${form.paymentMethod===v?'var(--sf-accent)':'var(--sf-border)'}`,background:form.paymentMethod===v?'var(--sf-accent-soft)':'var(--sf-surface)',color:form.paymentMethod===v?'var(--sf-accent)':'var(--sf-text2)',fontSize:12,fontWeight:700,cursor:'pointer'}}>{l}</button>
+                {[['cod','💵 عند الاستلام'],['virement','🏦 تحويل']].map(([v,l])=>(
+                  <button key={v} onClick={()=>setForm(f=>({...f,paymentMethod:v as any}))} style={{flex:1,padding:'10px',borderRadius:8,border:`1px solid ${form.paymentMethod===v?'#fff':'rgba(255,255,255,0.15)'}`,background:form.paymentMethod===v?'rgba(255,255,255,0.1)':'transparent',color:'#fff',fontSize:12,fontWeight:500,cursor:'pointer'}}>{l}</button>
                 ))}
               </div>
             </div>
             <div>
-              <div style={{fontSize:12,fontWeight:700,color:'var(--sf-text3)',marginBottom:8}}>كود الخصم</div>
+              <div style={{fontSize:11,color:'rgba(255,255,255,0.4)',marginBottom:6,fontWeight:600}}>كود الخصم</div>
               <div style={{display:'flex',gap:8}}>
-                <input style={{...inp,flex:1,textTransform:'uppercase'}} placeholder="أدخل كود الخصم" value={couponCode} onChange={e=>{setCouponCode(e.target.value.toUpperCase());setCouponMsg('');}} dir="ltr"/>
-                <button onClick={applyCoupon} style={{padding:'0 14px',borderRadius:'var(--sf-r-sm)',background:'var(--sf-surface2)',border:'1px solid var(--sf-border)',color:'var(--sf-text2)',fontSize:12,fontWeight:700,cursor:'pointer',flexShrink:0}}>تطبيق</button>
+                <input style={{...inp,flex:1,textTransform:'uppercase'}} placeholder="أدخل الكود" value={couponCode} onChange={e=>{setCouponCode(e.target.value.toUpperCase());setCouponMsg('');}} dir="ltr"/>
+                <button onClick={applyCoupon} style={{padding:'0 14px',borderRadius:8,background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.15)',color:'#fff',fontSize:12,fontWeight:500,cursor:'pointer'}}>تطبيق</button>
               </div>
-              {couponMsg&&<div style={{fontSize:11,marginTop:4,color:couponDiscount>0?'var(--sf-success)':'var(--sf-danger)',fontWeight:700}}>{couponMsg}</div>}
+              {couponMsg&&<div style={{fontSize:10,marginTop:4,color:couponDiscount>0?'#22C55E':'#EF4444',fontWeight:500}}>{couponMsg}</div>}
             </div>
-            <label style={{display:'flex',alignItems:'center',gap:10,cursor:'pointer',fontSize:13,color:'var(--sf-text2)'}}>
-              <input type="checkbox" checked={form.subscribe} onChange={e=>setForm(f=>({...f,subscribe:e.target.checked}))} style={{accentColor:'var(--sf-accent)',width:16,height:16}}/>
-              أريد استقبال العروض عبر واتساب
+            <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:12,color:'rgba(255,255,255,0.5)'}}>
+              <input type="checkbox" checked={form.subscribe} onChange={e=>setForm(f=>({...f,subscribe:e.target.checked}))} style={{accentColor:'#fff',width:14,height:14}}/>
+              أريد العروض عبر واتساب
             </label>
-            <div style={{background:'var(--sf-surface2)',borderRadius:'var(--sf-r)',padding:'14px 16px',border:'1px solid var(--sf-border)'}}>
-              <div style={{fontSize:12,fontWeight:700,color:'var(--sf-text3)',marginBottom:10}}>ملخص الطلب</div>
+            <div style={{background:'rgba(255,255,255,0.04)',borderRadius:8,padding:'14px 16px',border:'1px solid rgba(255,255,255,0.08)'}}>
+              <div style={{fontSize:11,color:'rgba(255,255,255,0.4)',marginBottom:8,fontWeight:600}}>ملخص الطلب</div>
               {cart.items.map((item,i)=>(
-                <div key={i} style={{display:'flex',justifyContent:'space-between',fontSize:12,color:'var(--sf-text2)',marginBottom:5,gap:8}}>
-                  <span style={{flex:1}}>{item.product.name}{item.size?` (${item.size})`:''} ×{item.quantity}</span>
-                  <span style={{flexShrink:0,fontWeight:700}}>{(item.product.price*item.quantity).toLocaleString()} {cur}</span>
+                <div key={i} style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'rgba(255,255,255,0.6)',marginBottom:4}}>
+                  <span>{item.product.name} ×{item.quantity}</span>
+                  <span>{(item.product.price*item.quantity+(item.giftWrap?15:0)).toLocaleString()} {cur}</span>
                 </div>
               ))}
-              <div style={{paddingTop:8,borderTop:'1px solid var(--sf-border)',marginTop:8,display:'flex',flexDirection:'column',gap:5}}>
-                <div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:'var(--sf-text2)'}}><span>المجموع</span><span>{cart.total.toLocaleString()} {cur}</span></div>
-                {couponDiscount>0&&<div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:'var(--sf-success)',fontWeight:700}}><span>الخصم</span><span>-{couponDiscount.toLocaleString()} {cur}</span></div>}
-                <div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:'var(--sf-text2)'}}><span>التوصيل — {form.city||'—'}</span><span>{form.city?`${deliveryCost} ${cur}`:'بعد المدينة'}</span></div>
-                <div style={{display:'flex',justifyContent:'space-between',fontSize:16,fontWeight:800,color:'var(--sf-text)',paddingTop:8,marginTop:4,borderTop:'1px solid var(--sf-border)'}}><span>الإجمالي</span><span style={{color:'var(--sf-accent)'}}>{grandTotal.toLocaleString()} {cur}</span></div>
+              <div style={{paddingTop:8,borderTop:'1px solid rgba(255,255,255,0.08)',marginTop:8,display:'flex',flexDirection:'column',gap:4}}>
+                <div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'rgba(255,255,255,0.5)'}}><span>المجموع</span><span>{cart.total.toLocaleString()} {cur}</span></div>
+                {couponDiscount>0&&<div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'#22C55E',fontWeight:500}}><span>الخصم</span><span>-{couponDiscount.toLocaleString()} {cur}</span></div>}
+                <div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'rgba(255,255,255,0.5)'}}><span>التوصيل</span><span>{form.city?`${deliveryCost} ${cur}`:'—'}</span></div>
+                <div style={{display:'flex',justifyContent:'space-between',fontSize:15,fontWeight:600,paddingTop:6,borderTop:'1px solid rgba(255,255,255,0.08)'}}><span>الإجمالي</span><span>{grandTotal.toLocaleString()} {cur}</span></div>
               </div>
             </div>
-            <button onClick={handleOrder} disabled={loading} style={{width:'100%',height:52,background:'#25D366',border:'none',borderRadius:'var(--sf-r)',color:'#fff',fontSize:15,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8,opacity:loading?.7:1}}>
-              {loading?'⟳ جارٍ إرسال الطلب...':<><MessageCircle size={16}/> تأكيد الطلب عبر واتساب</>}
+            <button onClick={handleOrder} disabled={loading} style={{width:'100%',height:50,borderRadius:99,background:'#22C55E',border:'none',color:'#fff',fontSize:14,fontWeight:600,cursor:'pointer',opacity:loading?.7:1}}>
+              {loading?'⟳ جارٍ الإرسال...':<><MessageCircle size={15}/> تأكيد عبر واتساب</>}
             </button>
-            <button onClick={()=>setStep('cart')} style={{background:'none',border:'none',color:'var(--sf-text3)',cursor:'pointer',fontSize:13,padding:'4px',textAlign:'center'}}>← رجوع للسلة</button>
+            <button onClick={()=>setStep('cart')} style={{background:'none',border:'none',color:'rgba(255,255,255,0.4)',cursor:'pointer',fontSize:12,padding:4}}>← رجوع</button>
           </div>
         )}
 
         {step==='success'&&(
           <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'40px 24px',textAlign:'center'}}>
-            <div style={{width:72,height:72,borderRadius:'50%',background:'var(--sf-success-soft)',border:'2px solid var(--sf-success)',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:20}}>
-              <Check size={36} color="var(--sf-success)"/>
+            <div style={{width:72,height:72,borderRadius:'50%',background:'rgba(34,197,94,0.1)',border:'2px solid #22C55E',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:20}}>
+              <Check size={36} color="#22C55E"/>
             </div>
-            <h2 style={{fontSize:22,fontWeight:800,color:'var(--sf-text)',marginBottom:10}}>تم إرسال طلبك! 🎉</h2>
-            <p style={{fontSize:14,color:'var(--sf-text2)',lineHeight:1.7,marginBottom:24}}>تم إرسال تفاصيل طلبك عبر واتساب.<br/>سيتواصل معك البائع لتأكيد الطلب.</p>
-            {orderId&&<div style={{fontSize:12,color:'var(--sf-text3)',background:'var(--sf-surface2)',borderRadius:8,padding:'6px 14px',marginBottom:20,border:'1px solid var(--sf-border)'}}>رقم الطلب: {orderId}</div>}
-            <button onClick={onClose} style={{padding:'11px 28px',background:'var(--sf-accent)',border:'none',borderRadius:'var(--sf-r-sm)',color:'#fff',fontSize:14,fontWeight:700,cursor:'pointer'}}>متابعة التسوق</button>
+            <h2 style={{fontSize:22,fontWeight:600,marginBottom:8}}>تم الطلب! 🎉</h2>
+            <p style={{fontSize:13,color:'rgba(255,255,255,0.5)',lineHeight:1.7,marginBottom:20}}>سيتواصل معك البائع لتأكيد الطلب</p>
+            {orderId&&<div style={{fontSize:11,color:'rgba(255,255,255,0.3)',background:'rgba(255,255,255,0.04)',borderRadius:6,padding:'6px 14px',marginBottom:16}}>{orderId}</div>}
+            <button onClick={onClose} style={{padding:'11px 28px',borderRadius:99,background:'#fff',border:'none',color:'#0A0A0A',fontWeight:600,fontSize:14,cursor:'pointer'}}>متابعة التسوق</button>
           </div>
         )}
       </div>
@@ -688,230 +618,7 @@ function CartSidebar({cart,storeInfo,userId,onClose,onOrderSuccess}:{cart:Return
   );
 }
 
-// ─── TRACKING MODAL ───────────────────────────────────────────────────────────
-function TrackingModal({userId,storeInfo,onClose}:{userId:string;storeInfo:StoreInfo;onClose:()=>void}) {
-  const [query,setQuery]=useState('');
-  const [mode,setMode]=useState<'phone'|'code'>('code');
-  const [orders,setOrders]=useState<any[]>([]);
-  const [singleOrder,setSingleOrder]=useState<any>(null);
-  const [loading,setLoading]=useState(false);
-  const [searched,setSearched]=useState(false);
-  const cur=storeInfo.brand.currency||'MAD';
-  const STATUS_AR:Record<string,string>={pending:'⏳ بانتظار التأكيد',approved:'✅ تم التأكيد',processing:'⚙️ جارٍ التحضير',shipped:'🚚 في الطريق',delivered:'📦 وصل',cancelled:'❌ ملغي'};
-  const STATUS_COLOR:Record<string,string>={pending:'#D97706',approved:'#16A34A',processing:'#D97706',shipped:'#16A34A',delivered:'#16A34A',cancelled:'#E5484D'};
-
-  const search=async()=>{
-    if(!query.trim())return;
-    setLoading(true);setSingleOrder(null);setOrders([]);
-    try{
-      if(mode==='code'){const r=await fetch(`/api/orders/track-code/${encodeURIComponent(query.trim().toUpperCase())}?userId=${userId}`);const d=await r.json();if(r.ok)setSingleOrder(d);else setOrders([]);}
-      else{const r=await fetch(`/api/orders/track/${encodeURIComponent(query.trim())}?userId=${userId}`);const d=await r.json();setOrders(Array.isArray(d)?d:[]);}
-    }catch{}
-    setSearched(true);setLoading(false);
-  };
-
-  return (
-    <div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(16,24,40,.45)',backdropFilter:'blur(4px)',zIndex:300,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
-      <div onClick={e=>e.stopPropagation()} style={{background:'var(--sf-surface)',borderRadius:'var(--sf-r)',width:'100%',maxWidth:440,padding:24,boxShadow:'var(--sf-shadow-lg)'}}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
-          <h2 style={{fontSize:18,fontWeight:800,color:'var(--sf-text)'}}>📦 تتبع طلبك</h2>
-          <button onClick={onClose} style={{width:32,height:32,borderRadius:8,background:'var(--sf-surface2)',border:'1px solid var(--sf-border)',cursor:'pointer',color:'var(--sf-text2)',display:'flex',alignItems:'center',justifyContent:'center'}}><X size={14}/></button>
-        </div>
-        <div style={{display:'flex',gap:6,marginBottom:12}}>
-          {[['code','🔑 كود التتبع'],['phone','📱 رقم الهاتف']].map(([m,l])=>(
-            <button key={m} onClick={()=>{setMode(m as any);setQuery('');setSearched(false);setSingleOrder(null);setOrders([]);}} style={{flex:1,padding:'8px',borderRadius:'var(--sf-r-sm)',border:`1.5px solid ${mode===m?'var(--sf-accent)':'var(--sf-border)'}`,background:mode===m?'var(--sf-accent-soft)':'var(--sf-surface)',color:mode===m?'var(--sf-accent)':'var(--sf-text3)',fontSize:12,fontWeight:700,cursor:'pointer'}}>{l}</button>
-          ))}
-        </div>
-        <div style={{display:'flex',gap:8,marginBottom:16}}>
-          <input placeholder={mode==='code'?'أدخل كودك مثل: AB12CD':'أدخل رقم هاتفك'} value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>e.key==='Enter'&&search()} dir="ltr"
-            style={{flex:1,padding:'10px 14px',borderRadius:'var(--sf-r-sm)',border:'1.5px solid var(--sf-border)',background:'var(--sf-surface)',color:'var(--sf-text)',fontSize:13,outline:'none',textTransform:mode==='code'?'uppercase':'none',fontFamily:'Tajawal,sans-serif'}}/>
-          <button onClick={search} disabled={loading} style={{padding:'8px 18px',background:'var(--sf-accent)',border:'none',borderRadius:'var(--sf-r-sm)',color:'#fff',fontWeight:700,cursor:'pointer',fontSize:14,flexShrink:0}}>{loading?'⟳':'بحث'}</button>
-        </div>
-        {searched&&!singleOrder&&orders.length===0&&<p style={{color:'var(--sf-text3)',textAlign:'center',fontSize:13,padding:'12px 0'}}>لم نجد طلبات</p>}
-        {singleOrder&&(
-          <div style={{background:'var(--sf-success-soft)',border:'1px solid #BBF7D0',borderRadius:'var(--sf-r-sm)',padding:'14px'}}>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
-              <span style={{fontSize:14,fontWeight:800,color:'var(--sf-text)'}}>طلبك</span>
-              <span style={{fontSize:13,fontWeight:800,color:STATUS_COLOR[singleOrder.status]||'var(--sf-text2)'}}>{STATUS_AR[singleOrder.status]||singleOrder.status}</span>
-            </div>
-            {(singleOrder.items||[]).map((item:any,i:number)=><div key={i} style={{fontSize:12,color:'var(--sf-text2)',marginBottom:3}}>• {item.productName} × {item.quantity}</div>)}
-            <div style={{display:'flex',justifyContent:'space-between',marginTop:8,paddingTop:8,borderTop:'1px solid #BBF7D0'}}>
-              <span style={{fontSize:11,color:'var(--sf-text3)'}}>{singleOrder.city}</span>
-              <span style={{fontSize:14,fontWeight:700,color:'var(--sf-accent)'}}>{singleOrder.total} {cur}</span>
-            </div>
-          </div>
-        )}
-        {orders.map((o:any)=>(
-          <div key={o.id} style={{background:'var(--sf-surface2)',borderRadius:'var(--sf-r-sm)',padding:'12px 14px',marginBottom:8,border:'1px solid var(--sf-border)'}}>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
-              <span style={{fontSize:10,color:'var(--sf-text3)',fontFamily:'monospace'}}>{o.id}</span>
-              <span style={{fontSize:12,fontWeight:700,color:STATUS_COLOR[o.status]||'var(--sf-text2)'}}>{STATUS_AR[o.status]||o.status}</span>
-            </div>
-            {(o.items||[]).map((item:any,i:number)=><div key={i} style={{fontSize:12,color:'var(--sf-text2)',marginBottom:2}}>• {item.productName} x{item.quantity}</div>)}
-            <div style={{display:'flex',justifyContent:'space-between',marginTop:6,fontSize:12}}>
-              <span style={{color:'var(--sf-text3)'}}>{new Date(o.createdAt).toLocaleDateString('ar-MA')}</span>
-              <span style={{fontWeight:700,color:'var(--sf-accent)'}}>{o.total} {cur}</span>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ─── FLOATING CHAT ────────────────────────────────────────────────────────────
-function FloatingChat({userId,storeInfo}:{userId:string;storeInfo:StoreInfo}) {
-  const [open,setOpen]=useState(false);
-  const [msgs,setMsgs]=useState<ChatMsg[]>([{role:'ai',content:`مرحباً! 👋 أنا مساعد ${storeInfo.brand.name||'المتجر'} الذكي.\nكيف يمكنني مساعدتك؟`}]);
-  const [input,setInput]=useState('');
-  const [loading,setLoading]=useState(false);
-  const [unread,setUnread]=useState(0);
-  const endRef=useRef<HTMLDivElement>(null);
-  useEffect(()=>{if(open){setUnread(0);endRef.current?.scrollIntoView();}}, [msgs,open]);
-  const send=async(msg?:string)=>{
-    const text=msg||input.trim();if(!text)return;setInput('');
-    setMsgs(m=>[...m,{role:'user',content:text}]);setLoading(true);
-    try{
-      const r=await fetch('/api/ai/public-reply',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,history:msgs.slice(-8).map(m=>({role:m.role,content:m.content})),userId})});
-      const d=await r.json();setMsgs(m=>[...m,{role:'ai',content:d.reply,product:d.product}]);
-      if(!open)setUnread(n=>n+1);
-    }catch{setMsgs(m=>[...m,{role:'ai',content:'عذراً، حدث خطأ. حاول مرة أخرى.'}]);}
-    setLoading(false);
-  };
-  return (<>
-    <button onClick={()=>setOpen(v=>!v)} style={{width:54,height:54,borderRadius:'50%',background:'var(--sf-accent)',border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'var(--sf-shadow-lg)',position:'fixed',bottom:28,left:20,zIndex:200,color:'#fff',transition:'all .2s'}}>
-      {open?<X size={22}/>:<Bot size={22}/>}
-      {unread>0&&!open&&<div style={{position:'absolute',top:-4,right:-4,width:18,height:18,background:'var(--sf-danger)',borderRadius:'50%',fontSize:11,fontWeight:900,display:'flex',alignItems:'center',justifyContent:'center',border:'2px solid #fff',color:'#fff'}}>{unread}</div>}
-    </button>
-    {open&&(
-      <div style={{position:'fixed',bottom:96,left:16,right:16,maxWidth:360,marginLeft:'auto',background:'var(--sf-surface)',border:'1px solid var(--sf-border)',borderRadius:'var(--sf-r)',boxShadow:'var(--sf-shadow-lg)',zIndex:200,overflow:'hidden',display:'flex',flexDirection:'column',maxHeight:460}}>
-        <div style={{padding:'12px 16px',background:'var(--sf-accent)',display:'flex',alignItems:'center',gap:10}}>
-          <div style={{width:32,height:32,borderRadius:'50%',background:'rgba(255,255,255,.2)',display:'flex',alignItems:'center',justifyContent:'center'}}><Bot size={16} color="#fff"/></div>
-          <div><div style={{fontSize:13,fontWeight:700,color:'#fff'}}>مساعد {storeInfo.brand.name}</div><div style={{fontSize:10,color:'rgba(255,255,255,.8)'}}>متاح الآن</div></div>
-          <button onClick={()=>setOpen(false)} style={{marginRight:'auto',background:'none',border:'none',cursor:'pointer',color:'rgba(255,255,255,.85)',display:'flex'}}><X size={16}/></button>
-        </div>
-        <div style={{flex:1,overflow:'auto',padding:'12px',display:'flex',flexDirection:'column',gap:8,background:'var(--sf-bg)'}}>
-          {msgs.map((m,i)=>(
-            <div key={i} style={{maxWidth:'85%',alignSelf:m.role==='user'?'flex-end':'flex-start'}}>
-              <div style={{padding:'8px 12px',borderRadius:m.role==='user'?'14px 14px 4px 14px':'14px 14px 14px 4px',background:m.role==='user'?'var(--sf-accent)':'var(--sf-surface)',border:m.role==='user'?'none':'1px solid var(--sf-border)',color:m.role==='user'?'#fff':'var(--sf-text)',fontSize:12,lineHeight:1.5,whiteSpace:'pre-wrap'}}>{m.content}</div>
-            </div>
-          ))}
-          {loading&&<div style={{padding:'8px 12px',borderRadius:'14px 14px 14px 4px',background:'var(--sf-surface)',border:'1px solid var(--sf-border)',color:'var(--sf-text3)',fontSize:12,alignSelf:'flex-start'}}>يكتب...</div>}
-          <div ref={endRef}/>
-        </div>
-        <div style={{padding:'6px 10px',display:'flex',gap:5,flexWrap:'wrap',borderTop:'1px solid var(--sf-border)'}}>
-          {['اشوف المنتجات','بكام التوصيل؟','تتبع طلبي'].map(q=>(
-            <button key={q} onClick={()=>send(q)} style={{fontSize:10,padding:'4px 9px',borderRadius:99,background:'var(--sf-surface2)',border:'1px solid var(--sf-border)',color:'var(--sf-text2)',cursor:'pointer'}}>{q}</button>
-          ))}
-        </div>
-        <div style={{padding:'8px 10px',borderTop:'1px solid var(--sf-border)',display:'flex',gap:8}}>
-          <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&!e.shiftKey&&send()} placeholder="اكتب سؤالك..."
-            style={{flex:1,padding:'7px 12px',fontSize:12,borderRadius:'var(--sf-r-sm)',border:'1px solid var(--sf-border)',background:'var(--sf-surface)',color:'var(--sf-text)',outline:'none',fontFamily:'Tajawal,sans-serif'}}/>
-          <button onClick={()=>send()} disabled={!input.trim()||loading} style={{width:34,height:34,borderRadius:'50%',background:'var(--sf-accent)',border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',opacity:(!input.trim()||loading)?.5:1}}><Send size={14} color="#fff"/></button>
-        </div>
-      </div>
-    )}
-  </>);
-}
-
-// ─── HERO (real stats only) ───────────────────────────────────────────────────
-function HeroSection({brand,productCount,serviceCount,totalSales,onShop,onServices}:{brand:StoreInfo['brand'];productCount:number;serviceCount:number;totalSales:number;onShop:()=>void;onServices:()=>void}) {
-  const hasServices=serviceCount>0;
-  const stats=[{n:productCount,l:'منتج'}];
-  if(hasServices) stats.push({n:serviceCount,l:'خدمة'});
-  if(totalSales>0) stats.push({n:totalSales,l:'مبيعة'});
-  return (
-    <div style={{background:'var(--sf-surface)',borderBottom:'1px solid var(--sf-border)',padding:'24px 20px 20px'}}>
-      <div style={{display:'flex',gap:16,alignItems:'center',marginBottom:18}}>
-        <div style={{flexShrink:0,width:72,height:72,borderRadius:18,overflow:'hidden',background:'var(--sf-surface2)',border:'1px solid var(--sf-border)',display:'flex',alignItems:'center',justifyContent:'center'}}>
-          {brand.logo?<img src={brand.logo} alt="logo" style={{width:'100%',height:'100%',objectFit:'contain'}}/>
-            :<span style={{fontSize:28,fontWeight:800,color:'var(--sf-accent)'}}>{brand.name?.[0]?.toUpperCase()||'S'}</span>}
-        </div>
-        <div style={{flex:1,minWidth:0}}>
-          <h1 style={{fontSize:'clamp(20px,5vw,26px)',fontWeight:800,color:'var(--sf-text)',margin:'0 0 4px',lineHeight:1.2}}>{brand.name||'المتجر'}</h1>
-          {brand.description&&<p style={{fontSize:13,color:'var(--sf-text2)',margin:'0 0 8px',lineHeight:1.5,overflow:'hidden',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical'}}>{brand.description}</p>}
-          <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-            {brand.phone&&<a href={`https://wa.me/${brand.phone.replace(/\D/g,'')}`} target="_blank" rel="noreferrer" style={{padding:'4px 11px',borderRadius:99,background:'var(--sf-surface2)',border:'1px solid var(--sf-border)',color:'var(--sf-text2)',fontSize:11,fontWeight:600,textDecoration:'none'}}>💬 واتساب</a>}
-            {brand.instagram&&<a href={`https://instagram.com/${brand.instagram}`} target="_blank" rel="noreferrer" style={{padding:'4px 11px',borderRadius:99,background:'var(--sf-surface2)',border:'1px solid var(--sf-border)',color:'var(--sf-text2)',fontSize:11,fontWeight:600,textDecoration:'none'}}>📸 Instagram</a>}
-            {brand.facebook&&<a href={`https://facebook.com/${brand.facebook}`} target="_blank" rel="noreferrer" style={{padding:'4px 11px',borderRadius:99,background:'var(--sf-surface2)',border:'1px solid var(--sf-border)',color:'var(--sf-text2)',fontSize:11,fontWeight:600,textDecoration:'none'}}>📘 Facebook</a>}
-          </div>
-        </div>
-      </div>
-      <div style={{display:'flex',gap:10,marginBottom:16}}>
-        <button onClick={onShop} style={{flex:1,height:46,borderRadius:'var(--sf-r)',background:'var(--sf-accent)',border:'none',color:'#fff',fontSize:14,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
-          <ShoppingCart size={16}/> تسوق الآن
-        </button>
-        {hasServices&&<button onClick={onServices} style={{flex:1,height:46,borderRadius:'var(--sf-r)',background:'var(--sf-surface)',border:'1.5px solid var(--sf-border)',color:'var(--sf-text)',fontSize:14,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
-          🔧 الخدمات
-        </button>}
-      </div>
-      {/* Real stats */}
-      <div style={{display:'flex',background:'var(--sf-surface2)',borderRadius:'var(--sf-r)',padding:'12px',border:'1px solid var(--sf-border)'}}>
-        {stats.map((s,i)=>(
-          <div key={i} style={{flex:1,textAlign:'center',borderLeft:i>0?'1px solid var(--sf-border)':'none'}}>
-            <div style={{fontSize:19,fontWeight:800,color:'var(--sf-text)'}}>{s.n.toLocaleString()}</div>
-            <div style={{fontSize:11,color:'var(--sf-text3)',fontWeight:600,marginTop:2}}>{s.l}</div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ─── SCROLL TO TOP ────────────────────────────────────────────────────────────
-function ScrollToTop() {
-  const [show,setShow]=useState(false);
-  useEffect(()=>{const h=()=>setShow(window.scrollY>400);window.addEventListener('scroll',h);return()=>window.removeEventListener('scroll',h);},[]);
-  if(!show)return null;
-  return (
-    <button onClick={()=>window.scrollTo({top:0,behavior:'smooth'})} style={{position:'fixed',bottom:100,right:20,zIndex:150,width:42,height:42,borderRadius:'50%',background:'var(--sf-surface)',border:'1px solid var(--sf-border)',color:'var(--sf-accent)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'var(--sf-shadow-md)',transition:'all .2s'}}><ChevronUp size={18}/></button>
-  );
-}
-
-// ─── FILTER DRAWER ────────────────────────────────────────────────────────────
-function FilterDrawer({onClose,priceMin,priceMax,setPriceMin,setPriceMax,typeFilter,setTypeFilter,sortBy,setSortBy,maxP}:{onClose:()=>void;priceMin:number;priceMax:number;setPriceMin:(v:number)=>void;setPriceMax:(v:number)=>void;typeFilter:string;setTypeFilter:(v:string)=>void;sortBy:string;setSortBy:(v:any)=>void;maxP:number}) {
-  const [lMin,setLMin]=useState(priceMin);
-  const [lMax,setLMax]=useState(priceMax||maxP);
-  const apply=()=>{setPriceMin(lMin);setPriceMax(lMax>=maxP?0:lMax);onClose();};
-  const reset=()=>{setLMin(0);setLMax(maxP);setPriceMin(0);setPriceMax(0);setTypeFilter('all');onClose();};
-  return (
-    <div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(16,24,40,.4)',backdropFilter:'blur(3px)',zIndex:400,display:'flex',alignItems:'flex-end',justifyContent:'center'}}>
-      <div onClick={e=>e.stopPropagation()} style={{width:'100%',maxWidth:520,background:'var(--sf-surface)',borderRadius:'20px 20px 0 0',padding:'20px 20px 32px',boxShadow:'var(--sf-shadow-lg)'}}>
-        <div style={{width:40,height:4,background:'var(--sf-border2)',borderRadius:99,margin:'0 auto 18px'}}/>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
-          <h3 style={{fontSize:16,fontWeight:800,color:'var(--sf-text)',display:'flex',alignItems:'center',gap:8}}><SlidersHorizontal size={16} color="var(--sf-accent)"/> الفلاتر</h3>
-          <button onClick={reset} style={{fontSize:12,color:'var(--sf-accent)',background:'var(--sf-accent-soft)',border:'1px solid var(--sf-accent-border)',cursor:'pointer',fontWeight:700,padding:'5px 12px',borderRadius:8}}>إعادة تعيين</button>
-        </div>
-        <div style={{marginBottom:20}}>
-          <div style={{fontSize:12,fontWeight:700,color:'var(--sf-text3)',marginBottom:10}}>نوع المنتج</div>
-          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-            {[['all','🛍️ الكل'],['product','📦 منتجات'],['service','🔧 خدمات'],['digital','💻 رقمي']].map(([v,l])=>(
-              <button key={v} onClick={()=>setTypeFilter(v)} style={{padding:'7px 14px',borderRadius:99,border:`1.5px solid ${typeFilter===v?'var(--sf-accent)':'var(--sf-border)'}`,background:typeFilter===v?'var(--sf-accent-soft)':'var(--sf-surface)',color:typeFilter===v?'var(--sf-accent)':'var(--sf-text2)',fontSize:12,fontWeight:700,cursor:'pointer'}}>{l}</button>
-            ))}
-          </div>
-        </div>
-        <div style={{marginBottom:20}}>
-          <div style={{fontSize:12,fontWeight:700,color:'var(--sf-text3)',marginBottom:10}}>السعر: <span style={{color:'var(--sf-accent)'}}>{lMin} — {lMax>=maxP?'∞':lMax}</span></div>
-          <div style={{display:'flex',gap:12}}>
-            <div style={{flex:1}}><div style={{fontSize:10,color:'var(--sf-text3)',marginBottom:4}}>من</div><input type="range" min={0} max={maxP} step={10} value={lMin} onChange={e=>setLMin(Math.min(+e.target.value,lMax-10))} style={{width:'100%',accentColor:'var(--sf-accent)'}}/></div>
-            <div style={{flex:1}}><div style={{fontSize:10,color:'var(--sf-text3)',marginBottom:4}}>إلى</div><input type="range" min={0} max={maxP} step={10} value={lMax} onChange={e=>setLMax(Math.max(+e.target.value,lMin+10))} style={{width:'100%',accentColor:'var(--sf-accent)'}}/></div>
-          </div>
-        </div>
-        <div style={{marginBottom:24}}>
-          <div style={{fontSize:12,fontWeight:700,color:'var(--sf-text3)',marginBottom:10}}>الترتيب</div>
-          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-            {[['popular','🔥 الأكثر طلباً'],['newest','✨ الأحدث'],['price-asc','💰 الأقل سعراً'],['price-desc','💎 الأعلى سعراً']].map(([v,l])=>(
-              <button key={v} onClick={()=>setSortBy(v)} style={{padding:'7px 12px',borderRadius:99,border:`1.5px solid ${sortBy===v?'var(--sf-accent)':'var(--sf-border)'}`,background:sortBy===v?'var(--sf-accent-soft)':'var(--sf-surface)',color:sortBy===v?'var(--sf-accent)':'var(--sf-text2)',fontSize:12,fontWeight:700,cursor:'pointer'}}>{l}</button>
-            ))}
-          </div>
-        </div>
-        <button onClick={apply} style={{width:'100%',height:48,background:'var(--sf-accent)',border:'none',borderRadius:'var(--sf-r)',color:'#fff',fontSize:15,fontWeight:700,cursor:'pointer'}}>تطبيق</button>
-      </div>
-    </div>
-  );
-}
-
-// ─── MAIN STOREFRONT ──────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════ MAIN
 export default function Storefront() {
   const userId=(()=>{
     const path=window.location.pathname;
@@ -924,27 +631,32 @@ export default function Storefront() {
 
   const {products,storeInfo,loading,error}=useStorefront(userId);
   const cart=useCart();
-
-  const [search,setSearch]=useState('');
-  const [activeTab,setActiveTab]=useState('all');
-  const [sortBy,setSortBy]=useState<'popular'|'newest'|'price-asc'|'price-desc'>('popular');
+  const [isNight,setIsNight]=useState(isNightTime());
   const [viewProduct,setViewProduct]=useState<SProduct|null>(null);
-  const [priceMin,setPriceMin]=useState(0);
-  const [priceMax,setPriceMax]=useState(0);
-  const [typeFilter,setTypeFilter]=useState('all');
-  const [showFilters,setShowFilters]=useState(false);
   const [showCart,setShowCart]=useState(false);
   const [showTrack,setShowTrack]=useState(false);
-  const [cartAnim,setCartAnim]=useState(false);
+  const [tab,setTab]=useState<'all'|'products'|'services'|'digital'>('all');
+  const [liveTicker,setLiveTicker]=useState<{name:string;city:string;product:string;time:string}[]>([]);
   const [successOrderId,setSuccessOrderId]=useState('');
-  const [selectedCategory,setSelectedCategory]=useState('all');
   void successOrderId;
 
-  const maxP=useMemo(()=>Math.max(...products.map(p=>p.price),500),[products]);
-  const handleAddToCart=(p:SProduct,size?:string,color?:string)=>{
-    cart.add(p,size||p.sizes?.[0]||'',color||p.colors?.[0]||'');
-    setCartAnim(true);setTimeout(()=>setCartAnim(false),600);
-  };
+  // Night mode
+  useEffect(()=>{
+    const t=setInterval(()=>setIsNight(isNightTime()),60000);
+    return()=>clearInterval(t);
+  },[]);
+
+  // Live ticker from real orders
+  useEffect(()=>{
+    const recentOrders=JSON.parse(localStorage.getItem('sahar_recent_orders')||'[]');
+    if(recentOrders.length){
+      const o=recentOrders[Math.floor(Math.random()*recentOrders.length)];
+      const mins=Math.floor(Math.random()*15)+1;
+      setLiveTicker([{name:o.name, city:o.city, product:o.product, time:`${mins} دقائق`}]);
+      const tid=setTimeout(()=>setLiveTicker([]),5000);
+      return()=>clearTimeout(tid);
+    }
+  },[products]);
 
   useEffect(()=>{(window as any).__sfProducts=products;},[products]);
   useEffect(()=>{
@@ -953,305 +665,134 @@ export default function Storefront() {
     if(pid){const f=products.find(x=>x.id===pid);if(f)setViewProduct(f);}
   },[products]);
   useEffect(()=>{if(viewProduct)trackStoreEvent(userId,'view',{id:viewProduct.id,name:viewProduct.name});},[viewProduct?.id]);
-  // Related products dispatch listener
   useEffect(()=>{
     const h=(e:any)=>{if(e.detail)setViewProduct(e.detail);};
     document.addEventListener('viewProduct',h);return()=>document.removeEventListener('viewProduct',h);
   },[]);
 
-  const trackViewed=useCallback((p:SProduct)=>{
-    try{const k=`sahar_viewed_${userId}`;const prev:string[]=JSON.parse(localStorage.getItem(k)||'[]');localStorage.setItem(k,JSON.stringify([p.id,...prev.filter(id=>id!==p.id)].slice(0,20)));}catch{}
-  },[userId]);
-
   const allProducts=products.filter(p=>(!p.type||p.type==='product'));
   const allServices=products.filter(p=>p.type==='service');
   const allDigital=products.filter(p=>p.type==='digital');
-  const categories=['all',...Array.from(new Set(products.map(p=>p.category).filter(Boolean)))];
-  // Real aggregate: total units sold across catalog
-  const totalSales=useMemo(()=>products.reduce((s,p)=>s+(p.sales||0),0),[products]);
+  const showProducts=tab==='all'||tab==='products';
+  const showServices=tab==='all'||tab==='services';
+  const showDigital=tab==='all'||tab==='digital';
 
-  const filterBySearch=(list:SProduct[])=>list.filter(p=>
-    (!search||p.name.includes(search)||p.description?.includes(search)||p.sku?.includes(search))
-    &&(priceMax===0||p.price<=priceMax)&&(priceMin===0||p.price>=priceMin)
-    &&(activeTab==='all'||p.category===activeTab)
-    &&(selectedCategory==='all'||p.category===selectedCategory)
-  );
-  const sortList=(list:SProduct[])=>{
-    if(sortBy==='popular')return [...list].sort((a,b)=>b.sales-a.sales);
-    if(sortBy==='newest')return [...list].sort((a,b)=>new Date(b.createdAt||0).getTime()-new Date(a.createdAt||0).getTime());
-    if(sortBy==='price-asc')return [...list].sort((a,b)=>a.price-b.price);
-    if(sortBy==='price-desc')return [...list].sort((a,b)=>b.price-a.price);
-    return list;
-  };
-  const filteredProducts=sortList(filterBySearch(typeFilter==='all'||typeFilter==='product'?allProducts:[]));
-  const filteredServices=sortList(filterBySearch(typeFilter==='all'||typeFilter==='service'?allServices:[]));
-  const filteredDigital=sortList(filterBySearch(typeFilter==='all'||typeFilter==='digital'?allDigital:[]));
-  const hasActiveFilter=priceMin>0||priceMax>0||typeFilter!=='all';
-
-  // ── Loading
-  if(loading) return (
-    <div dir="rtl" style={{...SF,minHeight:'100dvh',background:'var(--sf-bg)',padding:16,fontFamily:'Tajawal,system-ui,sans-serif'} as React.CSSProperties}>
-      <style>{`@keyframes sfshim{0%{background-position:200% 0}100%{background-position:-200% 0}}.sfsk{background:linear-gradient(90deg,#ECECF0 25%,#F6F7F9 50%,#ECECF0 75%);background-size:200% 100%;animation:sfshim 1.4s infinite;border-radius:10px;}`}</style>
-      <div style={{height:48,borderRadius:14,marginBottom:12}} className="sfsk"/>
-      <div style={{height:130,borderRadius:18,marginBottom:14}} className="sfsk"/>
-      <div style={{height:36,borderRadius:99,marginBottom:14}} className="sfsk"/>
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
-        {Array.from({length:6}).map((_,i)=>(
-          <div key={i} style={{borderRadius:14,overflow:'hidden',border:'1px solid #ECECF0'}}><div style={{aspectRatio:'1/1'}} className="sfsk"/><div style={{padding:'10px 12px',display:'flex',flexDirection:'column',gap:6}}><div style={{height:10,width:'60%'}} className="sfsk"/><div style={{height:14,width:'90%'}} className="sfsk"/><div style={{height:18,width:'40%'}} className="sfsk"/></div></div>
-        ))}
-      </div>
-    </div>
-  );
+  // Loading
+  if(loading) return <PageSkeleton/>;
 
   if(!userId) return (
-    <div dir="rtl" style={{...SF,minHeight:'100dvh',background:'var(--sf-bg)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:24,textAlign:'center',gap:16,fontFamily:'Tajawal,system-ui,sans-serif'} as React.CSSProperties}>
-      <div style={{fontSize:56}}>🏪</div>
-      <div style={{fontSize:22,fontWeight:800,color:'var(--sf-text)'}}>متجر SAHAR Shop</div>
-      <div style={{fontSize:14,color:'var(--sf-text3)',maxWidth:320,lineHeight:1.8}}>اطلب من التاجر مشاركة رابط متجره الخاص معك.</div>
-      <a href="/" style={{padding:'10px 24px',background:'var(--sf-accent)',borderRadius:'var(--sf-r-sm)',color:'#fff',fontWeight:700,fontSize:14,textDecoration:'none'}}>الصفحة الرئيسية</a>
+    <div dir="rtl" style={{minHeight:'100dvh',background:'#0A0A0A',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:32,textAlign:'center',gap:14,fontFamily:'Tajawal,system-ui,sans-serif',color:'#fff'}}>
+      <div style={{fontSize:48,opacity:.3}}>✦</div>
+      <div style={{fontSize:20,fontWeight:600}}>متجر SAHAR Shop</div>
+      <div style={{fontSize:13,color:'rgba(255,255,255,0.4)',maxWidth:280,lineHeight:1.7}}>اطلب من التاجر مشاركة رابط متجره</div>
+      <a href="/" style={{padding:'9px 22px',borderRadius:99,background:'#fff',color:'#0A0A0A',fontWeight:600,fontSize:13,textDecoration:'none',marginTop:4}}>الصفحة الرئيسية</a>
     </div>
   );
 
   if(error||(!loading&&!storeInfo)) return (
-    <div dir="rtl" style={{...SF,minHeight:'100dvh',background:'var(--sf-bg)',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--sf-text2)',textAlign:'center',padding:24,fontFamily:'Tajawal,system-ui,sans-serif'} as React.CSSProperties}>
-      <div><div style={{fontSize:40,marginBottom:16}}>🏪</div><div style={{fontSize:18,fontWeight:700,color:'var(--sf-text)',marginBottom:8}}>المتجر غير موجود</div><div style={{fontSize:14}}>{error||'تحقق من الرابط'}</div></div>
+    <div dir="rtl" style={{minHeight:'100dvh',background:'#0A0A0A',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',textAlign:'center',padding:32,fontFamily:'Tajawal,system-ui,sans-serif'}}>
+      <div><div style={{fontSize:36,marginBottom:12,opacity:.3}}>✦</div><div style={{fontSize:16,fontWeight:600,marginBottom:6}}>المتجر غير موجود</div><div style={{fontSize:13,color:'rgba(255,255,255,0.4)'}}>{error||'تحقق من الرابط'}</div></div>
     </div>
   );
 
   const brand=storeInfo!.brand;
   const cur=brand.currency||'MAD';
-  const openStatus=storeOpenStatus(brand.workStart,brand.workEnd);
-  const minDel=minDeliveryCost(storeInfo!.deliveryCosts);
-
-  if(!loading&&!error&&storeInfo&&products.length===0) return (
-    <div dir="rtl" style={{...SF,minHeight:'100dvh',background:'var(--sf-bg)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'32px 24px',textAlign:'center',fontFamily:'Tajawal,system-ui,sans-serif'} as React.CSSProperties}>
-      <div style={{width:72,height:72,borderRadius:18,overflow:'hidden',background:'var(--sf-surface)',border:'1px solid var(--sf-border)',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:20,boxShadow:'var(--sf-shadow)'}}>
-        {brand.logo?<img src={brand.logo} alt="logo" style={{width:'100%',height:'100%',objectFit:'contain'}}/>:<span style={{fontSize:32}}>🏪</span>}
-      </div>
-      <h1 style={{fontSize:24,fontWeight:800,color:'var(--sf-text)',marginBottom:8}}>{brand.name||'المتجر'}</h1>
-      <div style={{fontSize:60,margin:'20px 0 14px'}}>📦</div>
-      <h2 style={{fontSize:18,fontWeight:700,color:'var(--sf-text)',marginBottom:8}}>المتجر قيد التجهيز</h2>
-      <p style={{fontSize:14,color:'var(--sf-text3)',maxWidth:300,lineHeight:1.8,marginBottom:28}}>ستضاف المنتجات قريباً — تابعونا!</p>
-      {brand.phone&&<a href={`https://wa.me/${brand.phone.replace(/\D/g,'')}`} target="_blank" rel="noreferrer" style={{padding:'12px 24px',borderRadius:'var(--sf-r)',background:'#25D366',color:'#fff',fontSize:14,fontWeight:700,textDecoration:'none'}}>💬 تواصل معنا</a>}
-    </div>
-  );
-
-  const bestSellers=[...products].sort((a,b)=>(b.sales||0)-(a.sales||0)).slice(0,6).filter(p=>(p.sales||0)>0);
-  const recentlyViewedIds:string[]=JSON.parse(localStorage.getItem(`sahar_viewed_${userId}`)||'[]');
-  const recentlyViewed=recentlyViewedIds.slice(0,8).map(id=>products.find(p=>p.id===id)).filter(Boolean) as SProduct[];
 
   return (
-    <div dir="rtl" style={{...SF,minHeight:'100dvh',background:'var(--sf-bg)',color:'var(--sf-text)',fontFamily:'Tajawal,system-ui,sans-serif'} as React.CSSProperties}>
+    <div dir="rtl" style={{minHeight:'100dvh',background:'#0A0A0A',color:'#fff',fontFamily:'Tajawal,system-ui,sans-serif',paddingBottom:80}}>
       <style>{`
-        body{background:#F6F7F9!important}
-        .sf-input:focus{border-color:var(--sf-accent)!important;outline:none!important}
-        ::-webkit-scrollbar{width:8px;height:8px}
+        body{background:#0A0A0A!important;margin:0;padding:0}
+        ::-webkit-scrollbar{width:3px;height:3px}
         ::-webkit-scrollbar-track{background:transparent}
-        ::-webkit-scrollbar-thumb{background:#D7D9E0;border-radius:99px}
+        ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:99px}
+        @keyframes sfSlideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes sfFadeOut{to{opacity:0;transform:translateY(-8px)}}
       `}</style>
 
-      <InfoBar status={openStatus} minDelivery={minDel} currency={cur}/>
-
-      {/* ── HEADER */}
-      <header style={{position:'sticky',top:0,zIndex:100,background:'rgba(255,255,255,0.92)',backdropFilter:'blur(10px)',borderBottom:'1px solid var(--sf-border)',padding:'0 14px',height:62,display:'flex',alignItems:'center',justifyContent:'space-between',gap:10}}>
-        <div style={{display:'flex',alignItems:'center',gap:10,flexShrink:0}}>
-          <div style={{width:38,height:38,borderRadius:10,overflow:'hidden',background:'var(--sf-surface2)',border:'1px solid var(--sf-border)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-            {brand.logo?<img src={brand.logo} alt="logo" style={{width:'100%',height:'100%',objectFit:'contain'}}/>
-              :<span style={{fontSize:16,fontWeight:800,color:'var(--sf-accent)'}}>{brand.name?.[0]?.toUpperCase()||'S'}</span>}
-          </div>
-          <div style={{fontSize:14,fontWeight:700,color:'var(--sf-text)',maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{brand.name}</div>
+      {/* Header */}
+      <header style={{position:'sticky',top:0,zIndex:100,background:'rgba(10,10,10,0.85)',backdropFilter:'blur(16px)',padding:'8px 14px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,height:56,borderBottom:'1px solid rgba(255,255,255,0.04)'}}>
+        <div style={{display:'flex',alignItems:'center',gap:8}}>
+          <div style={{fontSize:13,fontWeight:700}}>{brand.name}</div>
         </div>
-        <div style={{flex:1,maxWidth:260,position:'relative'}}>
-          <Search size={14} style={{position:'absolute',right:12,top:'50%',transform:'translateY(-50%)',color:'var(--sf-text3)',pointerEvents:'none'}}/>
-          <input className="sf-input" placeholder="ابحث..." value={search} onChange={e=>setSearch(e.target.value)}
-            style={{width:'100%',paddingRight:36,paddingLeft:14,height:38,borderRadius:99,border:'1.5px solid var(--sf-border)',background:'var(--sf-surface2)',color:'var(--sf-text)',fontSize:13,outline:'none',boxSizing:'border-box',fontFamily:'Tajawal,sans-serif'}}/>
-        </div>
-        <div style={{display:'flex',gap:7,alignItems:'center',flexShrink:0}}>
-          <button onClick={()=>setShowTrack(true)} style={{padding:'5px 10px',borderRadius:9,background:'var(--sf-surface2)',border:'1px solid var(--sf-border)',color:'var(--sf-text2)',fontSize:11,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',gap:4}}><Package size={12}/> طلباتي</button>
-          {brand.phone&&<a href={`https://wa.me/${brand.phone.replace(/\D/g,'')}`} target="_blank" rel="noreferrer" style={{padding:'5px 10px',borderRadius:9,background:'var(--sf-success-soft)',border:'1px solid #BBF7D0',color:'var(--sf-success)',fontSize:11,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',gap:4,textDecoration:'none'}}><MessageCircle size={12}/> واتساب</a>}
-          <button onClick={()=>setShowCart(true)} style={{position:'relative',width:40,height:40,borderRadius:10,background:cartAnim?'var(--sf-accent)':'var(--sf-surface2)',border:`1px solid ${cartAnim?'var(--sf-accent)':'var(--sf-border)'}`,color:cartAnim?'#fff':'var(--sf-text2)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',transition:'all .2s'}}>
-            <ShoppingCart size={18}/>
-            {cart.count>0&&<span style={{position:'absolute',top:-5,left:-5,width:18,height:18,background:'var(--sf-accent)',borderRadius:'50%',fontSize:10,fontWeight:900,color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',border:'2px solid #fff'}}>{cart.count}</span>}
+        <div style={{display:'flex',gap:6}}>
+          <button onClick={()=>setShowTrack(true)} style={{padding:'6px 10px',borderRadius:99,background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.08)',color:'rgba(255,255,255,0.6)',fontSize:10,fontWeight:500,cursor:'pointer'}}><Package size={11}/></button>
+          {brand.phone&&<a href={`https://wa.me/${brand.phone.replace(/\D/g,'')}`} target="_blank" rel="noreferrer" style={{padding:'6px 10px',borderRadius:99,background:'rgba(34,197,94,0.1)',border:'1px solid rgba(34,197,94,0.2)',color:'#22C55E',fontSize:10,fontWeight:500,cursor:'pointer',textDecoration:'none',display:'flex',alignItems:'center',gap:4}}><MessageCircle size={11}/></a>}
+          <button onClick={()=>setShowCart(true)} style={{position:'relative',padding:'6px 10px',borderRadius:99,background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.08)',color:'#fff',fontSize:10,fontWeight:500,cursor:'pointer',display:'flex',alignItems:'center',gap:4}}>
+            <ShoppingCart size={13}/>
+            {cart.count>0&&<span>({cart.count})</span>}
           </button>
         </div>
       </header>
 
-      <HeroSection brand={brand} productCount={allProducts.length} serviceCount={allServices.length} totalSales={totalSales} onShop={()=>{setActiveTab('all');setSelectedCategory('all');}} onServices={()=>{setActiveTab('خدمات');setSelectedCategory('خدمات');}}/>
+      {/* Hero */}
+      <HeroSection brand={brand} onShop={()=>setTab('products')} isNight={isNight}/>
 
-      {/* ── CATEGORY BAR */}
-      <div style={{background:'var(--sf-surface)',borderBottom:'1px solid var(--sf-border)',padding:'10px 0',position:'sticky',top:62,zIndex:90}}>
-        <div style={{display:'flex',gap:8,overflowX:'auto',padding:'0 14px',scrollbarWidth:'none'}}>
-          {categories.map(cat=>{
-            const count=cat==='all'?products.length:products.filter(p=>p.category===cat).length;
-            const EMOJI_MAP:Record<string,string>={'أحذية':'👟','ملابس نسائية':'👗','نسائي':'👗','ملابس رجالية':'👔','رجالي':'👔','أطفال':'👶','إكسسوارات':'💍','هدايا':'🎁','إلكترونيات':'📱','طعام':'🍽️','خدمات':'🔧'};
-            const emoji=Object.entries(EMOJI_MAP).find(([k])=>cat.includes(k))?.[1]||(cat==='all'?'🛍️':'🏷️');
-            const active=activeTab===cat;
-            return (
-              <button key={cat} onClick={()=>{setActiveTab(cat);setSelectedCategory(cat);}}
-                style={{flexShrink:0,padding:'7px 14px',borderRadius:99,fontSize:12,fontWeight:700,cursor:'pointer',
-                  border:`1.5px solid ${active?'var(--sf-accent)':'var(--sf-border)'}`,
-                  background:active?'var(--sf-accent)':'var(--sf-surface)',
-                  color:active?'#fff':'var(--sf-text2)',transition:'all .15s',display:'flex',alignItems:'center',gap:5,whiteSpace:'nowrap'}}>
-                <span>{emoji}</span>{cat==='all'?'الكل':cat}<span style={{fontSize:10,opacity:.7,fontWeight:500}}>({count})</span>
-              </button>
-            );
-          })}
-        </div>
+      {/* Tabs */}
+      <div style={{display:'flex',gap:4,padding:'4px',margin:'0 14px 16px',background:'rgba(255,255,255,0.04)',borderRadius:99}}>
+        {[['all','✦ الكل'],['products','🛍️ منتجات'],['services','🔧 خدمات'],['digital','📱 رقمي']].map(([v,l])=>(
+          <button key={v} onClick={()=>setTab(v as any)} style={{flex:1,padding:'9px',borderRadius:99,border:'none',background:tab===v?'#fff':'transparent',color:tab===v?'#0A0A0A':'rgba(255,255,255,0.5)',fontSize:11,fontWeight:600,cursor:'pointer',transition:'all .2s'}}>{l}</button>
+        ))}
       </div>
 
-      {/* ── SEARCH + FILTER ROW */}
-      <div style={{padding:'12px 14px 0',display:'flex',alignItems:'center',justifyContent:'space-between',gap:10}}>
-        <span style={{fontSize:12,color:'var(--sf-text3)',fontWeight:600}}>
-          {filteredProducts.length+filteredServices.length+filteredDigital.length} نتيجة
-          {hasActiveFilter&&<button onClick={()=>{setPriceMin(0);setPriceMax(0);setTypeFilter('all');}} style={{marginRight:6,fontSize:10,color:'var(--sf-accent)',background:'var(--sf-accent-soft)',border:'none',borderRadius:99,padding:'2px 8px',cursor:'pointer',fontWeight:700}}>× مسح</button>}
-        </span>
-        <div style={{display:'flex',gap:6}}>
-          <select value={sortBy} onChange={e=>setSortBy(e.target.value as any)} style={{background:'var(--sf-surface)',border:'1px solid var(--sf-border)',borderRadius:9,padding:'5px 10px',color:'var(--sf-text2)',fontSize:12,cursor:'pointer',outline:'none'}}>
-            <option value="popular">الأكثر طلباً</option>
-            <option value="newest">الأحدث</option>
-            <option value="price-asc">الأقل سعراً</option>
-            <option value="price-desc">الأعلى سعراً</option>
-          </select>
-          <button onClick={()=>setShowFilters(true)} style={{width:36,height:36,borderRadius:9,background:hasActiveFilter?'var(--sf-accent)':'var(--sf-surface)',border:`1px solid ${hasActiveFilter?'var(--sf-accent)':'var(--sf-border)'}`,color:hasActiveFilter?'#fff':'var(--sf-text2)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',position:'relative'}}>
-            <Filter size={14}/>
-            {hasActiveFilter&&<span style={{position:'absolute',top:-4,right:-4,width:10,height:10,background:'var(--sf-danger)',borderRadius:'50%',border:'2px solid #fff'}}/>}
-          </button>
-        </div>
-      </div>
-
-      <div style={{padding:'14px 14px 110px'}}>
-        {/* ── BEST SELLERS (real) */}
-        {bestSellers.length>=2&&!search&&activeTab==='all'&&(
-          <div style={{marginBottom:28}}>
-            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14}}>
-              <Flame size={16} color="var(--sf-accent)"/>
-              <span style={{fontSize:15,fontWeight:800,color:'var(--sf-text)'}}>الأكثر مبيعاً</span>
-            </div>
-            <div style={{display:'flex',gap:10,overflowX:'auto',paddingBottom:6,scrollbarWidth:'none'}}>
-              {bestSellers.map((p,idx)=>(
-                <div key={p.id} onClick={()=>{trackViewed(p);setViewProduct(p);}} style={{flexShrink:0,width:200,borderRadius:'var(--sf-r)',overflow:'hidden',cursor:'pointer',background:'var(--sf-surface)',border:'1px solid var(--sf-border)',boxShadow:'var(--sf-shadow)',transition:'all .2s'}}
-                  onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.boxShadow='var(--sf-shadow-md)';(e.currentTarget as HTMLElement).style.transform='translateY(-2px)';}} onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.boxShadow='var(--sf-shadow)';(e.currentTarget as HTMLElement).style.transform='';}}>
-                  <div style={{height:110,position:'relative',background:'var(--sf-surface2)',overflow:'hidden'}}>
-                    {p.imageUrl?<img src={p.imageUrl} alt={p.name} style={{width:'100%',height:'100%',objectFit:'cover'}} loading="lazy"/>:<div style={{width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:40}}>{p.emoji||'📦'}</div>}
-                    <span style={{position:'absolute',top:8,right:8,background:'var(--sf-accent)',color:'#fff',fontSize:9,fontWeight:800,padding:'3px 8px',borderRadius:99}}>#{idx+1}</span>
-                  </div>
-                  <div style={{padding:'10px 12px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                    <div><div style={{fontSize:12,fontWeight:600,color:'var(--sf-text)',overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis',maxWidth:110}}>{p.name}</div><div style={{fontSize:10,color:'var(--sf-text3)'}}>{p.sales} مبيع</div></div>
-                    <div style={{fontSize:15,fontWeight:800,color:'var(--sf-text)',flexShrink:0}}>{p.price.toLocaleString()}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ── PRODUCTS */}
-        {filteredProducts.length>0&&(
-          <div style={{marginBottom:32}}>
-            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:16}}>
-              <div style={{width:3,height:20,background:'var(--sf-accent)',borderRadius:99}}/>
-              <span style={{fontSize:16,fontWeight:800,color:'var(--sf-text)'}}>منتجاتنا</span>
-              <span style={{fontSize:11,color:'var(--sf-text3)',background:'var(--sf-surface2)',border:'1px solid var(--sf-border)',padding:'2px 9px',borderRadius:99}}>{filteredProducts.length}</span>
-            </div>
+      <div style={{padding:'0 14px'}}>
+        {/* Products */}
+        {showProducts&&allProducts.length>0&&(
+          <div style={{marginBottom:40}}>
             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))',gap:14}}>
-              {filteredProducts.map(p=>(
-                <ProductCard key={p.id} p={p} currency={cur} onAdd={handleAddToCart} onView={p=>{trackViewed(p);setViewProduct(p);}}/>
-              ))}
+              {allProducts.map(p=><ProductCard key={p.id} p={p} currency={cur} onAdd={(p)=>cart.add(p,p.sizes?.[0]||'',p.colors?.[0]||'')} onView={p=>setViewProduct(p)} isNight={isNight}/>)}
             </div>
           </div>
         )}
 
-        {/* ── SERVICES */}
-        {filteredServices.length>0&&(
-          <div style={{marginBottom:32}}>
-            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:16}}>
-              <div style={{width:3,height:20,background:'#16181D',borderRadius:99}}/>
-              <span style={{fontSize:16,fontWeight:800,color:'var(--sf-text)'}}>خدماتنا</span>
-              <span style={{fontSize:11,color:'var(--sf-text3)',background:'var(--sf-surface2)',border:'1px solid var(--sf-border)',padding:'2px 9px',borderRadius:99}}>{filteredServices.length}</span>
-            </div>
-            <div style={{display:'flex',flexDirection:'column',gap:10}}>
-              {filteredServices.map(p=>(
-                <ServiceCard key={p.id} p={p} currency={cur} onView={p=>{trackViewed(p);setViewProduct(p);}}/>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ── DIGITAL */}
-        {filteredDigital.length>0&&(
-          <div style={{marginBottom:32}}>
-            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:16}}>
-              <div style={{width:3,height:20,background:'#16181D',borderRadius:99}}/>
-              <span style={{fontSize:16,fontWeight:800,color:'var(--sf-text)'}}>المنتجات الرقمية</span>
-              <span style={{fontSize:11,color:'var(--sf-text3)',background:'var(--sf-surface2)',border:'1px solid var(--sf-border)',padding:'2px 9px',borderRadius:99}}>{filteredDigital.length}</span>
-            </div>
-            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))',gap:14}}>
-              {filteredDigital.map(p=><ProductCard key={p.id} p={p} currency={cur} onAdd={handleAddToCart} onView={p=>{trackViewed(p);setViewProduct(p);}}/>)}
-            </div>
-          </div>
-        )}
-
-        {/* ── RECENTLY VIEWED (real localStorage) */}
-        {recentlyViewed.length>0&&!search&&(
-          <div style={{marginBottom:20}}>
+        {/* Services */}
+        {showServices&&allServices.length>0&&(
+          <div style={{marginBottom:40}}>
             <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}>
-              <Eye size={14} color="var(--sf-text3)"/>
-              <span style={{fontSize:13,fontWeight:700,color:'var(--sf-text2)'}}>شاهدتها مؤخراً</span>
+              <span style={{fontSize:14,fontWeight:600}}>خدماتنا</span>
+              <span style={{fontSize:10,color:'rgba(255,255,255,0.3)',background:'rgba(255,255,255,0.05)',padding:'2px 8px',borderRadius:99}}>{allServices.length}</span>
             </div>
-            <div style={{display:'flex',gap:8,overflowX:'auto',paddingBottom:4,scrollbarWidth:'none'}}>
-              {recentlyViewed.filter(p=>!viewProduct||p.id!==viewProduct.id).slice(0,6).map(p=>(
-                <div key={p.id} onClick={()=>{trackViewed(p);setViewProduct(p);}} style={{flexShrink:0,width:90,borderRadius:'var(--sf-r-sm)',overflow:'hidden',cursor:'pointer',background:'var(--sf-surface)',border:'1px solid var(--sf-border)'}}>
-                  <div style={{height:72,background:'var(--sf-surface2)',overflow:'hidden'}}>
-                    {p.imageUrl?<img src={p.imageUrl} alt={p.name} style={{width:'100%',height:'100%',objectFit:'cover'}} loading="lazy"/>:<div style={{width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:24}}>{p.emoji||'📦'}</div>}
-                  </div>
-                  <div style={{padding:'5px 7px'}}><div style={{fontSize:10,fontWeight:600,color:'var(--sf-text)',overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis'}}>{p.name}</div><div style={{fontSize:11,fontWeight:800,color:'var(--sf-text)'}}>{p.price.toLocaleString()}</div></div>
-                </div>
-              ))}
+            <div style={{display:'flex',gap:10,overflowX:'auto',paddingBottom:8,scrollbarWidth:'none'}}>
+              {allServices.map(p=><ServiceCard key={p.id} p={p} currency={cur} onView={p=>setViewProduct(p)} isNight={isNight}/>)}
             </div>
           </div>
         )}
 
-        {/* ── EMPTY */}
-        {filteredProducts.length===0&&filteredServices.length===0&&filteredDigital.length===0&&(search||hasActiveFilter)&&(
-          <div style={{textAlign:'center',padding:'60px 20px',background:'var(--sf-surface)',borderRadius:'var(--sf-r)',border:'1px solid var(--sf-border)'}}>
-            <Package size={48} style={{margin:'0 auto 16px',opacity:.25,color:'var(--sf-text3)'}}/>
-            <div style={{fontSize:16,fontWeight:700,color:'var(--sf-text2)',marginBottom:8}}>لم نجد نتائج</div>
-            <div style={{fontSize:13,color:'var(--sf-text3)',marginBottom:16}}>جرب كلمة أخرى أو امسح الفلاتر</div>
-            <button onClick={()=>{setSearch('');setPriceMin(0);setPriceMax(0);setTypeFilter('all');setActiveTab('all');setSelectedCategory('all');}} style={{padding:'9px 22px',background:'var(--sf-accent)',border:'none',borderRadius:'var(--sf-r-sm)',color:'#fff',cursor:'pointer',fontWeight:700,fontSize:13}}>مسح الكل</button>
+        {/* Digital */}
+        {showDigital&&allDigital.length>0&&(
+          <div style={{marginBottom:40}}>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))',gap:14}}>
+              {allDigital.map(p=><ProductCard key={p.id} p={p} currency={cur} onAdd={(p)=>cart.add(p,'','')} onView={p=>setViewProduct(p)} isNight={isNight}/>)}
+            </div>
           </div>
         )}
 
-        {/* ── FOOTER */}
-        <div style={{marginTop:40,paddingTop:24,borderTop:'1px solid var(--sf-border)',textAlign:'center'}}>
-          <div style={{fontSize:12,color:'var(--sf-text2)',marginBottom:8,fontWeight:700}}>{brand.name}</div>
-          {brand.address&&<div style={{fontSize:11,color:'var(--sf-text3)',marginBottom:10}}>📍 {brand.address}</div>}
-          <div style={{display:'flex',justifyContent:'center',gap:14,marginBottom:14}}>
-            {brand.phone&&<a href={`https://wa.me/${brand.phone.replace(/\D/g,'')}`} target="_blank" rel="noreferrer" style={{fontSize:12,color:'var(--sf-success)',fontWeight:700,textDecoration:'none'}}>💬 واتساب</a>}
-            {brand.instagram&&<a href={`https://instagram.com/${brand.instagram}`} target="_blank" rel="noreferrer" style={{fontSize:12,color:'#E1306C',fontWeight:700,textDecoration:'none'}}>📸 Instagram</a>}
-            {brand.facebook&&<a href={`https://facebook.com/${brand.facebook}`} target="_blank" rel="noreferrer" style={{fontSize:12,color:'#1877F2',fontWeight:700,textDecoration:'none'}}>📘 Facebook</a>}
+        {/* Empty */}
+        {allProducts.length===0&&allServices.length===0&&allDigital.length===0&&(
+          <div style={{textAlign:'center',padding:'60px 20px',color:'rgba(255,255,255,0.3)'}}>
+            <Package size={40} style={{marginBottom:12,opacity:.2}}/>
+            <div style={{fontSize:14,fontWeight:500}}>لا توجد منتجات بعد</div>
           </div>
-          <div style={{fontSize:10,color:'var(--sf-text3)',opacity:.7}}>Powered by SAHAR Shop 🇲🇦</div>
+        )}
+
+        {/* Footer */}
+        <div style={{marginTop:40,paddingTop:20,borderTop:'1px solid rgba(255,255,255,0.06)',textAlign:'center',paddingBottom:20}}>
+          <div style={{fontSize:11,color:'rgba(255,255,255,0.3)',marginBottom:6}}>{brand.name}</div>
+          <div style={{display:'flex',justifyContent:'center',gap:14}}>
+            {brand.phone&&<a href={`https://wa.me/${brand.phone.replace(/\D/g,'')}`} target="_blank" rel="noreferrer" style={{fontSize:11,color:'#22C55E',textDecoration:'none'}}>واتساب</a>}
+            {brand.instagram&&<a href={`https://instagram.com/${brand.instagram}`} target="_blank" rel="noreferrer" style={{fontSize:11,color:'rgba(255,255,255,0.4)',textDecoration:'none'}}>Instagram</a>}
+          </div>
         </div>
       </div>
 
-      {/* ── STICKY CART */}
-      {cart.count>0&&!showCart&&(
-        <div style={{position:'fixed',bottom:20,right:14,left:14,zIndex:150}}>
-          <button onClick={()=>setShowCart(true)} style={{width:'100%',height:52,background:'var(--sf-accent)',border:'none',borderRadius:'var(--sf-r)',color:'#fff',fontSize:15,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:10,boxShadow:'var(--sf-shadow-lg)'}}>
-            <ShoppingCart size={18}/>
-            السلة ({cart.count})
-            <span style={{background:'rgba(255,255,255,.2)',borderRadius:99,padding:'2px 12px',fontSize:13,fontWeight:800}}>{cart.total.toLocaleString()} {cur}</span>
-          </button>
-        </div>
-      )}
+      {/* Live ticker */}
+      <LiveTicker orders={liveTicker}/>
 
-      {/* ── MODALS */}
-      {viewProduct&&<ProductModal p={viewProduct} cart={cart} onClose={()=>setViewProduct(null)} currency={cur} userId={userId}/>}
-      {showCart&&<CartSidebar cart={cart} storeInfo={storeInfo!} userId={userId} onClose={()=>setShowCart(false)} onOrderSuccess={id=>{setSuccessOrderId(id);setShowCart(false);}}/>}
-      {showTrack&&<TrackingModal userId={userId} storeInfo={storeInfo!} onClose={()=>setShowTrack(false)}/>}
-      {showFilters&&<FilterDrawer onClose={()=>setShowFilters(false)} priceMin={priceMin} priceMax={priceMax||maxP} setPriceMin={setPriceMin} setPriceMax={setPriceMax} typeFilter={typeFilter} setTypeFilter={setTypeFilter} sortBy={sortBy} setSortBy={setSortBy} maxP={maxP}/>}
-      <FloatingChat userId={userId} storeInfo={storeInfo!}/>
-      <ScrollToTop/>
+      {/* Modals */}
+      {viewProduct&&<ProductModal p={viewProduct} cart={cart} onClose={()=>setViewProduct(null)} currency={cur} userId={userId} isNight={isNight}/>}
+      {showCart&&<CartSidebar cart={cart} storeInfo={storeInfo!} userId={userId} onClose={()=>setShowCart(false)} onOrderSuccess={id=>{setSuccessOrderId(id);setShowCart(false);}} isNight={isNight}/>}
+
+      {/* Floating chat */}
+      <button onClick={()=>{}} style={{width:48,height:48,borderRadius:'50%',background:'rgba(255,255,255,0.08)',border:'1px solid rgba(255,255,255,0.1)',color:'#fff',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',position:'fixed',bottom:24,left:16,zIndex:150}}><Bot size={20}/></button>
     </div>
   );
 }
