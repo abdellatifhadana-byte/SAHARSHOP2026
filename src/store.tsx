@@ -179,6 +179,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const currentUser = meData?.user || null;
       if (currentUser) { try { localStorage.setItem('ai_commerce_user', JSON.stringify(currentUser)); } catch {} }
 
+      // Flush settings queued while the server was unreachable — must land
+      // BEFORE we fetch settings back, or the server copy wipes local edits.
+      try {
+        const pendingRaw = localStorage.getItem('ai_commerce_pending_settings');
+        if (pendingRaw) {
+          const pending = JSON.parse(pendingRaw);
+          if (pending && Object.keys(pending).length) await api.settingsAPI.save(pending);
+          localStorage.removeItem('ai_commerce_pending_settings');
+        }
+      } catch {}
+
       const [products, orders, customers, settings, convs] = await Promise.all([
         api.productsAPI.list(),
         api.ordersAPI.list(),
@@ -311,8 +322,28 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (key === 'design' && (val as any)?.theme) {
       try { localStorage.setItem('ai_commerce_theme', (val as any).theme); } catch {}
     }
-    if (state.isOnline && api.getToken()) {
-      try { await api.settingsAPI.save({ [key]: val }); } catch {}
+    const tok = api.getToken();
+    if (!tok || tok === 'demo-token-local') return; // demo: local-only by design
+    try {
+      await api.settingsAPI.save({ [key]: val });
+      // saved OK — drop any stale pending copy of this key
+      try {
+        const raw = localStorage.getItem('ai_commerce_pending_settings');
+        if (raw) {
+          const pending = JSON.parse(raw);
+          delete pending[key];
+          if (Object.keys(pending).length) localStorage.setItem('ai_commerce_pending_settings', JSON.stringify(pending));
+          else localStorage.removeItem('ai_commerce_pending_settings');
+        }
+      } catch {}
+    } catch {
+      // server unreachable or rejected — queue for retry on next refreshData
+      try {
+        const pending = JSON.parse(localStorage.getItem('ai_commerce_pending_settings') || '{}');
+        pending[key] = val;
+        localStorage.setItem('ai_commerce_pending_settings', JSON.stringify(pending));
+      } catch {}
+      notify('warning', '⚠️ تعذر حفظ الإعدادات على الخادم — سيُعاد الحفظ تلقائياً عند عودة الاتصال');
     }
   };
 

@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   Search, ShoppingCart, X, MessageCircle, Share2, Plus, Minus, Check,
-  Package, Star, Heart, Send, Bot, ArrowRight, Play,
-  Shield, RefreshCcw, Award, Flame, ChevronUp, Clock, MapPin,
-  Filter, SlidersHorizontal, Eye
+  Package, Heart, Send, Bot, ArrowRight, Play,
+  Flame, ChevronUp, Clock, MapPin, Filter, SlidersHorizontal, Eye,
 } from 'lucide-react';
 
 // ─── TYPES ───────────────────────────────────────────────────────────────────
@@ -19,7 +18,8 @@ interface SProduct {
 interface CartItem { product:SProduct; quantity:number; size:string; color:string; }
 interface StoreInfo {
   brand:{name:string;phone:string;currency:string;logo?:string;description?:string;
-         instagram?:string;facebook?:string;whatsapp?:string;email?:string};
+         instagram?:string;facebook?:string;whatsapp?:string;email?:string;
+         workStart?:string;workEnd?:string;address?:string};
   deliveryCosts?:Record<string,number>;
 }
 interface ChatMsg { role:'user'|'ai'; content:string; product?:SProduct; }
@@ -42,6 +42,22 @@ function getDeliveryCost(city:string, costs?:Record<string,number>):number {
     if (city.includes(k)||k.includes(city)) return v;
   }
   return allCosts['default']||40;
+}
+// Lowest real delivery cost configured by the merchant (real data)
+function minDeliveryCost(costs?:Record<string,number>):number {
+  const all={ ...DEFAULT_COSTS, ...(costs||{}) };
+  const vals=Object.entries(all).filter(([k])=>k!=='default').map(([,v])=>v).filter(v=>v>0);
+  return vals.length?Math.min(...vals):0;
+}
+// Open/closed status from real working hours
+function storeOpenStatus(workStart?:string,workEnd?:string):{open:boolean;label:string}|null {
+  if(!workStart||!workEnd) return null;
+  const now=new Date();const cur=now.getHours()*60+now.getMinutes();
+  const [sh,sm]=workStart.split(':').map(Number);const [eh,em]=workEnd.split(':').map(Number);
+  if(isNaN(sh)||isNaN(eh)) return null;
+  const start=sh*60+(sm||0);const end=eh*60+(em||0);
+  const open=cur>=start&&cur<=end;
+  return {open,label:open?`مفتوح الآن · حتى ${workEnd}`:`مغلق · يفتح ${workStart}`};
 }
 
 // ─── ANALYTICS ───────────────────────────────────────────────────────────────
@@ -113,378 +129,43 @@ function useCart() {
   return {items,add,remove,update,total,count,clear};
 }
 
-// ─── DESIGN TOKENS — Dark Glassmorphism 2026 ─────────────────────────────────
+// ─── DESIGN TOKENS — Clean light + single orange accent ──────────────────────
 const SF:React.CSSProperties = {
-  '--sf-bg':'#0B1020',
-  '--sf-bg2':'#121826',
-  '--sf-surface':'rgba(255,255,255,0.07)',
-  '--sf-surface2':'rgba(255,255,255,0.04)',
-  '--sf-surface-solid':'#151f35',
-  '--sf-border':'rgba(255,255,255,0.11)',
-  '--sf-border2':'rgba(255,255,255,0.07)',
-  '--sf-text':'#FFFFFF',
-  '--sf-text2':'rgba(255,255,255,0.72)',
-  '--sf-text3':'rgba(255,255,255,0.42)',
-  '--sf-primary':'#FF6A00',
-  '--sf-primary2':'#FF8533',
-  '--sf-p10':'rgba(255,106,0,0.12)',
-  '--sf-p20':'rgba(255,106,0,0.22)',
-  '--sf-purple':'#7C3AED',
-  '--sf-purple2':'#A855F7',
-  '--sf-pu10':'rgba(124,58,237,0.15)',
-  '--sf-success':'#00D2B3',
-  '--sf-s10':'rgba(0,210,179,0.12)',
-  '--sf-warning':'#F59E0B',
-  '--sf-danger':'#EF4444',
-  '--sf-glass':'rgba(255,255,255,0.07)',
-  '--sf-glass-border':'rgba(255,255,255,0.12)',
-  '--sf-shadow':'0 8px 32px rgba(0,0,0,0.35)',
-  '--sf-shadow-lg':'0 16px 56px rgba(0,0,0,0.5)',
-  '--sf-glow-orange':'0 0 24px rgba(255,106,0,0.25)',
-  '--sf-glow-purple':'0 0 24px rgba(124,58,237,0.25)',
+  '--sf-bg':'#F6F7F9',
+  '--sf-surface':'#FFFFFF',
+  '--sf-surface2':'#F2F3F6',
+  '--sf-border':'#ECECF0',
+  '--sf-border2':'#E2E3E9',
+  '--sf-text':'#16181D',
+  '--sf-text2':'#5A616B',
+  '--sf-text3':'#9AA0AA',
+  '--sf-accent':'#FF6A00',
+  '--sf-accent-hover':'#E85F00',
+  '--sf-accent-soft':'#FFF3EB',
+  '--sf-accent-border':'#FFD9BF',
+  '--sf-success':'#16A34A',
+  '--sf-success-soft':'#ECFDF3',
+  '--sf-danger':'#E5484D',
+  '--sf-shadow':'0 1px 3px rgba(16,24,40,0.06),0 1px 2px rgba(16,24,40,0.04)',
+  '--sf-shadow-md':'0 4px 16px rgba(16,24,40,0.08)',
+  '--sf-shadow-lg':'0 12px 32px rgba(16,24,40,0.12)',
+  '--sf-r':'14px',
+  '--sf-r-sm':'10px',
 } as React.CSSProperties;
 
-// ═══════════════════════════════════════════════════════════════════════════
-// ─── 🆕 NEW 2026 FEATURES ────────────────────────────────────────────────────
-// ═══════════════════════════════════════════════════════════════════════════
-
-// ─── 📳 Haptic Feedback helper ───────────────────────────────────────────────
-function sfBuzz(ms=40){ try{ (navigator as any).vibrate?.(ms); }catch{} }
-
-// ─── ⚡ FLASH SALE COUNTDOWN BAR ──────────────────────────────────────────────
-function FlashSaleBar() {
-  const end = useMemo(()=>{ const d=new Date(); d.setHours(23,59,59,999); return d.getTime(); },[]);
-  const [left,setLeft]=useState(end-Date.now());
-  useEffect(()=>{ const i=setInterval(()=>setLeft(end-Date.now()),1000); return()=>clearInterval(i); },[end]);
-  if(left<=0) return null;
-  const h=Math.floor(left/3600000), m=Math.floor((left%3600000)/60000), s=Math.floor((left%60000)/1000);
-  const Box=({v,l}:{v:number;l:string})=>(
-    <span style={{display:'inline-flex',flexDirection:'column',alignItems:'center',minWidth:34}}>
-      <span style={{background:'rgba(0,0,0,0.35)',borderRadius:7,padding:'2px 7px',fontSize:13,fontWeight:900,fontVariantNumeric:'tabular-nums',color:'#fff'}}>{String(v).padStart(2,'0')}</span>
-      <span style={{fontSize:8,color:'rgba(255,255,255,0.75)',marginTop:1}}>{l}</span>
-    </span>
-  );
+// ─── INFO BAR (real working hours / delivery) ────────────────────────────────
+function InfoBar({status,minDelivery,currency}:{status:{open:boolean;label:string}|null;minDelivery:number;currency:string}) {
+  const bits:{icon:string;text:string;color?:string}[]=[];
+  if(status) bits.push({icon:status.open?'🟢':'🔴',text:status.label,color:status.open?'var(--sf-success)':'var(--sf-text3)'});
+  if(minDelivery>0) bits.push({icon:'🚚',text:`التوصيل من ${minDelivery} ${currency}`});
+  bits.push({icon:'💵',text:'دفع عند الاستلام'});
   return (
-    <div style={{background:'linear-gradient(90deg,#EF4444,#FF6A00,#EF4444)',backgroundSize:'200% 100%',animation:'sfgradientshift 5s linear infinite',padding:'7px 14px',display:'flex',alignItems:'center',justifyContent:'center',gap:10,color:'#fff'}}>
-      <span style={{fontSize:12,fontWeight:800,display:'flex',alignItems:'center',gap:5}}>⚡ عروض اليوم تنتهي خلال</span>
-      <div style={{display:'flex',gap:5,alignItems:'center'}}>
-        <Box v={h} l="ساعة"/><span style={{fontWeight:900,opacity:.6}}>:</span>
-        <Box v={m} l="دقيقة"/><span style={{fontWeight:900,opacity:.6}}>:</span>
-        <Box v={s} l="ثانية"/>
-      </div>
-    </div>
-  );
-}
-
-// ─── 🔔 LIVE SALES TOAST ──────────────────────────────────────────────────────
-function LiveSalesToast({products}:{products:SProduct[]}) {
-  const [toast,setToast]=useState<{name:string;city:string;product:string;img?:string}|null>(null);
-  useEffect(()=>{
-    if(!products.length) return;
-    const names=['أحمد','فاطمة','يوسف','مريم','حسن','زينب','عمر','سارة','خديجة','مهدي','ليلى','أيوب'];
-    const show=()=>{
-      const pool=products.filter(p=>(p.sales||0)>0); const list=pool.length?pool:products;
-      const p=list[Math.floor(Math.random()*list.length)];
-      setToast({name:names[Math.floor(Math.random()*names.length)],city:MOROCCAN_CITIES[Math.floor(Math.random()*12)],product:p.name,img:p.imageUrl});
-      setTimeout(()=>setToast(null),4500);
-    };
-    const t1=setTimeout(show,7000);
-    const i=setInterval(show,26000);
-    return()=>{clearTimeout(t1);clearInterval(i);};
-  },[products]);
-  if(!toast) return null;
-  return (
-    <div style={{position:'fixed',bottom:160,right:14,zIndex:140,background:'rgba(15,24,41,0.92)',backdropFilter:'blur(16px)',border:'1px solid rgba(0,210,179,0.3)',borderRadius:14,padding:'9px 13px',display:'flex',alignItems:'center',gap:10,boxShadow:'0 8px 32px rgba(0,0,0,0.5)',maxWidth:270,animation:'sfslideup .4s cubic-bezier(.4,0,.2,1)'}}>
-      <style>{`@keyframes sfslideup{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}`}</style>
-      {toast.img
-        ?<img src={toast.img} alt="" style={{width:36,height:36,borderRadius:9,objectFit:'cover',flexShrink:0,border:'1px solid rgba(255,255,255,0.15)'}}/>
-        :<div style={{width:36,height:36,borderRadius:'50%',background:'rgba(0,210,179,0.2)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>✅</div>}
-      <div style={{fontSize:11,color:'#fff',lineHeight:1.55,minWidth:0}}>
-        <strong style={{color:'#00D2B3'}}>{toast.name}</strong> من {toast.city}<br/>
-        طلب <strong style={{display:'inline-block',maxWidth:140,overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis',verticalAlign:'bottom'}}>{toast.product}</strong> 🔥
-      </div>
-    </div>
-  );
-}
-
-// ─── 📲 STORIES BAR ──────────────────────────────────────────────────────────
-function StoriesBar({products,onView}:{products:SProduct[];onView:(p:SProduct)=>void}) {
-  const stories=useMemo(()=>{
-    const isNew=(p:SProduct)=>p.createdAt&&(Date.now()-new Date(p.createdAt).getTime()<7*24*60*60*1000);
-    const fresh=products.filter(p=>isNew(p)&&p.imageUrl);
-    const hot=products.filter(p=>(p.sales||0)>10&&p.imageUrl&&!fresh.includes(p));
-    return [...fresh.map(p=>({p,tag:'جديد ✨'})),...hot.map(p=>({p,tag:'رائج 🔥'}))].slice(0,10);
-  },[products]);
-  const seenKey='sahar_stories_seen';
-  const [seen,setSeen]=useState<string[]>(()=>{try{return JSON.parse(localStorage.getItem(seenKey)||'[]');}catch{return [];}});
-  if(stories.length<2) return null;
-  return (
-    <div style={{padding:'14px 14px 4px'}}>
-      <div style={{display:'flex',gap:12,overflowX:'auto',paddingBottom:8,scrollbarWidth:'none'}}>
-        {stories.map(({p,tag})=>{
-          const watched=seen.includes(p.id);
-          return (
-            <button key={p.id} onClick={()=>{sfBuzz(20);const ns=[...new Set([...seen,p.id])];setSeen(ns);try{localStorage.setItem(seenKey,JSON.stringify(ns));}catch{};onView(p);}}
-              style={{flexShrink:0,background:'none',border:'none',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',gap:5,width:66,padding:0}}>
-              <div style={{width:62,height:62,borderRadius:'50%',padding:2.5,background:watched?'rgba(255,255,255,0.18)':'conic-gradient(from 0deg,#FF6A00,#A855F7,#FF6A00)',animation:watched?'none':'sfstoryspin 4s linear infinite'}}>
-                <div style={{width:'100%',height:'100%',borderRadius:'50%',overflow:'hidden',border:'2.5px solid #0B1020',background:'rgba(0,0,0,0.4)'}}>
-                  <img src={p.imageUrl} alt={p.name} loading="lazy" style={{width:'100%',height:'100%',objectFit:'cover'}}/>
-                </div>
-              </div>
-              <span style={{fontSize:9,fontWeight:700,color:watched?'rgba(255,255,255,0.4)':'rgba(255,255,255,0.8)',maxWidth:66,overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis'}}>{tag}</span>
-            </button>
-          );
-        })}
-      </div>
-      <style>{`@keyframes sfstoryspin{0%{filter:hue-rotate(0deg)}100%{filter:hue-rotate(40deg)}}`}</style>
-    </div>
-  );
-}
-
-// ─── 🎡 SPIN TO WIN ──────────────────────────────────────────────────────────
-// ⚠️ للتاجر: أنشئ كوبونات بنفس الأكواد (SPIN5, SPIN10, SPIN15, FREESHIP) من لوحة التحكم
-const SPIN_PRIZES=[
-  {label:'خصم 5%',code:'SPIN5',color:'#7C3AED'},
-  {label:'حظ أوفر 😅',code:'',color:'#1f2937'},
-  {label:'خصم 10%',code:'SPIN10',color:'#FF6A00'},
-  {label:'توصيل مجاني',code:'FREESHIP',color:'#00D2B3'},
-  {label:'خصم 15%',code:'SPIN15',color:'#EF4444'},
-  {label:'حاول غداً 🍀',code:'',color:'#374151'},
-];
-function SpinWheel() {
-  const [open,setOpen]=useState(false);
-  const [deg,setDeg]=useState(0);
-  const [spinning,setSpinning]=useState(false);
-  const [prize,setPrize]=useState<typeof SPIN_PRIZES[0]|null>(null);
-  const [copied,setCopied]=useState(false);
-  useEffect(()=>{
-    try{ if(localStorage.getItem('sahar_spin_done')) return; }catch{}
-    const t=setTimeout(()=>setOpen(true),12000);
-    return()=>clearTimeout(t);
-  },[]);
-  const spin=()=>{
-    if(spinning) return;
-    setSpinning(true); sfBuzz(60);
-    const idx=Math.floor(Math.random()*SPIN_PRIZES.length);
-    const seg=360/SPIN_PRIZES.length;
-    const target=360*5+(360-(idx*seg+seg/2));
-    setDeg(d=>d+target);
-    setTimeout(()=>{
-      setSpinning(false); setPrize(SPIN_PRIZES[idx]); sfBuzz(120);
-      try{ localStorage.setItem('sahar_spin_done','1'); if(SPIN_PRIZES[idx].code) localStorage.setItem('sahar_spin_code',SPIN_PRIZES[idx].code); }catch{}
-    },4200);
-  };
-  if(!open) return null;
-  const seg=360/SPIN_PRIZES.length;
-  const conic=SPIN_PRIZES.map((p,i)=>`${p.color} ${i*seg}deg ${(i+1)*seg}deg`).join(',');
-  return (
-    <div style={{position:'fixed',inset:0,zIndex:550,background:'rgba(0,0,0,0.75)',backdropFilter:'blur(10px)',display:'flex',alignItems:'center',justifyContent:'center',padding:20}} onClick={()=>!spinning&&setOpen(false)}>
-      <div onClick={e=>e.stopPropagation()} style={{background:'linear-gradient(180deg,#151f35,#0f1829)',border:'1px solid rgba(255,255,255,0.12)',borderRadius:24,padding:'14px 22px 26px',width:'100%',maxWidth:340,textAlign:'center',boxShadow:'0 20px 80px rgba(0,0,0,0.7)',position:'relative'}}>
-        <div style={{display:'flex',justifyContent:'flex-end'}}>
-          <button onClick={()=>setOpen(false)} disabled={spinning} style={{width:30,height:30,borderRadius:8,background:'rgba(255,255,255,0.07)',border:'1px solid rgba(255,255,255,0.12)',color:'rgba(255,255,255,0.7)',cursor:'pointer',opacity:spinning?.4:1}}>✕</button>
-        </div>
-        {!prize?(<>
-          <h3 style={{fontSize:19,fontWeight:900,color:'#fff',margin:'4px 0 4px'}}>🎡 أدر العجلة واربح!</h3>
-          <p style={{fontSize:12,color:'rgba(255,255,255,0.55)',marginBottom:18}}>فرصة واحدة — خصومات حقيقية على طلبك</p>
-          <div style={{position:'relative',width:220,height:220,margin:'0 auto 20px'}}>
-            <div style={{position:'absolute',top:-6,left:'50%',transform:'translateX(-50%)',zIndex:3,fontSize:22,filter:'drop-shadow(0 2px 4px rgba(0,0,0,0.5))'}}>🔻</div>
-            <div style={{width:'100%',height:'100%',borderRadius:'50%',background:`conic-gradient(${conic})`,border:'5px solid rgba(255,255,255,0.15)',boxShadow:'0 0 40px rgba(255,106,0,0.25), inset 0 0 30px rgba(0,0,0,0.4)',transform:`rotate(${deg}deg)`,transition:spinning?'transform 4.2s cubic-bezier(.15,.85,.25,1)':'none',position:'relative'}}>
-              {SPIN_PRIZES.map((p,i)=>(
-                <span key={i} style={{position:'absolute',top:'50%',left:'50%',transform:`rotate(${i*seg+seg/2}deg) translateY(-78px) rotate(90deg)`,transformOrigin:'0 0',fontSize:9,fontWeight:800,color:'#fff',whiteSpace:'nowrap',textShadow:'0 1px 3px rgba(0,0,0,0.6)'}}>{p.label}</span>
-              ))}
-            </div>
-            <div style={{position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-50%)',width:44,height:44,borderRadius:'50%',background:'linear-gradient(135deg,#FF6A00,#FF8533)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,boxShadow:'0 0 16px rgba(255,106,0,0.6)',zIndex:2}}>🎁</div>
-          </div>
-          <button onClick={spin} disabled={spinning} style={{width:'100%',height:48,background:'linear-gradient(135deg,#FF6A00,#FF8533)',border:'none',borderRadius:14,color:'#fff',fontSize:15,fontWeight:800,cursor:'pointer',boxShadow:'0 4px 24px rgba(255,106,0,0.45)',opacity:spinning?.6:1}}>
-            {spinning?'🎡 جارٍ الدوران...':'أدر العجلة 🎰'}
-          </button>
-        </>):(<>
-          <div style={{fontSize:50,margin:'6px 0 10px'}}>{prize.code?'🎉':'🍀'}</div>
-          <h3 style={{fontSize:20,fontWeight:900,color:'#fff',marginBottom:6}}>{prize.code?`مبروك! ربحت ${prize.label}`:prize.label}</h3>
-          {prize.code?(<>
-            <p style={{fontSize:12,color:'rgba(255,255,255,0.6)',marginBottom:14}}>استعمل هذا الكود في خانة "كود الخصم" عند الطلب</p>
-            <div style={{display:'flex',gap:8,justifyContent:'center',alignItems:'center',marginBottom:16}}>
-              <span dir="ltr" style={{fontSize:20,fontWeight:900,letterSpacing:'.15em',color:'#FF6A00',background:'rgba(255,106,0,0.12)',border:'1.5px dashed rgba(255,106,0,0.5)',borderRadius:10,padding:'8px 18px'}}>{prize.code}</span>
-              <button onClick={()=>{try{navigator.clipboard?.writeText(prize.code);}catch{};setCopied(true);sfBuzz(30);}} style={{padding:'10px 14px',borderRadius:10,background:copied?'#00D2B3':'rgba(255,255,255,0.08)',border:'1px solid rgba(255,255,255,0.15)',color:'#fff',fontSize:12,fontWeight:700,cursor:'pointer'}}>{copied?'✓ نُسخ':'نسخ'}</button>
-            </div>
-          </>):<p style={{fontSize:13,color:'rgba(255,255,255,0.55)',marginBottom:16}}>لا بأس! الأسعار عندنا أصلاً رائعة 😉</p>}
-          <button onClick={()=>setOpen(false)} style={{width:'100%',height:46,background:'linear-gradient(135deg,#FF6A00,#FF8533)',border:'none',borderRadius:14,color:'#fff',fontSize:14,fontWeight:800,cursor:'pointer'}}>تابع التسوق 🛍️</button>
-        </>)}
-      </div>
-    </div>
-  );
-}
-
-// ─── 🚚 FREE SHIPPING PROGRESS ───────────────────────────────────────────────
-const FREE_SHIPPING_THRESHOLD=200;
-function FreeShippingProgress({total,currency}:{total:number;currency:string}) {
-  if(total<=0) return null;
-  const pct=Math.min(100,Math.round((total/FREE_SHIPPING_THRESHOLD)*100));
-  const remaining=Math.max(0,FREE_SHIPPING_THRESHOLD-total);
-  return (
-    <div style={{background:'rgba(15,24,41,0.92)',backdropFilter:'blur(16px)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:14,padding:'9px 14px',marginBottom:8,boxShadow:'0 8px 24px rgba(0,0,0,0.4)'}}>
-      <div style={{display:'flex',justifyContent:'space-between',marginBottom:6,fontSize:11,fontWeight:700}}>
-        <span style={{color:remaining>0?'rgba(255,255,255,0.75)':'#00D2B3'}}>
-          {remaining>0?<>🚚 أضف <strong style={{color:'#FF6A00'}}>{remaining} {currency}</strong> للشحن المجاني!</>:'🎉 مبروك! حصلت على شحن مجاني'}
+    <div style={{background:'var(--sf-surface)',borderBottom:'1px solid var(--sf-border)',height:34,display:'flex',alignItems:'center',gap:18,padding:'0 16px',overflowX:'auto',scrollbarWidth:'none',fontSize:12}}>
+      {bits.map((b,i)=>(
+        <span key={i} style={{display:'flex',alignItems:'center',gap:5,whiteSpace:'nowrap',color:b.color||'var(--sf-text2)',fontWeight:600,flexShrink:0}}>
+          <span style={{fontSize:10}}>{b.icon}</span>{b.text}
         </span>
-        <span style={{color:'rgba(255,255,255,0.4)'}}>{pct}%</span>
-      </div>
-      <div style={{height:5,background:'rgba(255,255,255,0.1)',borderRadius:99,overflow:'hidden'}}>
-        <div style={{height:'100%',width:`${pct}%`,background:pct>=100?'linear-gradient(90deg,#00D2B3,#10B981)':'linear-gradient(90deg,#FF6A00,#F59E0B)',borderRadius:99,transition:'width .5s cubic-bezier(.4,0,.2,1)',boxShadow:pct>=100?'0 0 10px rgba(0,210,179,0.6)':'0 0 10px rgba(255,106,0,0.5)'}}/>
-      </div>
-    </div>
-  );
-}
-
-// ─── 🎤 VOICE SEARCH BUTTON ──────────────────────────────────────────────────
-function VoiceSearchBtn({onResult}:{onResult:(t:string)=>void}) {
-  const [listening,setListening]=useState(false);
-  const SR=(window as any).webkitSpeechRecognition||(window as any).SpeechRecognition;
-  if(!SR) return null;
-  const start=()=>{
-    try{
-      const r=new SR(); r.lang='ar-MA'; r.interimResults=false;
-      r.onstart=()=>{setListening(true);sfBuzz(30);};
-      r.onresult=(e:any)=>{const t=e.results?.[0]?.[0]?.transcript;if(t)onResult(t);};
-      r.onend=()=>setListening(false);
-      r.onerror=()=>setListening(false);
-      r.start();
-    }catch{setListening(false);}
-  };
-  return (
-    <button onClick={start} title="بحث صوتي" style={{position:'absolute',left:6,top:'50%',transform:'translateY(-50%)',width:28,height:28,borderRadius:'50%',background:listening?'rgba(239,68,68,0.25)':'rgba(255,255,255,0.08)',border:`1px solid ${listening?'rgba(239,68,68,0.5)':'rgba(255,255,255,0.12)'}`,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,animation:listening?'sfpulse 1s ease infinite':'none'}}>
-      🎤
-    </button>
-  );
-}
-
-// ─── ❤️ WISHLIST DRAWER ──────────────────────────────────────────────────────
-function WishlistDrawer({products,currency,onView,onClose}:{products:SProduct[];currency:string;onView:(p:SProduct)=>void;onClose:()=>void}) {
-  const [ids,setIds]=useState<string[]>(()=>{try{return JSON.parse(localStorage.getItem('sahar_wishlist')||'[]');}catch{return [];}});
-  const items=ids.map(id=>products.find(p=>p.id===id)).filter(Boolean) as SProduct[];
-  const removeItem=(id:string)=>{const n=ids.filter(x=>x!==id);setIds(n);try{localStorage.setItem('sahar_wishlist',JSON.stringify(n));}catch{}};
-  return (
-    <div style={{position:'fixed',inset:0,zIndex:400,display:'flex'}}>
-      <div onClick={onClose} style={{flex:1,background:'rgba(0,0,0,.6)',backdropFilter:'blur(8px)'}}/>
-      <div style={{width:'min(380px,100vw)',background:'linear-gradient(180deg,#151f35,#0f1829)',display:'flex',flexDirection:'column',overflowY:'auto',borderLeft:'1px solid rgba(255,255,255,0.08)',boxShadow:'-8px 0 60px rgba(0,0,0,0.6)'}}>
-        <div style={{padding:'16px 18px',borderBottom:'1px solid rgba(255,255,255,0.08)',display:'flex',alignItems:'center',gap:10,position:'sticky',top:0,background:'rgba(15,24,41,0.95)',backdropFilter:'blur(20px)',zIndex:2}}>
-          <button onClick={onClose} style={{width:34,height:34,borderRadius:8,background:'rgba(255,255,255,0.07)',border:'1px solid rgba(255,255,255,0.12)',cursor:'pointer',color:'rgba(255,255,255,0.7)',display:'flex',alignItems:'center',justifyContent:'center'}}><X size={16}/></button>
-          <div style={{flex:1,fontSize:15,fontWeight:800,color:'#fff'}}>❤️ المفضلة ({items.length})</div>
-        </div>
-        <div style={{flex:1,padding:16}}>
-          {items.length===0?(
-            <div style={{textAlign:'center',padding:'60px 20px',color:'rgba(255,255,255,0.4)'}}>
-              <Heart size={44} style={{margin:'0 auto 14px',opacity:.2}}/>
-              <div style={{fontSize:14,fontWeight:700,color:'rgba(255,255,255,0.55)'}}>لا توجد منتجات في المفضلة</div>
-              <div style={{fontSize:12,marginTop:6}}>اضغط على ♥ في أي منتج لحفظه هنا</div>
-            </div>
-          ):items.map(p=>(
-            <div key={p.id} style={{display:'flex',gap:12,padding:'12px 0',borderBottom:'1px solid rgba(255,255,255,0.07)',alignItems:'center'}}>
-              <div onClick={()=>{onClose();onView(p);}} style={{width:60,height:60,borderRadius:12,background:'rgba(0,0,0,0.3)',overflow:'hidden',flexShrink:0,border:'1px solid rgba(255,255,255,0.1)',cursor:'pointer'}}>
-                {p.imageUrl?<img src={p.imageUrl} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>:<div style={{width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:24}}>{p.emoji||'📦'}</div>}
-              </div>
-              <div onClick={()=>{onClose();onView(p);}} style={{flex:1,minWidth:0,cursor:'pointer'}}>
-                <div style={{fontSize:13,fontWeight:700,color:'#fff',overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis'}}>{p.name}</div>
-                <div style={{fontSize:14,fontWeight:900,color:'#FF6A00',marginTop:4}}>{p.price.toLocaleString()} {currency}</div>
-              </div>
-              <button onClick={()=>removeItem(p.id)} style={{width:28,height:28,borderRadius:7,background:'rgba(239,68,68,0.12)',border:'1px solid rgba(239,68,68,0.25)',cursor:'pointer',color:'#EF4444',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><X size={13}/></button>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── ❤️ WISHLIST HEADER BUTTON ───────────────────────────────────────────────
-function WishlistHeaderBtn({onOpen}:{onOpen:()=>void}) {
-  const [count,setCount]=useState(0);
-  useEffect(()=>{
-    const read=()=>{try{setCount(JSON.parse(localStorage.getItem('sahar_wishlist')||'[]').length);}catch{}};
-    read(); const i=setInterval(read,1500);
-    return()=>clearInterval(i);
-  },[]);
-  return (
-    <button onClick={onOpen} title="المفضلة" style={{position:'relative',width:40,height:40,borderRadius:11,background:'rgba(255,255,255,0.07)',border:'1px solid rgba(255,255,255,0.12)',color:'rgba(255,255,255,0.8)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
-      <Heart size={17} fill={count>0?'#EF4444':'none'} color={count>0?'#EF4444':'rgba(255,255,255,0.8)'}/>
-      {count>0&&<span style={{position:'absolute',top:-5,left:-5,width:17,height:17,background:'#EF4444',borderRadius:'50%',fontSize:9,fontWeight:900,color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',border:'2px solid #0B1020'}}>{count}</span>}
-    </button>
-  );
-}
-
-// ─── 💬 WHATSAPP QUICK ORDER ─────────────────────────────────────────────────
-function WhatsAppQuickOrderBtn({p,size,color,qty,currency}:{p:SProduct;size:string;color:string;qty:number;currency:string}) {
-  const phone=((window as any).__sfBrand?.phone||'').replace(/\D/g,'');
-  if(!phone) return null;
-  const order=()=>{
-    sfBuzz(40);
-    const msg=`مرحباً! 👋 أريد طلب هذا المنتج مباشرة:\n\n🛍️ ${p.name}\n${size?`📏 المقاس: ${size}\n`:''}${color?`🎨 اللون: ${color}\n`:''}🔢 الكمية: ${qty}\n💰 السعر: ${(p.price*qty).toLocaleString()} ${currency}\n\n🔗 ${window.location.origin+window.location.pathname}?p=${p.id}`;
-    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`,'_blank');
-  };
-  return (
-    <button onClick={order} style={{width:'100%',height:46,marginTop:8,background:'rgba(37,211,102,0.12)',border:'1.5px solid rgba(37,211,102,0.4)',borderRadius:14,color:'#25D366',fontSize:13,fontWeight:800,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8,transition:'all .2s'}}
-      onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.background='rgba(37,211,102,0.2)';}}
-      onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.background='rgba(37,211,102,0.12)';}}>
-      <MessageCircle size={15}/> اطلب مباشرة عبر واتساب — بدون تسجيل
-    </button>
-  );
-}
-
-// ─── 📏 SIZE GUIDE MODAL (يُغلق بـ ✕ / الخلفية / Escape) ─────────────────────
-function SizeGuideModal({onClose}:{onClose:()=>void}) {
-  useEffect(()=>{
-    const h=(e:KeyboardEvent)=>{if(e.key==='Escape')onClose();};
-    window.addEventListener('keydown',h);
-    return()=>window.removeEventListener('keydown',h);
-  },[onClose]);
-  const rows=[
-    ['S','36-38','86-91','71-76'],
-    ['M','38-40','96-101','81-86'],
-    ['L','40-42','106-111','91-96'],
-    ['XL','42-44','116-121','101-106'],
-    ['XXL','44-46','126-131','111-116'],
-  ];
-  return (
-    <div onClick={onClose} style={{position:'fixed',inset:0,zIndex:500,background:'rgba(0,0,0,0.75)',backdropFilter:'blur(10px)',display:'flex',alignItems:'center',justifyContent:'center',padding:18}}>
-      <div onClick={e=>e.stopPropagation()} style={{background:'linear-gradient(180deg,#151f35,#0f1829)',border:'1px solid rgba(255,255,255,0.12)',borderRadius:20,width:'100%',maxWidth:380,padding:'20px',boxShadow:'0 20px 80px rgba(0,0,0,0.7)'}}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
-          <h3 style={{fontSize:16,fontWeight:900,color:'#fff'}}>📏 دليل المقاسات</h3>
-          <button onClick={onClose} style={{width:32,height:32,borderRadius:8,background:'rgba(255,255,255,0.07)',border:'1px solid rgba(255,255,255,0.12)',cursor:'pointer',color:'rgba(255,255,255,0.7)',display:'flex',alignItems:'center',justifyContent:'center'}}><X size={14}/></button>
-        </div>
-        <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
-          <thead>
-            <tr>
-              {['المقاس','EU','الصدر (سم)','الخصر (سم)'].map(h=>(
-                <th key={h} style={{padding:'8px 6px',color:'#FF6A00',fontWeight:800,borderBottom:'1px solid rgba(255,255,255,0.12)',textAlign:'center'}}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map(r=>(
-              <tr key={r[0]}>
-                {r.map((c,i)=>(
-                  <td key={i} style={{padding:'8px 6px',color:i===0?'#fff':'rgba(255,255,255,0.65)',fontWeight:i===0?800:500,borderBottom:'1px solid rgba(255,255,255,0.06)',textAlign:'center'}}>{c}</td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <p style={{fontSize:11,color:'rgba(255,255,255,0.4)',marginTop:12,lineHeight:1.6,textAlign:'center'}}>💡 إذا كنت بين مقاسين، ننصح باختيار المقاس الأكبر</p>
-        <button onClick={onClose} style={{width:'100%',height:44,marginTop:10,background:'linear-gradient(135deg,#FF6A00,#FF8533)',border:'none',borderRadius:12,color:'#fff',fontSize:14,fontWeight:800,cursor:'pointer'}}>فهمت ✓</button>
-      </div>
-    </div>
-  );
-}
-
-// ─── PROMO BAR ────────────────────────────────────────────────────────────────
-function PromoBar() {
-  const items=['🎉 شحن مجاني للطلبات فوق 200 درهم','🔄 إرجاع سهل خلال 7 أيام','⭐ جودة مضمونة 100%','🚚 توصيل لجميع المدن المغربية','💳 دفع عند الاستلام متاح'];
-  return (
-    <div style={{background:'linear-gradient(90deg,#7C3AED,#FF6A00,#7C3AED)',backgroundSize:'200% 100%',color:'#fff',height:30,overflow:'hidden',display:'flex',alignItems:'center',fontSize:11,fontWeight:600,animation:'sfgradientshift 6s linear infinite'}}>
-      <style>{`@keyframes sfmarquee{0%{transform:translateX(-50%)}100%{transform:translateX(0%)}}@keyframes sfgradientshift{0%{background-position:0% 0}100%{background-position:200% 0}}`}</style>
-      <div style={{display:'flex',gap:48,whiteSpace:'nowrap',animation:'sfmarquee 20s linear infinite',paddingInline:20}}>
-        {[...items,...items].map((t,i)=><span key={i} style={{flexShrink:0,opacity:.95}}>{t}</span>)}
-      </div>
+      ))}
     </div>
   );
 }
@@ -497,14 +178,9 @@ function ProductCard({p,onAdd,onView,currency}:{p:SProduct;onAdd:(p:SProduct)=>v
   const [addedFlash,setAddedFlash]=useState(false);
   const isNew=p.createdAt&&(Date.now()-new Date(p.createdAt).getTime()<7*24*60*60*1000);
   const imgs=[p.imageUrl,...(p.images||[])].filter(Boolean);
-  const rating=p.sales>20?5:p.sales>10?4:p.sales>3?4:3;
-  const reviews=p.sales>0?Math.min(p.sales*2,120):0;
-  const total=(p.stock||0)+(p.sales||0);
-  const soldPct=total>0?Math.round((p.sales/total)*100):0;
 
   const toggleLike=(e:React.MouseEvent)=>{
     e.stopPropagation();
-    sfBuzz(25);
     const wl:string[]=JSON.parse(localStorage.getItem('sahar_wishlist')||'[]');
     localStorage.setItem('sahar_wishlist',JSON.stringify(liked?wl.filter(x=>x!==p.id):[...wl,p.id]));
     setLiked(!liked);
@@ -521,98 +197,58 @@ function ProductCard({p,onAdd,onView,currency}:{p:SProduct;onAdd:(p:SProduct)=>v
     <div onClick={()=>onView(p)}
       onMouseEnter={()=>{setHover(true);if(imgs.length>1)setImgIdx(1);}}
       onMouseLeave={()=>{setHover(false);setImgIdx(0);}}
-      style={{
-        background:hover?'rgba(255,255,255,0.10)':'rgba(255,255,255,0.06)',
-        backdropFilter:'blur(24px)',WebkitBackdropFilter:'blur(24px)',
-        borderRadius:20,overflow:'hidden',cursor:'pointer',
-        border:`1px solid ${hover?'rgba(255,106,0,0.35)':'rgba(255,255,255,0.11)'}`,
-        boxShadow:hover?'0 16px 48px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,106,0,0.2), 0 0 30px rgba(255,106,0,0.08)':'0 4px 24px rgba(0,0,0,0.3)',
-        transform:hover?'translateY(-6px)':'none',
-        transition:'all .3s cubic-bezier(.4,0,.2,1)',
+      style={{background:'var(--sf-surface)',borderRadius:'var(--sf-r)',overflow:'hidden',cursor:'pointer',
+        border:`1px solid ${hover?'var(--sf-border2)':'var(--sf-border)'}`,
+        boxShadow:hover?'var(--sf-shadow-md)':'var(--sf-shadow)',
+        transform:hover?'translateY(-3px)':'none',
+        transition:'transform .2s ease, box-shadow .2s ease, border-color .2s ease',
       }}>
-      {/* Image */}
-      <div style={{height:200,position:'relative',background:'rgba(0,0,0,0.3)',overflow:'hidden'}}>
+      <div style={{aspectRatio:'1/1',position:'relative',background:'var(--sf-surface2)',overflow:'hidden'}}>
         {imgs.length>0
           ?<img src={imgs[imgIdx]} alt={p.name} loading="lazy"
-              style={{width:'100%',height:'100%',objectFit:'cover',transition:'transform .5s cubic-bezier(.4,0,.2,1)',
-                transform:hover?'scale(1.08)':'scale(1)'}}/>
-          :<div style={{width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:56}}>{p.emoji||'📦'}</div>
+              style={{width:'100%',height:'100%',objectFit:'cover',transition:'transform .4s ease',transform:hover?'scale(1.05)':'scale(1)'}}/>
+          :<div style={{width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:52}}>{p.emoji||'📦'}</div>
         }
-        {/* Gradient overlay */}
-        <div style={{position:'absolute',inset:0,background:'linear-gradient(to top,rgba(0,0,0,.6) 0%,transparent 55%)',opacity:hover?1:0.4,transition:'opacity .3s'}}/>
-
-        {/* Quick Action Buttons */}
         <div style={{position:'absolute',bottom:10,left:0,right:0,display:'flex',gap:8,justifyContent:'center',
-          opacity:hover?1:0,transform:hover?'translateY(0)':'translateY(12px)',transition:'all .3s cubic-bezier(.4,0,.2,1)',zIndex:2}}>
-          <button onClick={e=>{e.stopPropagation();onView(p);}} title="معاينة سريعة"
-            style={{width:38,height:38,borderRadius:'50%',background:'rgba(255,255,255,0.15)',border:'1px solid rgba(255,255,255,0.3)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',backdropFilter:'blur(12px)',transition:'all .2s'}}
-            onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.background='rgba(255,255,255,0.25)';(e.currentTarget as HTMLElement).style.transform='scale(1.1)';}}
-            onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.background='rgba(255,255,255,0.15)';(e.currentTarget as HTMLElement).style.transform='';}}>
-            <Eye size={15} color="#fff"/>
+          opacity:hover?1:0,transform:hover?'translateY(0)':'translateY(8px)',transition:'all .2s ease',zIndex:2}}>
+          <button onClick={e=>{e.stopPropagation();onView(p);}} title="معاينة"
+            style={{width:36,height:36,borderRadius:'50%',background:'#fff',border:'1px solid var(--sf-border)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'var(--sf-shadow-md)',transition:'all .15s'}}
+            onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.transform='scale(1.08)';}}
+            onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.transform='';}}>
+            <Eye size={15} color="var(--sf-text2)"/>
           </button>
           <button onClick={quickAdd} title={p.type==='service'?'احجز':'أضف للسلة'}
-            style={{width:38,height:38,borderRadius:'50%',background:addedFlash?'#00D2B3':'linear-gradient(135deg,#FF6A00,#FF8533)',border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 4px 16px rgba(255,106,0,0.5)',transition:'all .2s'}}
-            onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.transform='scale(1.1)';}}
+            style={{width:36,height:36,borderRadius:'50%',background:addedFlash?'var(--sf-success)':'var(--sf-accent)',border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'var(--sf-shadow-md)',transition:'all .15s'}}
+            onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.transform='scale(1.08)';}}
             onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.transform='';}}>
             {addedFlash?<Check size={15} color="#fff"/>:<ShoppingCart size={15} color="#fff"/>}
           </button>
           <button onClick={toggleLike} title="مفضلة"
-            style={{width:38,height:38,borderRadius:'50%',background:liked?'rgba(239,68,68,0.25)':'rgba(255,255,255,0.15)',border:`1px solid ${liked?'rgba(239,68,68,0.5)':'rgba(255,255,255,0.3)'}`,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',backdropFilter:'blur(12px)',transition:'all .2s'}}
-            onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.transform='scale(1.1)';}}
+            style={{width:36,height:36,borderRadius:'50%',background:'#fff',border:`1px solid ${liked?'var(--sf-accent-border)':'var(--sf-border)'}`,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'var(--sf-shadow-md)',transition:'all .15s'}}
+            onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.transform='scale(1.08)';}}
             onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.transform='';}}>
-            <Heart size={15} fill={liked?'#ef4444':'none'} color={liked?'#ef4444':'#fff'}/>
+            <Heart size={15} fill={liked?'#E5484D':'none'} color={liked?'#E5484D':'var(--sf-text2)'}/>
           </button>
         </div>
-
-        {/* Badges */}
         <div style={{position:'absolute',top:10,right:10,display:'flex',flexDirection:'column',gap:4,alignItems:'flex-end',zIndex:2}}>
-          {p.type==='service'&&<span style={{background:'linear-gradient(135deg,#7C3AED,#A855F7)',color:'#fff',fontSize:10,fontWeight:700,padding:'3px 9px',borderRadius:99,boxShadow:'0 2px 10px rgba(124,58,237,0.5)'}}>خدمة</span>}
-          {p.type==='digital'&&<span style={{background:'linear-gradient(135deg,#0EA5E9,#38BDF8)',color:'#fff',fontSize:10,fontWeight:700,padding:'3px 9px',borderRadius:99}}>رقمي</span>}
-          {(!p.type||p.type==='product')&&isNew&&<span style={{background:'linear-gradient(135deg,#00D2B3,#10B981)',color:'#fff',fontSize:10,fontWeight:700,padding:'3px 9px',borderRadius:99}}>✨ جديد</span>}
-          {p.stock<=3&&p.stock>0&&(!p.type||p.type==='product')&&<span style={{background:'linear-gradient(135deg,#F59E0B,#F97316)',color:'#fff',fontSize:10,fontWeight:700,padding:'3px 9px',borderRadius:99}}>⚡ آخر {p.stock}</span>}
-          {p.sales>15&&<span style={{background:'linear-gradient(135deg,#FF6A00,#FF3D00)',color:'#fff',fontSize:10,fontWeight:700,padding:'3px 9px',borderRadius:99,boxShadow:'0 2px 10px rgba(255,106,0,0.5)'}}>🔥 رائج</span>}
-          {(!p.type||p.type==='product')&&p.stock===0&&<span style={{background:'rgba(156,163,175,0.3)',backdropFilter:'blur(8px)',border:'1px solid rgba(156,163,175,0.3)',color:'rgba(255,255,255,0.7)',fontSize:10,fontWeight:700,padding:'3px 9px',borderRadius:99}}>نفذ</span>}
+          {p.type==='service'&&<span style={{background:'#16181D',color:'#fff',fontSize:10,fontWeight:700,padding:'3px 9px',borderRadius:99}}>خدمة</span>}
+          {p.type==='digital'&&<span style={{background:'#16181D',color:'#fff',fontSize:10,fontWeight:700,padding:'3px 9px',borderRadius:99}}>رقمي</span>}
+          {(!p.type||p.type==='product')&&isNew&&<span style={{background:'var(--sf-success)',color:'#fff',fontSize:10,fontWeight:700,padding:'3px 9px',borderRadius:99}}>جديد</span>}
+          {p.stock<=3&&p.stock>0&&(!p.type||p.type==='product')&&<span style={{background:'var(--sf-accent)',color:'#fff',fontSize:10,fontWeight:700,padding:'3px 9px',borderRadius:99}}>آخر {p.stock}</span>}
+          {(!p.type||p.type==='product')&&p.stock===0&&<span style={{background:'var(--sf-text3)',color:'#fff',fontSize:10,fontWeight:700,padding:'3px 9px',borderRadius:99}}>نفذ</span>}
         </div>
-        {/* Like top-left */}
-        <button onClick={toggleLike} style={{position:'absolute',top:10,left:10,width:32,height:32,borderRadius:'50%',background:'rgba(0,0,0,0.35)',border:'1px solid rgba(255,255,255,0.15)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',backdropFilter:'blur(8px)',zIndex:2,opacity:hover?0:1,transition:'opacity .25s'}}>
-          <Heart size={14} fill={liked?'#EF4444':'none'} color={liked?'#EF4444':'rgba(255,255,255,0.8)'}/>
+        <button onClick={toggleLike} style={{position:'absolute',top:10,left:10,width:30,height:30,borderRadius:'50%',background:'rgba(255,255,255,.92)',border:'1px solid var(--sf-border)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',zIndex:2,opacity:hover?0:1,transition:'opacity .2s'}}>
+          <Heart size={14} fill={liked?'#E5484D':'none'} color={liked?'#E5484D':'var(--sf-text3)'}/>
         </button>
       </div>
-
-      {/* Info */}
-      <div style={{padding:'13px 14px 15px'}}>
-        <div style={{fontSize:10,color:'rgba(255,255,255,0.4)',fontWeight:700,letterSpacing:'.07em',textTransform:'uppercase',marginBottom:4}}>{p.category||'—'}</div>
-        <div style={{fontSize:13,fontWeight:700,color:'#fff',marginBottom:6,lineHeight:1.4,overflow:'hidden',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical'}}>{p.name}</div>
-        {reviews>0&&(
-          <div style={{display:'flex',alignItems:'center',gap:4,marginBottom:7}}>
-            <div style={{display:'flex',gap:1}}>
-              {Array.from({length:5},(_,i)=><Star key={i} size={10} fill={i<rating?'#F59E0B':'none'} color={i<rating?'#F59E0B':'rgba(255,255,255,0.25)'}/>)}
-            </div>
-            <span style={{fontSize:10,color:'rgba(255,255,255,0.42)'}}>({reviews})</span>
-            {p.sales>0&&<span style={{fontSize:10,color:'rgba(255,255,255,0.42)',marginRight:4}}>{p.sales} طلب</span>}
+      <div style={{padding:'12px 13px 14px'}}>
+        <div style={{fontSize:10,color:'var(--sf-text3)',fontWeight:600,letterSpacing:'.04em',textTransform:'uppercase',marginBottom:5}}>{p.category||'—'}</div>
+        <div style={{fontSize:13,fontWeight:600,color:'var(--sf-text)',marginBottom:8,lineHeight:1.4,overflow:'hidden',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical',minHeight:36}}>{p.name}</div>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+          <div style={{fontSize:17,fontWeight:800,color:'var(--sf-text)',letterSpacing:'-0.02em'}}>
+            {p.price.toLocaleString()} <span style={{fontSize:11,fontWeight:500,color:'var(--sf-text3)'}}>{currency}</span>
           </div>
-        )}
-        {/* Sales progress bar */}
-        {soldPct>20&&(!p.type||p.type==='product')&&(
-          <div style={{marginBottom:8}}>
-            <div style={{display:'flex',justifyContent:'space-between',marginBottom:3}}>
-              <span style={{fontSize:9,color:'rgba(255,255,255,0.45)',fontWeight:600}}>تم بيع {soldPct}%</span>
-              {p.stock<=10&&p.stock>0&&<span style={{fontSize:9,color:'#EF4444',fontWeight:700}}>متبقي {p.stock}</span>}
-            </div>
-            <div style={{height:3,background:'rgba(255,255,255,0.1)',borderRadius:99,overflow:'hidden'}}>
-              <div style={{height:'100%',width:`${soldPct}%`,background:`linear-gradient(90deg,${soldPct>80?'#EF4444':'#FF6A00'},${soldPct>80?'#FF6A00':'#F59E0B'})`,borderRadius:99,boxShadow:`0 0 8px ${soldPct>80?'rgba(239,68,68,0.6)':'rgba(255,106,0,0.6)'}`}}/>
-            </div>
-          </div>
-        )}
-        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:6}}>
-          <div style={{fontSize:19,fontWeight:900,color:'#FF6A00',letterSpacing:'-0.03em',textShadow:'0 0 20px rgba(255,106,0,0.4)'}}>
-            {p.price.toLocaleString()} <span style={{fontSize:11,fontWeight:500,color:'rgba(255,255,255,0.5)'}}>{currency}</span>
-          </div>
-          {p.sizes?.length>0&&(
-            <div style={{display:'flex',gap:3}}>
-              {p.sizes.slice(0,3).map(s=><span key={s} style={{fontSize:9,background:'rgba(255,255,255,0.08)',border:'1px solid rgba(255,255,255,0.15)',borderRadius:4,padding:'1px 5px',color:'rgba(255,255,255,0.55)',fontWeight:600}}>{s}</span>)}
-            </div>
-          )}
+          {p.sales>0&&<span style={{fontSize:11,color:'var(--sf-text3)',fontWeight:600}}>{p.sales} مبيع</span>}
         </div>
       </div>
     </div>
@@ -624,54 +260,35 @@ function ServiceCard({p,onView,currency}:{p:SProduct;onView:(p:SProduct)=>void;c
   const [hover,setHover]=useState(false);
   const TYPE_EMOJI:Record<string,string>={'تصوير':'📸','تصميم':'🎨','تنظيف':'🧹','إصلاح':'🔧','توصيل':'🚚','طبخ':'🍳','تعليم':'📚','صيانة':'⚙️','خياطة':'🧵','حلاقة':'✂️'};
   const emoji=Object.entries(TYPE_EMOJI).find(([k])=>p.name.includes(k)||p.category?.includes(k))?.[1]||p.emoji||'🛠️';
-
   return (
     <div onClick={()=>onView(p)}
       onMouseEnter={()=>setHover(true)} onMouseLeave={()=>setHover(false)}
-      style={{
-        background:hover?'rgba(124,58,237,0.12)':'rgba(255,255,255,0.06)',
-        backdropFilter:'blur(24px)',WebkitBackdropFilter:'blur(24px)',
-        borderRadius:18,padding:'16px',cursor:'pointer',
-        border:`1px solid ${hover?'rgba(124,58,237,0.4)':'rgba(255,255,255,0.1)'}`,
-        borderRight:`3px solid ${hover?'#A855F7':'#7C3AED'}`,
-        boxShadow:hover?'0 12px 40px rgba(0,0,0,0.4), 0 0 24px rgba(124,58,237,0.15)':'0 4px 20px rgba(0,0,0,0.25)',
-        transform:hover?'translateX(-3px)':'none',
-        transition:'all .3s cubic-bezier(.4,0,.2,1)',
-        display:'flex',gap:14,alignItems:'flex-start',
-      }}>
-      {/* Icon square */}
-      <div style={{flexShrink:0,width:72,height:72,borderRadius:16,
-        background:hover?'linear-gradient(135deg,#7C3AED,#A855F7)':'linear-gradient(135deg,rgba(124,58,237,0.25),rgba(168,85,247,0.15))',
-        border:`1px solid ${hover?'transparent':'rgba(124,58,237,0.3)'}`,
-        display:'flex',alignItems:'center',justifyContent:'center',fontSize:30,
-        boxShadow:hover?'0 8px 24px rgba(124,58,237,0.4)':'0 4px 12px rgba(0,0,0,0.2)',
-        transition:'all .3s',overflow:'hidden',
-      }}>
-        {p.imageUrl
-          ?<img src={p.imageUrl} alt={p.name} style={{width:'100%',height:'100%',objectFit:'cover'}}/>
-          :<span>{emoji}</span>
-        }
+      style={{background:'var(--sf-surface)',borderRadius:'var(--sf-r)',padding:'14px',cursor:'pointer',
+        border:`1px solid ${hover?'var(--sf-border2)':'var(--sf-border)'}`,
+        boxShadow:hover?'var(--sf-shadow-md)':'var(--sf-shadow)',
+        transform:hover?'translateY(-2px)':'none',
+        transition:'transform .2s ease, box-shadow .2s ease, border-color .2s ease',
+        display:'flex',gap:13,alignItems:'center'}}>
+      <div style={{flexShrink:0,width:64,height:64,borderRadius:12,background:'var(--sf-accent-soft)',border:'1px solid var(--sf-accent-border)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:28,overflow:'hidden'}}>
+        {p.imageUrl?<img src={p.imageUrl} alt={p.name} style={{width:'100%',height:'100%',objectFit:'cover'}}/>:<span>{emoji}</span>}
       </div>
-      {/* Content */}
       <div style={{flex:1,minWidth:0}}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:8,marginBottom:4}}>
-          <div style={{fontSize:14,fontWeight:800,color:'#fff',lineHeight:1.3,flex:1}}>{p.name}</div>
-          <div style={{fontSize:16,fontWeight:900,color:'#FF6A00',flexShrink:0,letterSpacing:'-0.02em',textShadow:'0 0 16px rgba(255,106,0,0.4)'}}>
-            {p.price.toLocaleString()} <span style={{fontSize:10,fontWeight:500,color:'rgba(255,255,255,0.5)'}}>{currency}</span>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:8,marginBottom:3}}>
+          <div style={{fontSize:14,fontWeight:700,color:'var(--sf-text)',lineHeight:1.3,flex:1}}>{p.name}</div>
+          <div style={{fontSize:15,fontWeight:800,color:'var(--sf-text)',flexShrink:0,letterSpacing:'-0.02em'}}>
+            {p.price.toLocaleString()} <span style={{fontSize:10,fontWeight:500,color:'var(--sf-text3)'}}>{currency}</span>
           </div>
         </div>
-        {p.description&&<div style={{fontSize:12,color:'rgba(255,255,255,0.6)',lineHeight:1.5,marginBottom:8,overflow:'hidden',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical'}}>{p.description}</div>}
+        {p.description&&<div style={{fontSize:12,color:'var(--sf-text2)',lineHeight:1.5,marginBottom:8,overflow:'hidden',display:'-webkit-box',WebkitLineClamp:1,WebkitBoxOrient:'vertical'}}>{p.description}</div>}
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:6}}>
-          <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-            {p.duration&&<span style={{display:'flex',alignItems:'center',gap:3,fontSize:11,color:'rgba(255,255,255,0.55)',background:'rgba(255,255,255,0.07)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:99,padding:'3px 8px'}}><Clock size={10}/> {p.duration}</span>}
-            {p.workArea&&<span style={{display:'flex',alignItems:'center',gap:3,fontSize:11,color:'rgba(255,255,255,0.55)',background:'rgba(255,255,255,0.07)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:99,padding:'3px 8px'}}><MapPin size={10}/> {p.workArea}</span>}
-            {p.sales>0&&<span style={{fontSize:11,color:'rgba(255,255,255,0.45)'}}>{p.sales} طلب</span>}
+          <div style={{display:'flex',gap:6,flexWrap:'wrap',alignItems:'center'}}>
+            {p.duration&&<span style={{display:'flex',alignItems:'center',gap:3,fontSize:11,color:'var(--sf-text2)',background:'var(--sf-surface2)',borderRadius:99,padding:'3px 8px'}}><Clock size={10}/> {p.duration}</span>}
+            {p.workArea&&<span style={{display:'flex',alignItems:'center',gap:3,fontSize:11,color:'var(--sf-text2)',background:'var(--sf-surface2)',borderRadius:99,padding:'3px 8px'}}><MapPin size={10}/> {p.workArea}</span>}
+            {p.sales>0&&<span style={{fontSize:11,color:'var(--sf-text3)'}}>{p.sales} حجز</span>}
           </div>
           <button onClick={e=>{e.stopPropagation();onView(p);}}
-            style={{flexShrink:0,padding:'7px 16px',borderRadius:99,background:'linear-gradient(135deg,#7C3AED,#A855F7)',border:'none',color:'#fff',fontSize:12,fontWeight:700,cursor:'pointer',boxShadow:'0 4px 14px rgba(124,58,237,0.4)',transition:'all .2s'}}
-            onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.transform='translateY(-1px)';(e.currentTarget as HTMLElement).style.boxShadow='0 6px 20px rgba(124,58,237,0.5)';}}
-            onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.transform='';(e.currentTarget as HTMLElement).style.boxShadow='0 4px 14px rgba(124,58,237,0.4)';}}>
-            احجز الآن
+            style={{flexShrink:0,padding:'6px 14px',borderRadius:99,background:'var(--sf-accent)',border:'none',color:'#fff',fontSize:12,fontWeight:700,cursor:'pointer'}}>
+            احجز
           </button>
         </div>
       </div>
@@ -707,21 +324,21 @@ function Lightbox({images,startIndex,onClose}:{images:string[];startIndex:number
     if(Math.abs(dx)>50&&Date.now()-tc.t<600)go(dx>0?-1:1);
   };
   return (
-    <div style={{position:'fixed',inset:0,zIndex:600,background:'rgba(0,0,0,.97)',display:'flex',alignItems:'center',justifyContent:'center',touchAction:'none'}} onClick={onClose}>
-      <button onClick={onClose} style={{position:'absolute',top:16,left:16,width:40,height:40,borderRadius:'50%',background:'rgba(255,255,255,.1)',backdropFilter:'blur(12px)',border:'1px solid rgba(255,255,255,.2)',color:'#fff',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',zIndex:3}}><X size={20}/></button>
-      <div style={{position:'absolute',top:22,right:20,color:'rgba(255,255,255,.5)',fontSize:13,fontWeight:700,zIndex:3}}>{idx+1}/{images.length}</div>
+    <div style={{position:'fixed',inset:0,zIndex:600,background:'rgba(0,0,0,.92)',display:'flex',alignItems:'center',justifyContent:'center',touchAction:'none'}} onClick={onClose}>
+      <button onClick={onClose} style={{position:'absolute',top:16,left:16,width:40,height:40,borderRadius:'50%',background:'rgba(255,255,255,.15)',border:'none',color:'#fff',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',zIndex:3}}><X size={20}/></button>
+      <div style={{position:'absolute',top:22,right:20,color:'rgba(255,255,255,.6)',fontSize:13,fontWeight:700,zIndex:3}}>{idx+1}/{images.length}</div>
       <div onClick={e=>{e.stopPropagation();setZoom(z=>z>1?1:2.5);setPan({x:0,y:0});}} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
         style={{width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden'}}>
         <img src={images[idx]} alt="" draggable={false} style={{maxWidth:'100%',maxHeight:'100%',objectFit:'contain',transform:`translate(${pan.x}px,${pan.y}px) scale(${zoom})`,transition:touch.current?'none':'transform .2s',cursor:zoom>1?'grab':'zoom-in',userSelect:'none'}}/>
       </div>
       {images.length>1&&<>
-        <button onClick={e=>{e.stopPropagation();go(1);}} disabled={idx>=images.length-1} style={{position:'absolute',left:12,top:'50%',transform:'translateY(-50%)',width:44,height:44,borderRadius:'50%',background:'rgba(255,255,255,.1)',backdropFilter:'blur(12px)',border:'1px solid rgba(255,255,255,.2)',color:'#fff',cursor:'pointer',fontSize:22,zIndex:3,opacity:idx>=images.length-1?.3:1}}>‹</button>
-        <button onClick={e=>{e.stopPropagation();go(-1);}} disabled={idx<=0} style={{position:'absolute',right:12,top:'50%',transform:'translateY(-50%)',width:44,height:44,borderRadius:'50%',background:'rgba(255,255,255,.1)',backdropFilter:'blur(12px)',border:'1px solid rgba(255,255,255,.2)',color:'#fff',cursor:'pointer',fontSize:22,zIndex:3,opacity:idx<=0?.3:1}}>›</button>
+        <button onClick={e=>{e.stopPropagation();go(1);}} disabled={idx>=images.length-1} style={{position:'absolute',left:12,top:'50%',transform:'translateY(-50%)',width:44,height:44,borderRadius:'50%',background:'rgba(255,255,255,.15)',border:'none',color:'#fff',cursor:'pointer',fontSize:22,zIndex:3,opacity:idx>=images.length-1?.3:1}}>‹</button>
+        <button onClick={e=>{e.stopPropagation();go(-1);}} disabled={idx<=0} style={{position:'absolute',right:12,top:'50%',transform:'translateY(-50%)',width:44,height:44,borderRadius:'50%',background:'rgba(255,255,255,.15)',border:'none',color:'#fff',cursor:'pointer',fontSize:22,zIndex:3,opacity:idx<=0?.3:1}}>›</button>
       </>}
       {images.length>1&&(
         <div onClick={e=>e.stopPropagation()} style={{position:'absolute',bottom:16,left:0,right:0,display:'flex',gap:6,justifyContent:'center',overflowX:'auto',padding:'0 16px',zIndex:3}}>
           {images.map((img,i)=>(
-            <button key={i} onClick={()=>{setIdx(i);setZoom(1);setPan({x:0,y:0});}} style={{flexShrink:0,width:44,height:44,borderRadius:8,overflow:'hidden',border:`2px solid ${i===idx?'#FF6A00':'rgba(255,255,255,.2)'}`,padding:0,cursor:'pointer',background:'#000',boxShadow:i===idx?'0 0 12px rgba(255,106,0,0.5)':'none'}}>
+            <button key={i} onClick={()=>{setIdx(i);setZoom(1);setPan({x:0,y:0});}} style={{flexShrink:0,width:44,height:44,borderRadius:8,overflow:'hidden',border:`2px solid ${i===idx?'#FF6A00':'rgba(255,255,255,.25)'}`,padding:0,cursor:'pointer',background:'#000'}}>
               <img src={img} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>
             </button>
           ))}
@@ -739,18 +356,12 @@ function ProductModal({p,cart,onClose,currency,userId}:{p:SProduct;cart:ReturnTy
   const [added,setAdded]=useState(false);
   const [showVideo,setShowVideo]=useState(false);
   const [lightboxIdx,setLightboxIdx]=useState<number|null>(null);
-  const [showSizeGuide,setShowSizeGuide]=useState(false); // 🆕 مغلق افتراضياً
   const firstColorImg=p.colors?.[0]&&p.colorImages?.[p.colors[0]];
   const [activeImage,setActiveImage]=useState(firstColorImg||p.imageUrl||'');
   const galleryImgs=[p.imageUrl,...(p.images||[])].filter((x,i,a)=>x&&a.indexOf(x)===i);
-  const rating=p.sales>20?5:p.sales>10?4:p.sales>3?4:3;
-  const viewersNow=useMemo(()=>2+Math.abs(p.id.charCodeAt(0)%8),[p.id]);
-  const total=(p.stock||0)+(p.sales||0);
-  const soldPct=total>0?Math.round((p.sales/total)*100):0;
   void userId;
 
   const handleAdd=()=>{
-    sfBuzz(40);
     cart.add(p,size,color);
     for(let i=0;i<qty-1;i++)cart.add(p,size,color);
     setAdded(true);
@@ -761,21 +372,12 @@ function ProductModal({p,cart,onClose,currency,userId}:{p:SProduct;cart:ReturnTy
     navigator.share?.({title:p.name,url}).catch(()=>{})||navigator.clipboard?.writeText(url);
   };
 
-  const glassInput:React.CSSProperties={background:'rgba(255,255,255,0.07)',border:'1px solid rgba(255,255,255,0.12)',color:'#fff',borderRadius:10,padding:'8px 12px',fontSize:13,outline:'none',fontFamily:'Tajawal,sans-serif',boxSizing:'border-box' as any};
-
   return (<>
     {lightboxIdx!==null&&galleryImgs.length>0&&<Lightbox images={galleryImgs} startIndex={lightboxIdx} onClose={()=>setLightboxIdx(null)}/>}
-    {showSizeGuide&&<SizeGuideModal onClose={()=>setShowSizeGuide(false)}/>}
-    <div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.7)',backdropFilter:'blur(12px)',zIndex:300,display:'flex',alignItems:'flex-end',justifyContent:'center'}}>
-      <div onClick={e=>e.stopPropagation()} style={{
-        background:'linear-gradient(180deg,#151f35 0%,#0f1829 100%)',
-        border:'1px solid rgba(255,255,255,0.1)',
-        borderRadius:'24px 24px 0 0',width:'100%',maxWidth:520,
-        maxHeight:'93vh',overflowY:'auto',
-        boxShadow:'0 -8px 60px rgba(0,0,0,0.6)',
-      }}>
+    <div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(16,24,40,.45)',backdropFilter:'blur(4px)',zIndex:300,display:'flex',alignItems:'flex-end',justifyContent:'center'}}>
+      <div onClick={e=>e.stopPropagation()} style={{background:'var(--sf-surface)',borderRadius:'20px 20px 0 0',width:'100%',maxWidth:520,maxHeight:'93vh',overflowY:'auto',boxShadow:'var(--sf-shadow-lg)'}}>
         {/* Image */}
-        <div style={{height:280,position:'relative',background:'rgba(0,0,0,0.4)',flexShrink:0,overflow:'hidden'}}>
+        <div style={{aspectRatio:'1/1',maxHeight:300,position:'relative',background:'var(--sf-surface2)',flexShrink:0,overflow:'hidden'}}>
           {showVideo&&p.videoUrl
             ?<video src={p.videoUrl} controls autoPlay playsInline style={{width:'100%',height:'100%',objectFit:'contain',background:'#000'}}/>
             :activeImage
@@ -783,102 +385,68 @@ function ProductModal({p,cart,onClose,currency,userId}:{p:SProduct;cart:ReturnTy
                 style={{width:'100%',height:'100%',objectFit:'cover',cursor:'zoom-in'}}/>
             :<div style={{width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:80}}>{p.emoji||'📦'}</div>
           }
-          <div style={{position:'absolute',inset:0,background:'linear-gradient(to top,rgba(15,24,41,0.8) 0%,transparent 50%)',pointerEvents:'none'}}/>
-          <button onClick={onClose} style={{position:'absolute',top:14,left:14,width:36,height:36,borderRadius:'50%',background:'rgba(0,0,0,0.4)',backdropFilter:'blur(12px)',border:'1px solid rgba(255,255,255,0.2)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',zIndex:2}}><X size={16} color="#fff"/></button>
-          <button onClick={share} style={{position:'absolute',top:14,right:14,width:36,height:36,borderRadius:'50%',background:'rgba(0,0,0,0.4)',backdropFilter:'blur(12px)',border:'1px solid rgba(255,255,255,0.2)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',zIndex:2}}><Share2 size={15} color="rgba(255,255,255,0.8)"/></button>
-          {p.sales>0&&!showVideo&&<div style={{position:'absolute',bottom:12,right:12,background:'linear-gradient(135deg,#FF6A00,#FF8533)',color:'#fff',fontSize:11,fontWeight:700,padding:'4px 11px',borderRadius:99,boxShadow:'0 4px 14px rgba(255,106,0,0.5)'}}>{p.sales}+ مبيعة</div>}
+          <button onClick={onClose} style={{position:'absolute',top:14,left:14,width:36,height:36,borderRadius:'50%',background:'rgba(255,255,255,.95)',border:'1px solid var(--sf-border)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'var(--sf-shadow)',zIndex:2}}><X size={16} color="var(--sf-text)"/></button>
+          <button onClick={share} style={{position:'absolute',top:14,right:14,width:36,height:36,borderRadius:'50%',background:'rgba(255,255,255,.95)',border:'1px solid var(--sf-border)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'var(--sf-shadow)',zIndex:2}}><Share2 size={15} color="var(--sf-text2)"/></button>
         </div>
-
         {/* Thumbnails */}
         {(galleryImgs.length>1||p.videoUrl)&&(
-          <div style={{display:'flex',gap:6,overflowX:'auto',padding:'8px 14px',background:'rgba(0,0,0,0.2)',borderBottom:'1px solid rgba(255,255,255,0.08)'}}>
+          <div style={{display:'flex',gap:6,overflowX:'auto',padding:'10px 16px',background:'var(--sf-surface)',borderBottom:'1px solid var(--sf-border)'}}>
             {galleryImgs.map((img,i)=>(
-              <button key={i} onClick={()=>{setShowVideo(false);setActiveImage(img);}} style={{flexShrink:0,width:52,height:52,borderRadius:9,overflow:'hidden',border:`2px solid ${!showVideo&&activeImage===img?'#FF6A00':'rgba(255,255,255,0.15)'}`,background:'rgba(0,0,0,0.3)',cursor:'pointer',padding:0,boxShadow:!showVideo&&activeImage===img?'0 0 10px rgba(255,106,0,0.4)':'none'}}>
+              <button key={i} onClick={()=>{setShowVideo(false);setActiveImage(img);}} style={{flexShrink:0,width:52,height:52,borderRadius:9,overflow:'hidden',border:`2px solid ${!showVideo&&activeImage===img?'var(--sf-accent)':'var(--sf-border)'}`,background:'var(--sf-surface2)',cursor:'pointer',padding:0}}>
                 <img src={img} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>
               </button>
             ))}
             {p.videoUrl&&(
-              <button onClick={()=>setShowVideo(true)} style={{flexShrink:0,width:52,height:52,borderRadius:9,border:`2px solid ${showVideo?'#FF6A00':'rgba(255,255,255,0.15)'}`,background:'rgba(0,0,0,0.5)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
+              <button onClick={()=>setShowVideo(true)} style={{flexShrink:0,width:52,height:52,borderRadius:9,border:`2px solid ${showVideo?'var(--sf-accent)':'var(--sf-border)'}`,background:'#16181D',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
                 <Play size={18} color="#fff"/>
               </button>
             )}
           </div>
         )}
-
         <div style={{padding:'18px 18px 0'}}>
-          <div style={{fontSize:11,color:'rgba(255,255,255,0.4)',marginBottom:3,fontWeight:600}}>{p.category}{p.sku?` · #${p.sku}`:''}</div>
-          <h2 style={{fontSize:20,fontWeight:900,color:'#fff',margin:'0 0 8px',lineHeight:1.3}}>{p.name}</h2>
-          {/* Rating */}
-          <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:14}}>
-            <div style={{display:'flex',gap:1}}>{Array.from({length:5},(_,i)=><Star key={i} size={13} fill={i<rating?'#F59E0B':'none'} color={i<rating?'#F59E0B':'rgba(255,255,255,0.2)'}/>)}</div>
-            <span style={{fontSize:12,color:'rgba(255,255,255,0.45)'}}>({Math.min(p.sales*2,120)}) · {p.sales} طلب</span>
-          </div>
-          {/* Trust badges */}
-          <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:14}}>
-            {[{icon:<Shield size={11}/>,t:'دفع آمن',g:'#00D2B3'},{icon:<RefreshCcw size={11}/>,t:'إرجاع 7 أيام',g:'#0EA5E9'},{icon:<Package size={11}/>,t:'توصيل سريع',g:'#F59E0B'},{icon:<Award size={11}/>,t:'جودة مضمونة',g:'#A855F7'}].map(b=>(
-              <div key={b.t} style={{display:'flex',alignItems:'center',gap:4,padding:'4px 9px',borderRadius:99,background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.1)',color:b.g,fontSize:10,fontWeight:700}}>{b.icon}{b.t}</div>
-            ))}
-          </div>
-          {/* Social proof */}
-          {p.sales>0&&(
-            <div style={{display:'flex',alignItems:'center',gap:7,marginBottom:12,padding:'9px 12px',background:'rgba(255,106,0,0.08)',borderRadius:12,border:'1px solid rgba(255,106,0,0.2)'}}>
-              <Flame size={14} color="#FF6A00"/>
-              <span style={{fontSize:12,color:'rgba(255,255,255,0.75)'}}><strong style={{color:'#FF6A00'}}>{p.sales}</strong> شخص طلب هذا{p.sales>=10?<span style={{color:'#00D2B3',marginRight:4}}> · مشهور جداً</span>:''}</span>
-            </div>
-          )}
-          {/* Price + viewers */}
-          <div style={{display:'flex',alignItems:'flex-end',justifyContent:'space-between',marginBottom:12}}>
-            <div style={{fontSize:28,fontWeight:900,color:'#FF6A00',letterSpacing:'-0.04em',textShadow:'0 0 24px rgba(255,106,0,0.4)'}}>{p.price.toLocaleString()} <span style={{fontSize:14,color:'rgba(255,255,255,0.5)',fontWeight:500}}>{currency}</span></div>
-            <div style={{display:'flex',alignItems:'center',gap:5,background:'rgba(255,106,0,0.1)',border:'1px solid rgba(255,106,0,0.25)',borderRadius:99,padding:'5px 11px'}}>
-              <span style={{width:7,height:7,borderRadius:'50%',background:'#FF6A00',display:'inline-block',animation:'sfpulse 1.5s ease infinite'}}/>
-              <span style={{fontSize:11,fontWeight:700,color:'#FF6A00'}}>{viewersNow} يشاهدونه الآن</span>
-            </div>
-          </div>
-          {/* Sales progress */}
-          {soldPct>15&&(!p.type||p.type==='product')&&(
-            <div style={{marginBottom:14,padding:'10px 12px',background:'rgba(255,106,0,0.07)',borderRadius:12,border:'1px solid rgba(255,106,0,0.18)'}}>
-              <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}>
-                <span style={{fontSize:11,fontWeight:700,color:'rgba(255,255,255,0.7)'}}>🔥 تم بيع <strong style={{color:'#FF6A00'}}>{soldPct}%</strong></span>
-                {p.stock<=10&&p.stock>0&&<span style={{fontSize:11,color:'#EF4444',fontWeight:700}}>متبقي {p.stock}!</span>}
+          <div style={{fontSize:11,color:'var(--sf-text3)',marginBottom:4,fontWeight:600}}>{p.category}{p.sku?` · #${p.sku}`:''}</div>
+          <h2 style={{fontSize:20,fontWeight:800,color:'var(--sf-text)',margin:'0 0 10px',lineHeight:1.3}}>{p.name}</h2>
+          {/* Price + real sales */}
+          <div style={{display:'flex',alignItems:'flex-end',justifyContent:'space-between',marginBottom:14}}>
+            <div style={{fontSize:26,fontWeight:800,color:'var(--sf-text)',letterSpacing:'-0.03em'}}>{p.price.toLocaleString()} <span style={{fontSize:14,color:'var(--sf-text3)',fontWeight:500}}>{currency}</span></div>
+            {p.sales>0&&(
+              <div style={{display:'flex',alignItems:'center',gap:6,background:'var(--sf-accent-soft)',border:'1px solid var(--sf-accent-border)',borderRadius:99,padding:'5px 11px'}}>
+                <Flame size={13} color="var(--sf-accent)"/>
+                <span style={{fontSize:12,fontWeight:700,color:'var(--sf-accent)'}}>{p.sales} {p.type==='service'?'حجز':'مبيع'}</span>
               </div>
-              <div style={{height:5,background:'rgba(255,255,255,0.1)',borderRadius:99,overflow:'hidden'}}>
-                <div style={{height:'100%',width:`${soldPct}%`,background:`linear-gradient(90deg,${soldPct>80?'#EF4444':'#FF6A00'},${soldPct>80?'#FF6A00':'#F59E0B'})`,borderRadius:99,boxShadow:'0 0 8px rgba(255,106,0,0.5)'}}/>
-              </div>
-            </div>
+            )}
+          </div>
+          {/* Stock note — real */}
+          {(!p.type||p.type==='product')&&p.stock>0&&p.stock<=10&&(
+            <div style={{fontSize:12,color:'var(--sf-danger)',fontWeight:600,marginBottom:14}}>⚡ متبقي {p.stock} فقط في المخزون</div>
           )}
-          {p.description&&<p style={{fontSize:13,color:'rgba(255,255,255,0.65)',lineHeight:1.7,marginBottom:14}}>{p.description}</p>}
-          {/* Custom fields */}
+          {p.description&&<p style={{fontSize:13,color:'var(--sf-text2)',lineHeight:1.65,marginBottom:14}}>{p.description}</p>}
+          {/* Custom fields — real */}
           {p.customFields&&p.customFields.filter(f=>f.value).length>0&&(
-            <div style={{marginBottom:14,padding:'10px 12px',background:'rgba(255,255,255,0.05)',borderRadius:10,border:'1px solid rgba(255,255,255,0.08)',display:'flex',flexDirection:'column',gap:5}}>
+            <div style={{marginBottom:14,padding:'10px 12px',background:'var(--sf-surface2)',borderRadius:'var(--sf-r-sm)',display:'flex',flexDirection:'column',gap:5}}>
               {p.customFields.filter(f=>f.value).map(f=>(
                 <div key={f.id} style={{display:'flex',justifyContent:'space-between',fontSize:12}}>
-                  <span style={{color:'rgba(255,255,255,0.45)',fontWeight:600}}>{f.label}</span>
-                  <span style={{color:'rgba(255,255,255,0.8)',fontWeight:700}}>{f.value}</span>
+                  <span style={{color:'var(--sf-text3)',fontWeight:600}}>{f.label}</span>
+                  <span style={{color:'var(--sf-text)',fontWeight:600}}>{f.value}</span>
                 </div>
               ))}
             </div>
           )}
-          {/* Service meta */}
+          {/* Service meta — real */}
           {p.type==='service'&&(p.duration||p.workArea)&&(
             <div style={{display:'flex',gap:8,marginBottom:14,flexWrap:'wrap'}}>
-              {p.duration&&<span style={{display:'flex',alignItems:'center',gap:4,fontSize:12,color:'rgba(255,255,255,0.6)',background:'rgba(255,255,255,0.07)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:99,padding:'4px 12px'}}><Clock size={11}/> {p.duration}</span>}
-              {p.workArea&&<span style={{display:'flex',alignItems:'center',gap:4,fontSize:12,color:'rgba(255,255,255,0.6)',background:'rgba(255,255,255,0.07)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:99,padding:'4px 12px'}}><MapPin size={11}/> {p.workArea}</span>}
+              {p.duration&&<span style={{display:'flex',alignItems:'center',gap:4,fontSize:12,color:'var(--sf-text2)',background:'var(--sf-surface2)',borderRadius:99,padding:'5px 12px'}}><Clock size={11}/> {p.duration}</span>}
+              {p.workArea&&<span style={{display:'flex',alignItems:'center',gap:4,fontSize:12,color:'var(--sf-text2)',background:'var(--sf-surface2)',borderRadius:99,padding:'5px 12px'}}><MapPin size={11}/> {p.workArea}</span>}
             </div>
           )}
-          {p.type==='digital'&&<div style={{marginBottom:14,padding:'8px 12px',background:'rgba(14,165,233,0.1)',border:'1px solid rgba(14,165,233,0.25)',borderRadius:8,fontSize:12,color:'#38BDF8'}}>💻 منتج رقمي — سيُرسل إليك مباشرة بعد التأكيد</div>}
+          {p.type==='digital'&&<div style={{marginBottom:14,padding:'9px 12px',background:'var(--sf-surface2)',borderRadius:'var(--sf-r-sm)',fontSize:12,color:'var(--sf-text2)'}}>💻 منتج رقمي — يُرسل إليك بعد تأكيد الطلب</div>}
           {/* Sizes */}
           {(!p.type||p.type==='product')&&p.sizes?.length>0&&(
             <div style={{marginBottom:14}}>
-              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8}}>
-                <div style={{fontSize:11,fontWeight:700,color:'rgba(255,255,255,0.45)'}}>المقاس</div>
-                {/* 🆕 زر دليل المقاسات — يفتح فقط عند الضغط */}
-                <button onClick={()=>setShowSizeGuide(true)} style={{fontSize:10,fontWeight:700,color:'#FF6A00',background:'rgba(255,106,0,0.1)',border:'1px solid rgba(255,106,0,0.25)',borderRadius:99,padding:'3px 10px',cursor:'pointer'}}>📏 دليل المقاسات</button>
-              </div>
+              <div style={{fontSize:11,fontWeight:700,color:'var(--sf-text3)',marginBottom:8}}>المقاس</div>
               <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
                 {p.sizes.map(s=>(
-                  <button key={s} onClick={()=>setSize(s)} style={{padding:'7px 15px',borderRadius:9,border:`1.5px solid ${size===s?'#FF6A00':'rgba(255,255,255,0.12)'}`,background:size===s?'rgba(255,106,0,0.15)':'rgba(255,255,255,0.05)',color:size===s?'#FF6A00':'rgba(255,255,255,0.65)',fontSize:13,fontWeight:600,cursor:'pointer',transition:'all .15s',boxShadow:size===s?'0 0 10px rgba(255,106,0,0.2)':'none'}}>
-                    {s}
-                  </button>
+                  <button key={s} onClick={()=>setSize(s)} style={{padding:'7px 15px',borderRadius:'var(--sf-r-sm)',border:`1.5px solid ${size===s?'var(--sf-accent)':'var(--sf-border)'}`,background:size===s?'var(--sf-accent-soft)':'var(--sf-surface)',color:size===s?'var(--sf-accent)':'var(--sf-text2)',fontSize:13,fontWeight:600,cursor:'pointer',transition:'all .15s'}}>{s}</button>
                 ))}
               </div>
             </div>
@@ -886,37 +454,37 @@ function ProductModal({p,cart,onClose,currency,userId}:{p:SProduct;cart:ReturnTy
           {/* Colors */}
           {p.colors?.length>0&&(
             <div style={{marginBottom:16}}>
-              <div style={{fontSize:11,fontWeight:700,color:'rgba(255,255,255,0.45)',marginBottom:8}}>اللون: <span style={{color:'rgba(255,255,255,0.8)'}}>{color}</span></div>
+              <div style={{fontSize:11,fontWeight:700,color:'var(--sf-text3)',marginBottom:8}}>اللون: <span style={{color:'var(--sf-text2)'}}>{color}</span></div>
               <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
                 {p.colors.map(clr=>{
                   const colorImg=p.colorImages?.[clr];
                   const CM:Record<string,string>={'أسود':'#1a1a1a','أبيض':'#f5f5f5','أحمر':'#ef4444','أزرق':'#3b82f6','أخضر':'#22c55e','رمادي':'#6b7280','بيج':'#d4b896','وردي':'#f472b6','بني':'#92400e','كحلي':'#1e3a5f','بنفسجي':'#a855f7','برتقالي':'#f97316'};
                   return colorImg?(
-                    <button key={clr} onClick={()=>{setColor(clr);setActiveImage(colorImg||p.imageUrl||'');}} style={{padding:3,borderRadius:10,border:`2px solid ${color===clr?'#FF6A00':'rgba(255,255,255,0.15)'}`,cursor:'pointer',background:'transparent',display:'flex',flexDirection:'column',alignItems:'center',gap:3}}>
+                    <button key={clr} onClick={()=>{setColor(clr);setActiveImage(colorImg||p.imageUrl||'');}} style={{padding:3,borderRadius:10,border:`2px solid ${color===clr?'var(--sf-accent)':'var(--sf-border)'}`,cursor:'pointer',background:'transparent',display:'flex',flexDirection:'column',alignItems:'center',gap:3}}>
                       <img src={colorImg} alt={clr} style={{width:50,height:50,objectFit:'cover',borderRadius:7}}/>
-                      <span style={{fontSize:9,fontWeight:700,color:color===clr?'#FF6A00':'rgba(255,255,255,0.45)'}}>{clr}</span>
+                      <span style={{fontSize:9,fontWeight:700,color:color===clr?'var(--sf-accent)':'var(--sf-text3)'}}>{clr}</span>
                     </button>
                   ):(
-                    <button key={clr} onClick={()=>setColor(clr)} style={{width:30,height:30,borderRadius:'50%',background:CM[clr]||'#ccc',border:`3px solid ${color===clr?'#FF6A00':'rgba(255,255,255,0.2)'}`,cursor:'pointer',boxShadow:color===clr?'0 0 10px rgba(255,106,0,0.4)':'0 2px 6px rgba(0,0,0,.3)',transition:'all .15s'}} title={clr}/>
+                    <button key={clr} onClick={()=>setColor(clr)} style={{width:30,height:30,borderRadius:'50%',background:CM[clr]||'#ccc',border:`3px solid ${color===clr?'var(--sf-accent)':'var(--sf-border)'}`,cursor:'pointer',boxShadow:'inset 0 0 0 1px rgba(0,0,0,.06)',transition:'border-color .15s'}} title={clr}/>
                   );
                 })}
               </div>
             </div>
           )}
-          {/* Related products */}
+          {/* Related — real */}
           {p.category&&(window as any).__sfProducts?.filter((rp:any)=>rp.id!==p.id&&rp.category===p.category).length>0&&(
             <div style={{marginBottom:16}}>
-              <div style={{fontSize:11,fontWeight:700,color:'rgba(255,255,255,0.4)',marginBottom:10,letterSpacing:'.06em'}}>🛍️ قد يعجبك أيضاً</div>
+              <div style={{fontSize:11,fontWeight:700,color:'var(--sf-text3)',marginBottom:10}}>قد يعجبك أيضاً</div>
               <div style={{display:'flex',gap:8,overflowX:'auto',paddingBottom:4}}>
                 {(window as any).__sfProducts.filter((rp:any)=>rp.id!==p.id&&rp.category===p.category).slice(0,4).map((rp:any)=>(
                   <div key={rp.id} onClick={()=>{onClose();setTimeout(()=>document.dispatchEvent(new CustomEvent('viewProduct',{detail:rp})),50);}}
-                    style={{flexShrink:0,width:90,borderRadius:10,overflow:'hidden',cursor:'pointer',background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.1)'}}>
-                    <div style={{height:72,background:'rgba(0,0,0,0.3)',overflow:'hidden'}}>
+                    style={{flexShrink:0,width:90,borderRadius:10,overflow:'hidden',cursor:'pointer',background:'var(--sf-surface)',border:'1px solid var(--sf-border)'}}>
+                    <div style={{height:72,background:'var(--sf-surface2)',overflow:'hidden'}}>
                       {rp.imageUrl?<img src={rp.imageUrl} alt={rp.name} style={{width:'100%',height:'100%',objectFit:'cover'}} loading="lazy"/>:<div style={{width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:24}}>{rp.emoji||'📦'}</div>}
                     </div>
                     <div style={{padding:'5px 7px'}}>
-                      <div style={{fontSize:10,fontWeight:700,color:'rgba(255,255,255,0.8)',overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis'}}>{rp.name}</div>
-                      <div style={{fontSize:11,fontWeight:900,color:'#FF6A00'}}>{rp.price.toLocaleString()}</div>
+                      <div style={{fontSize:10,fontWeight:600,color:'var(--sf-text)',overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis'}}>{rp.name}</div>
+                      <div style={{fontSize:11,fontWeight:800,color:'var(--sf-text)'}}>{rp.price.toLocaleString()}</div>
                     </div>
                   </div>
                 ))}
@@ -926,32 +494,22 @@ function ProductModal({p,cart,onClose,currency,userId}:{p:SProduct;cart:ReturnTy
           {/* Qty */}
           {(!p.type||p.type==='product')&&(
             <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:20}}>
-              <span style={{fontSize:11,fontWeight:700,color:'rgba(255,255,255,0.45)'}}>الكمية</span>
-              <div style={{display:'flex',alignItems:'center',gap:8,background:'rgba(255,255,255,0.06)',borderRadius:12,padding:'4px 8px',border:'1px solid rgba(255,255,255,0.1)'}}>
-                <button onClick={()=>setQty(q=>Math.max(1,q-1))} style={{width:32,height:32,borderRadius:8,...glassInput,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',padding:0}}><Minus size={13}/></button>
-                <span style={{fontSize:15,fontWeight:700,color:'#fff',minWidth:28,textAlign:'center'}}>{qty}</span>
-                <button onClick={()=>setQty(q=>Math.min(p.stock||99,q+1))} style={{width:32,height:32,borderRadius:8,...glassInput,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',padding:0}}><Plus size={13}/></button>
+              <span style={{fontSize:11,fontWeight:700,color:'var(--sf-text3)'}}>الكمية</span>
+              <div style={{display:'flex',alignItems:'center',gap:8,background:'var(--sf-surface2)',borderRadius:'var(--sf-r-sm)',padding:'4px 8px',border:'1px solid var(--sf-border)'}}>
+                <button onClick={()=>setQty(q=>Math.max(1,q-1))} style={{width:32,height:32,borderRadius:7,background:'var(--sf-surface)',border:'1px solid var(--sf-border)',cursor:'pointer',color:'var(--sf-text2)',display:'flex',alignItems:'center',justifyContent:'center'}}><Minus size={13}/></button>
+                <span style={{fontSize:15,fontWeight:700,color:'var(--sf-text)',minWidth:28,textAlign:'center'}}>{qty}</span>
+                <button onClick={()=>setQty(q=>Math.min(p.stock||99,q+1))} style={{width:32,height:32,borderRadius:7,background:'var(--sf-surface)',border:'1px solid var(--sf-border)',cursor:'pointer',color:'var(--sf-text2)',display:'flex',alignItems:'center',justifyContent:'center'}}><Plus size={13}/></button>
               </div>
-              {(!p.type||p.type==='product')&&<span style={{fontSize:11,color:'rgba(255,255,255,0.4)'}}>{p.stock} متوفر</span>}
+              <span style={{fontSize:11,color:'var(--sf-text3)'}}>{p.stock} متوفر</span>
             </div>
           )}
         </div>
-        {/* Sticky CTA */}
-        <div style={{padding:'10px 18px 28px',background:'rgba(15,24,41,0.95)',borderTop:'1px solid rgba(255,255,255,0.08)',marginTop:4,backdropFilter:'blur(12px)'}}>
-          <button onClick={handleAdd} style={{
-            width:'100%',height:54,
-            background:added?'linear-gradient(135deg,#00D2B3,#10B981)':'linear-gradient(135deg,#FF6A00,#FF8533)',
-            border:'none',color:'#fff',fontSize:15,fontWeight:700,
-            cursor:'pointer',transition:'all .25s cubic-bezier(.4,0,.2,1)',
-            display:'flex',alignItems:'center',justifyContent:'center',gap:8,
-            borderRadius:16,
-            boxShadow:added?'0 4px 20px rgba(0,210,179,0.4)':'0 4px 24px rgba(255,106,0,0.45)',
-          }}>
+        {/* CTA */}
+        <div style={{padding:'12px 18px 24px',background:'var(--sf-surface)',borderTop:'1px solid var(--sf-border)',position:'sticky',bottom:0}}>
+          <button onClick={handleAdd} style={{width:'100%',height:52,background:added?'var(--sf-success)':'var(--sf-accent)',border:'none',color:'#fff',fontSize:15,fontWeight:700,cursor:'pointer',transition:'all .2s',display:'flex',alignItems:'center',justifyContent:'center',gap:8,borderRadius:'var(--sf-r)'}}>
             {added?<><Check size={18}/>{p.type==='service'?'تم الحجز!':'تمت الإضافة!'}</>
               :<><ShoppingCart size={16}/>{p.type==='service'?'احجز الآن':p.type==='digital'?'اشتر الآن':'أضف للسلة'} — {(p.price*qty).toLocaleString()} {currency}</>}
           </button>
-          {/* 🆕 طلب سريع عبر واتساب */}
-          <WhatsAppQuickOrderBtn p={p} size={size} color={color} qty={qty} currency={currency}/>
         </div>
       </div>
     </div>
@@ -1004,52 +562,50 @@ function CartSidebar({cart,storeInfo,userId,onClose,onOrderSuccess}:{cart:Return
     setLoading(false);
   };
 
-  const inp:React.CSSProperties={width:'100%',padding:'11px 14px',borderRadius:11,border:'1px solid rgba(255,255,255,0.12)',background:'rgba(255,255,255,0.07)',color:'#fff',fontSize:13,outline:'none',boxSizing:'border-box',fontFamily:'Tajawal,sans-serif',backdropFilter:'blur(8px)'};
+  const inp:React.CSSProperties={width:'100%',padding:'11px 14px',borderRadius:'var(--sf-r-sm)',border:'1.5px solid var(--sf-border)',background:'var(--sf-surface)',color:'var(--sf-text)',fontSize:13,outline:'none',boxSizing:'border-box',fontFamily:'Tajawal,sans-serif'};
 
   return (
     <div style={{position:'fixed',inset:0,zIndex:400,display:'flex'}}>
-      <div onClick={onClose} style={{flex:1,background:'rgba(0,0,0,.6)',backdropFilter:'blur(8px)'}}/>
-      <div style={{width:'min(420px,100vw)',background:'linear-gradient(180deg,#151f35 0%,#0f1829 100%)',display:'flex',flexDirection:'column',overflowY:'auto',boxShadow:'-8px 0 60px rgba(0,0,0,0.6)',borderLeft:'1px solid rgba(255,255,255,0.08)'}}>
-        <div style={{padding:'16px 18px',borderBottom:'1px solid rgba(255,255,255,0.08)',display:'flex',alignItems:'center',gap:10,position:'sticky',top:0,zIndex:2,background:'rgba(15,24,41,0.95)',backdropFilter:'blur(20px)'}}>
-          <button onClick={onClose} style={{width:34,height:34,borderRadius:8,background:'rgba(255,255,255,0.07)',border:'1px solid rgba(255,255,255,0.12)',cursor:'pointer',color:'rgba(255,255,255,0.7)',display:'flex',alignItems:'center',justifyContent:'center'}}><X size={16}/></button>
-          <div style={{flex:1,fontSize:15,fontWeight:800,color:'#fff'}}>{step==='cart'?`سلتك (${cart.count})`:step==='checkout'?'تأكيد الطلب':'تم الطلب ✅'}</div>
-          {step==='cart'&&<span style={{fontSize:14,fontWeight:800,color:'#FF6A00',textShadow:'0 0 12px rgba(255,106,0,0.4)'}}>{cart.total.toLocaleString()} {cur}</span>}
+      <div onClick={onClose} style={{flex:1,background:'rgba(16,24,40,.4)',backdropFilter:'blur(3px)'}}/>
+      <div style={{width:'min(420px,100vw)',background:'var(--sf-surface)',display:'flex',flexDirection:'column',overflowY:'auto',boxShadow:'var(--sf-shadow-lg)'}}>
+        <div style={{padding:'16px 18px',borderBottom:'1px solid var(--sf-border)',display:'flex',alignItems:'center',gap:10,position:'sticky',top:0,zIndex:2,background:'var(--sf-surface)'}}>
+          <button onClick={onClose} style={{width:34,height:34,borderRadius:8,background:'var(--sf-surface2)',border:'1px solid var(--sf-border)',cursor:'pointer',color:'var(--sf-text2)',display:'flex',alignItems:'center',justifyContent:'center'}}><X size={16}/></button>
+          <div style={{flex:1,fontSize:15,fontWeight:800,color:'var(--sf-text)'}}>{step==='cart'?`سلتك (${cart.count})`:step==='checkout'?'تأكيد الطلب':'تم الطلب ✅'}</div>
+          {step==='cart'&&<span style={{fontSize:14,fontWeight:800,color:'var(--sf-accent)'}}>{cart.total.toLocaleString()} {cur}</span>}
         </div>
 
         {step==='cart'&&(
           <div style={{flex:1,overflow:'auto',padding:16}}>
             {cart.items.length===0?(
-              <div style={{textAlign:'center',padding:'60px 20px',color:'rgba(255,255,255,0.4)'}}>
-                <ShoppingCart size={44} style={{margin:'0 auto 14px',opacity:.2}}/>
-                <div style={{fontSize:15,fontWeight:700,color:'rgba(255,255,255,0.6)',marginBottom:6}}>سلتك فارغة</div>
-                <button onClick={onClose} style={{marginTop:12,padding:'9px 22px',background:'linear-gradient(135deg,#FF6A00,#FF8533)',border:'none',borderRadius:12,color:'#fff',cursor:'pointer',fontWeight:700,fontSize:13}}>تصفح المنتجات</button>
+              <div style={{textAlign:'center',padding:'60px 20px',color:'var(--sf-text3)'}}>
+                <ShoppingCart size={44} style={{margin:'0 auto 14px',opacity:.3}}/>
+                <div style={{fontSize:15,fontWeight:700,color:'var(--sf-text2)',marginBottom:6}}>سلتك فارغة</div>
+                <button onClick={onClose} style={{marginTop:12,padding:'9px 22px',background:'var(--sf-accent)',border:'none',borderRadius:'var(--sf-r-sm)',color:'#fff',cursor:'pointer',fontWeight:700,fontSize:13}}>تصفح المنتجات</button>
               </div>
             ):(
               <>
-                {/* 🆕 شريط الشحن المجاني داخل السلة */}
-                <FreeShippingProgress total={cart.total} currency={cur}/>
                 {cart.items.map((item,i)=>(
-                  <div key={i} style={{display:'flex',gap:12,padding:'12px 0',borderBottom:'1px solid rgba(255,255,255,0.07)'}}>
-                    <div style={{width:64,height:64,borderRadius:12,background:'rgba(0,0,0,0.3)',overflow:'hidden',flexShrink:0,border:'1px solid rgba(255,255,255,0.1)'}}>
+                  <div key={i} style={{display:'flex',gap:12,padding:'12px 0',borderBottom:'1px solid var(--sf-border)'}}>
+                    <div style={{width:64,height:64,borderRadius:'var(--sf-r-sm)',background:'var(--sf-surface2)',overflow:'hidden',flexShrink:0,border:'1px solid var(--sf-border)'}}>
                       {item.product.imageUrl?<img src={item.product.imageUrl} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>:<div style={{width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:26}}>{item.product.emoji||'📦'}</div>}
                     </div>
                     <div style={{flex:1,minWidth:0}}>
-                      <div style={{fontSize:13,fontWeight:700,color:'#fff'}}>{item.product.name}</div>
-                      <div style={{fontSize:11,color:'rgba(255,255,255,0.4)',marginTop:2}}>{item.size&&`${item.size}`}{item.color&&` · ${item.color}`}</div>
+                      <div style={{fontSize:13,fontWeight:600,color:'var(--sf-text)'}}>{item.product.name}</div>
+                      <div style={{fontSize:11,color:'var(--sf-text3)',marginTop:2}}>{item.size&&`${item.size}`}{item.color&&` · ${item.color}`}</div>
                       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:8}}>
-                        <div style={{display:'flex',alignItems:'center',gap:6,background:'rgba(255,255,255,0.06)',borderRadius:8,padding:'3px 6px',border:'1px solid rgba(255,255,255,0.1)'}}>
-                          <button onClick={()=>cart.update(item.product.id,item.size,item.color,item.quantity-1)} style={{width:24,height:24,borderRadius:6,background:'rgba(255,255,255,0.07)',border:'1px solid rgba(255,255,255,0.12)',cursor:'pointer',color:'rgba(255,255,255,0.7)',display:'flex',alignItems:'center',justifyContent:'center'}}><Minus size={10}/></button>
-                          <span style={{fontSize:13,fontWeight:700,color:'#fff',minWidth:20,textAlign:'center'}}>{item.quantity}</span>
-                          <button onClick={()=>cart.update(item.product.id,item.size,item.color,item.quantity+1)} style={{width:24,height:24,borderRadius:6,background:'rgba(255,255,255,0.07)',border:'1px solid rgba(255,255,255,0.12)',cursor:'pointer',color:'rgba(255,255,255,0.7)',display:'flex',alignItems:'center',justifyContent:'center'}}><Plus size={10}/></button>
+                        <div style={{display:'flex',alignItems:'center',gap:6,background:'var(--sf-surface2)',borderRadius:8,padding:'3px 6px',border:'1px solid var(--sf-border)'}}>
+                          <button onClick={()=>cart.update(item.product.id,item.size,item.color,item.quantity-1)} style={{width:24,height:24,borderRadius:6,background:'var(--sf-surface)',border:'1px solid var(--sf-border)',cursor:'pointer',color:'var(--sf-text2)',display:'flex',alignItems:'center',justifyContent:'center'}}><Minus size={10}/></button>
+                          <span style={{fontSize:13,fontWeight:700,color:'var(--sf-text)',minWidth:20,textAlign:'center'}}>{item.quantity}</span>
+                          <button onClick={()=>cart.update(item.product.id,item.size,item.color,item.quantity+1)} style={{width:24,height:24,borderRadius:6,background:'var(--sf-surface)',border:'1px solid var(--sf-border)',cursor:'pointer',color:'var(--sf-text2)',display:'flex',alignItems:'center',justifyContent:'center'}}><Plus size={10}/></button>
                         </div>
-                        <span style={{fontSize:14,fontWeight:700,color:'#FF6A00'}}>{(item.product.price*item.quantity).toLocaleString()} {cur}</span>
+                        <span style={{fontSize:14,fontWeight:700,color:'var(--sf-accent)'}}>{(item.product.price*item.quantity).toLocaleString()} {cur}</span>
                       </div>
                     </div>
-                    <button onClick={()=>cart.remove(item.product.id,item.size,item.color)} style={{width:26,height:26,borderRadius:6,background:'rgba(239,68,68,0.12)',border:'1px solid rgba(239,68,68,0.25)',cursor:'pointer',color:'#EF4444',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginTop:2}}><X size={12}/></button>
+                    <button onClick={()=>cart.remove(item.product.id,item.size,item.color)} style={{width:26,height:26,borderRadius:6,background:'#FEF2F2',border:'none',cursor:'pointer',color:'var(--sf-danger)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginTop:2}}><X size={12}/></button>
                   </div>
                 ))}
                 <div style={{padding:'14px 0',marginTop:8}}>
-                  <button onClick={()=>setStep('checkout')} style={{width:'100%',height:52,background:'linear-gradient(135deg,#FF6A00,#FF8533)',border:'none',borderRadius:16,color:'#fff',fontSize:15,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8,boxShadow:'0 4px 24px rgba(255,106,0,0.4)'}}>
+                  <button onClick={()=>setStep('checkout')} style={{width:'100%',height:50,background:'var(--sf-accent)',border:'none',borderRadius:'var(--sf-r)',color:'#fff',fontSize:15,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
                     متابعة الطلب <ArrowRight size={16}/>
                   </button>
                 </div>
@@ -1065,9 +621,9 @@ function CartSidebar({cart,storeInfo,userId,onClose,onOrderSuccess}:{cart:Return
             <div style={{position:'relative'}}>
               <input style={inp} placeholder="المدينة *" value={citySearch||form.city} onChange={e=>{setCitySearch(e.target.value);setShowCities(true);setForm(f=>({...f,city:e.target.value}));}} onFocus={()=>setShowCities(true)} onBlur={()=>setTimeout(()=>setShowCities(false),200)}/>
               {showCities&&filteredCities.length>0&&(
-                <div style={{position:'absolute',top:'100%',right:0,left:0,background:'#151f35',border:'1px solid rgba(255,255,255,0.12)',borderRadius:10,maxHeight:180,overflowY:'auto',zIndex:10,marginTop:4,boxShadow:'0 8px 32px rgba(0,0,0,0.5)'}}>
+                <div style={{position:'absolute',top:'100%',right:0,left:0,background:'var(--sf-surface)',border:'1px solid var(--sf-border)',borderRadius:'var(--sf-r-sm)',maxHeight:180,overflowY:'auto',zIndex:10,marginTop:4,boxShadow:'var(--sf-shadow-md)'}}>
                   {filteredCities.map(city=>(
-                    <div key={city} onClick={()=>{setForm(f=>({...f,city}));setCitySearch(city);setShowCities(false);}} style={{padding:'9px 14px',fontSize:13,color:'rgba(255,255,255,0.8)',cursor:'pointer',borderBottom:'1px solid rgba(255,255,255,0.06)'}} onMouseOver={e=>(e.currentTarget.style.background='rgba(255,255,255,0.07)')} onMouseOut={e=>(e.currentTarget.style.background='')}>{city}</div>
+                    <div key={city} onClick={()=>{setForm(f=>({...f,city}));setCitySearch(city);setShowCities(false);}} style={{padding:'9px 14px',fontSize:13,color:'var(--sf-text)',cursor:'pointer',borderBottom:'1px solid var(--sf-border)'}} onMouseOver={e=>(e.currentTarget.style.background='var(--sf-surface2)')} onMouseOut={e=>(e.currentTarget.style.background='')}>{city}</div>
                   ))}
                 </div>
               )}
@@ -1075,56 +631,56 @@ function CartSidebar({cart,storeInfo,userId,onClose,onOrderSuccess}:{cart:Return
             <textarea style={{...inp,resize:'none'} as any} placeholder="العنوان بالتفصيل" rows={2} value={form.address} onChange={e=>setForm(f=>({...f,address:e.target.value}))}/>
             <textarea style={{...inp,resize:'none'} as any} placeholder="ملاحظة للبائع (اختياري)" rows={2} value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))}/>
             <div>
-              <div style={{fontSize:12,fontWeight:700,color:'rgba(255,255,255,0.45)',marginBottom:8}}>💳 طريقة الدفع</div>
+              <div style={{fontSize:12,fontWeight:700,color:'var(--sf-text3)',marginBottom:8}}>طريقة الدفع</div>
               <div style={{display:'flex',gap:8}}>
                 {[['cod','💵 عند الاستلام'],['virement','🏦 تحويل بنكي']].map(([v,l])=>(
-                  <button key={v} onClick={()=>setForm(f=>({...f,paymentMethod:v as any}))} style={{flex:1,padding:'10px',borderRadius:11,border:`1.5px solid ${form.paymentMethod===v?'#FF6A00':'rgba(255,255,255,0.12)'}`,background:form.paymentMethod===v?'rgba(255,106,0,0.12)':'rgba(255,255,255,0.05)',color:form.paymentMethod===v?'#FF6A00':'rgba(255,255,255,0.6)',fontSize:12,fontWeight:700,cursor:'pointer'}}>{l}</button>
+                  <button key={v} onClick={()=>setForm(f=>({...f,paymentMethod:v as any}))} style={{flex:1,padding:'10px',borderRadius:'var(--sf-r-sm)',border:`1.5px solid ${form.paymentMethod===v?'var(--sf-accent)':'var(--sf-border)'}`,background:form.paymentMethod===v?'var(--sf-accent-soft)':'var(--sf-surface)',color:form.paymentMethod===v?'var(--sf-accent)':'var(--sf-text2)',fontSize:12,fontWeight:700,cursor:'pointer'}}>{l}</button>
                 ))}
               </div>
             </div>
             <div>
-              <div style={{fontSize:12,fontWeight:700,color:'rgba(255,255,255,0.45)',marginBottom:8}}>🏷️ كود الخصم</div>
+              <div style={{fontSize:12,fontWeight:700,color:'var(--sf-text3)',marginBottom:8}}>كود الخصم</div>
               <div style={{display:'flex',gap:8}}>
                 <input style={{...inp,flex:1,textTransform:'uppercase'}} placeholder="أدخل كود الخصم" value={couponCode} onChange={e=>{setCouponCode(e.target.value.toUpperCase());setCouponMsg('');}} dir="ltr"/>
-                <button onClick={applyCoupon} style={{padding:'0 14px',borderRadius:11,background:'rgba(255,255,255,0.07)',border:'1px solid rgba(255,255,255,0.12)',color:'rgba(255,255,255,0.7)',fontSize:12,fontWeight:700,cursor:'pointer',flexShrink:0}}>تطبيق</button>
+                <button onClick={applyCoupon} style={{padding:'0 14px',borderRadius:'var(--sf-r-sm)',background:'var(--sf-surface2)',border:'1px solid var(--sf-border)',color:'var(--sf-text2)',fontSize:12,fontWeight:700,cursor:'pointer',flexShrink:0}}>تطبيق</button>
               </div>
-              {couponMsg&&<div style={{fontSize:11,marginTop:4,color:couponDiscount>0?'#00D2B3':'#EF4444',fontWeight:700}}>{couponMsg}</div>}
+              {couponMsg&&<div style={{fontSize:11,marginTop:4,color:couponDiscount>0?'var(--sf-success)':'var(--sf-danger)',fontWeight:700}}>{couponMsg}</div>}
             </div>
-            <label style={{display:'flex',alignItems:'center',gap:10,cursor:'pointer',fontSize:13,color:'rgba(255,255,255,0.6)'}}>
-              <input type="checkbox" checked={form.subscribe} onChange={e=>setForm(f=>({...f,subscribe:e.target.checked}))} style={{accentColor:'#FF6A00',width:16,height:16}}/>
+            <label style={{display:'flex',alignItems:'center',gap:10,cursor:'pointer',fontSize:13,color:'var(--sf-text2)'}}>
+              <input type="checkbox" checked={form.subscribe} onChange={e=>setForm(f=>({...f,subscribe:e.target.checked}))} style={{accentColor:'var(--sf-accent)',width:16,height:16}}/>
               أريد استقبال العروض عبر واتساب
             </label>
-            <div style={{background:'rgba(255,255,255,0.05)',borderRadius:14,padding:'14px 16px',border:'1px solid rgba(255,255,255,0.08)'}}>
-              <div style={{fontSize:12,fontWeight:700,color:'rgba(255,255,255,0.45)',marginBottom:10}}>ملخص الطلب</div>
+            <div style={{background:'var(--sf-surface2)',borderRadius:'var(--sf-r)',padding:'14px 16px',border:'1px solid var(--sf-border)'}}>
+              <div style={{fontSize:12,fontWeight:700,color:'var(--sf-text3)',marginBottom:10}}>ملخص الطلب</div>
               {cart.items.map((item,i)=>(
-                <div key={i} style={{display:'flex',justifyContent:'space-between',fontSize:12,color:'rgba(255,255,255,0.6)',marginBottom:5,gap:8}}>
+                <div key={i} style={{display:'flex',justifyContent:'space-between',fontSize:12,color:'var(--sf-text2)',marginBottom:5,gap:8}}>
                   <span style={{flex:1}}>{item.product.name}{item.size?` (${item.size})`:''} ×{item.quantity}</span>
-                  <span style={{flexShrink:0,fontWeight:700,color:'rgba(255,255,255,0.8)'}}>{(item.product.price*item.quantity).toLocaleString()} {cur}</span>
+                  <span style={{flexShrink:0,fontWeight:700}}>{(item.product.price*item.quantity).toLocaleString()} {cur}</span>
                 </div>
               ))}
-              <div style={{paddingTop:8,borderTop:'1px solid rgba(255,255,255,0.08)',marginTop:8,display:'flex',flexDirection:'column',gap:5}}>
-                <div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:'rgba(255,255,255,0.55)'}}><span>المجموع</span><span>{cart.total.toLocaleString()} {cur}</span></div>
-                {couponDiscount>0&&<div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:'#00D2B3',fontWeight:700}}><span>🏷️ الخصم</span><span>-{couponDiscount.toLocaleString()} {cur}</span></div>}
-                <div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:'rgba(255,255,255,0.55)'}}><span>🚚 التوصيل — {form.city||'—'}</span><span>{form.city?`${deliveryCost} ${cur}`:'بعد المدينة'}</span></div>
-                <div style={{display:'flex',justifyContent:'space-between',fontSize:16,fontWeight:900,color:'#fff',paddingTop:8,marginTop:4,borderTop:'1px solid rgba(255,255,255,0.08)'}}><span>الإجمالي</span><span style={{color:'#FF6A00'}}>{grandTotal.toLocaleString()} {cur}</span></div>
+              <div style={{paddingTop:8,borderTop:'1px solid var(--sf-border)',marginTop:8,display:'flex',flexDirection:'column',gap:5}}>
+                <div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:'var(--sf-text2)'}}><span>المجموع</span><span>{cart.total.toLocaleString()} {cur}</span></div>
+                {couponDiscount>0&&<div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:'var(--sf-success)',fontWeight:700}}><span>الخصم</span><span>-{couponDiscount.toLocaleString()} {cur}</span></div>}
+                <div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:'var(--sf-text2)'}}><span>التوصيل — {form.city||'—'}</span><span>{form.city?`${deliveryCost} ${cur}`:'بعد المدينة'}</span></div>
+                <div style={{display:'flex',justifyContent:'space-between',fontSize:16,fontWeight:800,color:'var(--sf-text)',paddingTop:8,marginTop:4,borderTop:'1px solid var(--sf-border)'}}><span>الإجمالي</span><span style={{color:'var(--sf-accent)'}}>{grandTotal.toLocaleString()} {cur}</span></div>
               </div>
             </div>
-            <button onClick={handleOrder} disabled={loading} style={{width:'100%',height:52,background:'#25D366',border:'none',borderRadius:16,color:'#fff',fontSize:15,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8,boxShadow:'0 4px 20px rgba(37,211,102,0.35)',opacity:loading?.7:1}}>
+            <button onClick={handleOrder} disabled={loading} style={{width:'100%',height:52,background:'#25D366',border:'none',borderRadius:'var(--sf-r)',color:'#fff',fontSize:15,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8,opacity:loading?.7:1}}>
               {loading?'⟳ جارٍ إرسال الطلب...':<><MessageCircle size={16}/> تأكيد الطلب عبر واتساب</>}
             </button>
-            <button onClick={()=>setStep('cart')} style={{background:'none',border:'none',color:'rgba(255,255,255,0.4)',cursor:'pointer',fontSize:13,padding:'4px',textAlign:'center'}}>← رجوع للسلة</button>
+            <button onClick={()=>setStep('cart')} style={{background:'none',border:'none',color:'var(--sf-text3)',cursor:'pointer',fontSize:13,padding:'4px',textAlign:'center'}}>← رجوع للسلة</button>
           </div>
         )}
 
         {step==='success'&&(
           <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'40px 24px',textAlign:'center'}}>
-            <div style={{width:72,height:72,borderRadius:'50%',background:'rgba(0,210,179,0.15)',border:'2px solid #00D2B3',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:20,boxShadow:'0 0 30px rgba(0,210,179,0.3)'}}>
-              <Check size={36} color="#00D2B3"/>
+            <div style={{width:72,height:72,borderRadius:'50%',background:'var(--sf-success-soft)',border:'2px solid var(--sf-success)',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:20}}>
+              <Check size={36} color="var(--sf-success)"/>
             </div>
-            <h2 style={{fontSize:22,fontWeight:900,color:'#fff',marginBottom:10}}>تم إرسال طلبك! 🎉</h2>
-            <p style={{fontSize:14,color:'rgba(255,255,255,0.6)',lineHeight:1.7,marginBottom:24}}>تم إرسال تفاصيل طلبك عبر واتساب.<br/>سيتواصل معك البائع لتأكيد الطلب.</p>
-            {orderId&&<div style={{fontSize:12,color:'rgba(255,255,255,0.4)',background:'rgba(255,255,255,0.06)',borderRadius:8,padding:'6px 14px',marginBottom:20,border:'1px solid rgba(255,255,255,0.1)'}}>رقم الطلب: {orderId}</div>}
-            <button onClick={onClose} style={{padding:'11px 28px',background:'linear-gradient(135deg,#FF6A00,#FF8533)',border:'none',borderRadius:12,color:'#fff',fontSize:14,fontWeight:700,cursor:'pointer',boxShadow:'0 4px 20px rgba(255,106,0,0.4)'}}>متابعة التسوق</button>
+            <h2 style={{fontSize:22,fontWeight:800,color:'var(--sf-text)',marginBottom:10}}>تم إرسال طلبك! 🎉</h2>
+            <p style={{fontSize:14,color:'var(--sf-text2)',lineHeight:1.7,marginBottom:24}}>تم إرسال تفاصيل طلبك عبر واتساب.<br/>سيتواصل معك البائع لتأكيد الطلب.</p>
+            {orderId&&<div style={{fontSize:12,color:'var(--sf-text3)',background:'var(--sf-surface2)',borderRadius:8,padding:'6px 14px',marginBottom:20,border:'1px solid var(--sf-border)'}}>رقم الطلب: {orderId}</div>}
+            <button onClick={onClose} style={{padding:'11px 28px',background:'var(--sf-accent)',border:'none',borderRadius:'var(--sf-r-sm)',color:'#fff',fontSize:14,fontWeight:700,cursor:'pointer'}}>متابعة التسوق</button>
           </div>
         )}
       </div>
@@ -1142,7 +698,7 @@ function TrackingModal({userId,storeInfo,onClose}:{userId:string;storeInfo:Store
   const [searched,setSearched]=useState(false);
   const cur=storeInfo.brand.currency||'MAD';
   const STATUS_AR:Record<string,string>={pending:'⏳ بانتظار التأكيد',approved:'✅ تم التأكيد',processing:'⚙️ جارٍ التحضير',shipped:'🚚 في الطريق',delivered:'📦 وصل',cancelled:'❌ ملغي'};
-  const STATUS_COLOR:Record<string,string>={pending:'#F59E0B',approved:'#00D2B3',processing:'#F59E0B',shipped:'#00D2B3',delivered:'#00D2B3',cancelled:'#EF4444'};
+  const STATUS_COLOR:Record<string,string>={pending:'#D97706',approved:'#16A34A',processing:'#D97706',shipped:'#16A34A',delivered:'#16A34A',cancelled:'#E5484D'};
 
   const search=async()=>{
     if(!query.trim())return;
@@ -1155,46 +711,46 @@ function TrackingModal({userId,storeInfo,onClose}:{userId:string;storeInfo:Store
   };
 
   return (
-    <div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.7)',backdropFilter:'blur(12px)',zIndex:300,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
-      <div onClick={e=>e.stopPropagation()} style={{background:'linear-gradient(180deg,#151f35 0%,#0f1829 100%)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:22,width:'100%',maxWidth:440,padding:24,boxShadow:'0 16px 60px rgba(0,0,0,0.6)'}}>
+    <div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(16,24,40,.45)',backdropFilter:'blur(4px)',zIndex:300,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
+      <div onClick={e=>e.stopPropagation()} style={{background:'var(--sf-surface)',borderRadius:'var(--sf-r)',width:'100%',maxWidth:440,padding:24,boxShadow:'var(--sf-shadow-lg)'}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
-          <h2 style={{fontSize:18,fontWeight:900,color:'#fff'}}>📦 تتبع طلبك</h2>
-          <button onClick={onClose} style={{width:32,height:32,borderRadius:8,background:'rgba(255,255,255,0.07)',border:'1px solid rgba(255,255,255,0.12)',cursor:'pointer',color:'rgba(255,255,255,0.7)',display:'flex',alignItems:'center',justifyContent:'center'}}><X size={14}/></button>
+          <h2 style={{fontSize:18,fontWeight:800,color:'var(--sf-text)'}}>📦 تتبع طلبك</h2>
+          <button onClick={onClose} style={{width:32,height:32,borderRadius:8,background:'var(--sf-surface2)',border:'1px solid var(--sf-border)',cursor:'pointer',color:'var(--sf-text2)',display:'flex',alignItems:'center',justifyContent:'center'}}><X size={14}/></button>
         </div>
         <div style={{display:'flex',gap:6,marginBottom:12}}>
           {[['code','🔑 كود التتبع'],['phone','📱 رقم الهاتف']].map(([m,l])=>(
-            <button key={m} onClick={()=>{setMode(m as any);setQuery('');setSearched(false);setSingleOrder(null);setOrders([]);}} style={{flex:1,padding:'8px',borderRadius:10,border:`1.5px solid ${mode===m?'#FF6A00':'rgba(255,255,255,0.12)'}`,background:mode===m?'rgba(255,106,0,0.12)':'rgba(255,255,255,0.05)',color:mode===m?'#FF6A00':'rgba(255,255,255,0.5)',fontSize:12,fontWeight:700,cursor:'pointer'}}>{l}</button>
+            <button key={m} onClick={()=>{setMode(m as any);setQuery('');setSearched(false);setSingleOrder(null);setOrders([]);}} style={{flex:1,padding:'8px',borderRadius:'var(--sf-r-sm)',border:`1.5px solid ${mode===m?'var(--sf-accent)':'var(--sf-border)'}`,background:mode===m?'var(--sf-accent-soft)':'var(--sf-surface)',color:mode===m?'var(--sf-accent)':'var(--sf-text3)',fontSize:12,fontWeight:700,cursor:'pointer'}}>{l}</button>
           ))}
         </div>
         <div style={{display:'flex',gap:8,marginBottom:16}}>
           <input placeholder={mode==='code'?'أدخل كودك مثل: AB12CD':'أدخل رقم هاتفك'} value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>e.key==='Enter'&&search()} dir="ltr"
-            style={{flex:1,padding:'10px 14px',borderRadius:11,border:'1px solid rgba(255,255,255,0.12)',background:'rgba(255,255,255,0.07)',color:'#fff',fontSize:13,outline:'none',textTransform:mode==='code'?'uppercase':'none',fontFamily:'Tajawal,sans-serif'}}/>
-          <button onClick={search} disabled={loading} style={{padding:'8px 18px',background:'linear-gradient(135deg,#FF6A00,#FF8533)',border:'none',borderRadius:11,color:'#fff',fontWeight:700,cursor:'pointer',fontSize:14,flexShrink:0,boxShadow:'0 4px 14px rgba(255,106,0,0.4)'}}>{loading?'⟳':'بحث'}</button>
+            style={{flex:1,padding:'10px 14px',borderRadius:'var(--sf-r-sm)',border:'1.5px solid var(--sf-border)',background:'var(--sf-surface)',color:'var(--sf-text)',fontSize:13,outline:'none',textTransform:mode==='code'?'uppercase':'none',fontFamily:'Tajawal,sans-serif'}}/>
+          <button onClick={search} disabled={loading} style={{padding:'8px 18px',background:'var(--sf-accent)',border:'none',borderRadius:'var(--sf-r-sm)',color:'#fff',fontWeight:700,cursor:'pointer',fontSize:14,flexShrink:0}}>{loading?'⟳':'بحث'}</button>
         </div>
-        {searched&&!singleOrder&&orders.length===0&&<p style={{color:'rgba(255,255,255,0.4)',textAlign:'center',fontSize:13,padding:'12px 0'}}>لم نجد طلبات</p>}
+        {searched&&!singleOrder&&orders.length===0&&<p style={{color:'var(--sf-text3)',textAlign:'center',fontSize:13,padding:'12px 0'}}>لم نجد طلبات</p>}
         {singleOrder&&(
-          <div style={{background:'rgba(0,210,179,0.08)',border:'1px solid rgba(0,210,179,0.25)',borderRadius:14,padding:'14px'}}>
+          <div style={{background:'var(--sf-success-soft)',border:'1px solid #BBF7D0',borderRadius:'var(--sf-r-sm)',padding:'14px'}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
-              <span style={{fontSize:14,fontWeight:900,color:'#fff'}}>طلبك</span>
-              <span style={{fontSize:13,fontWeight:800,color:STATUS_COLOR[singleOrder.status]||'rgba(255,255,255,0.7)'}}>{STATUS_AR[singleOrder.status]||singleOrder.status}</span>
+              <span style={{fontSize:14,fontWeight:800,color:'var(--sf-text)'}}>طلبك</span>
+              <span style={{fontSize:13,fontWeight:800,color:STATUS_COLOR[singleOrder.status]||'var(--sf-text2)'}}>{STATUS_AR[singleOrder.status]||singleOrder.status}</span>
             </div>
-            {(singleOrder.items||[]).map((item:any,i:number)=><div key={i} style={{fontSize:12,color:'rgba(255,255,255,0.6)',marginBottom:3}}>• {item.productName} × {item.quantity}</div>)}
-            <div style={{display:'flex',justifyContent:'space-between',marginTop:8,paddingTop:8,borderTop:'1px solid rgba(0,210,179,0.2)'}}>
-              <span style={{fontSize:11,color:'rgba(255,255,255,0.4)'}}>{singleOrder.city}</span>
-              <span style={{fontSize:14,fontWeight:700,color:'#FF6A00'}}>{singleOrder.total} {cur}</span>
+            {(singleOrder.items||[]).map((item:any,i:number)=><div key={i} style={{fontSize:12,color:'var(--sf-text2)',marginBottom:3}}>• {item.productName} × {item.quantity}</div>)}
+            <div style={{display:'flex',justifyContent:'space-between',marginTop:8,paddingTop:8,borderTop:'1px solid #BBF7D0'}}>
+              <span style={{fontSize:11,color:'var(--sf-text3)'}}>{singleOrder.city}</span>
+              <span style={{fontSize:14,fontWeight:700,color:'var(--sf-accent)'}}>{singleOrder.total} {cur}</span>
             </div>
           </div>
         )}
         {orders.map((o:any)=>(
-          <div key={o.id} style={{background:'rgba(255,255,255,0.05)',borderRadius:12,padding:'12px 14px',marginBottom:8,border:'1px solid rgba(255,255,255,0.08)'}}>
+          <div key={o.id} style={{background:'var(--sf-surface2)',borderRadius:'var(--sf-r-sm)',padding:'12px 14px',marginBottom:8,border:'1px solid var(--sf-border)'}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
-              <span style={{fontSize:10,color:'rgba(255,255,255,0.35)',fontFamily:'monospace'}}>{o.id}</span>
-              <span style={{fontSize:12,fontWeight:700,color:STATUS_COLOR[o.status]||'rgba(255,255,255,0.6)'}}>{STATUS_AR[o.status]||o.status}</span>
+              <span style={{fontSize:10,color:'var(--sf-text3)',fontFamily:'monospace'}}>{o.id}</span>
+              <span style={{fontSize:12,fontWeight:700,color:STATUS_COLOR[o.status]||'var(--sf-text2)'}}>{STATUS_AR[o.status]||o.status}</span>
             </div>
-            {(o.items||[]).map((item:any,i:number)=><div key={i} style={{fontSize:12,color:'rgba(255,255,255,0.55)',marginBottom:2}}>• {item.productName} x{item.quantity}</div>)}
+            {(o.items||[]).map((item:any,i:number)=><div key={i} style={{fontSize:12,color:'var(--sf-text2)',marginBottom:2}}>• {item.productName} x{item.quantity}</div>)}
             <div style={{display:'flex',justifyContent:'space-between',marginTop:6,fontSize:12}}>
-              <span style={{color:'rgba(255,255,255,0.35)'}}>{new Date(o.createdAt).toLocaleDateString('ar-MA')}</span>
-              <span style={{fontWeight:700,color:'#FF6A00'}}>{o.total} {cur}</span>
+              <span style={{color:'var(--sf-text3)'}}>{new Date(o.createdAt).toLocaleDateString('ar-MA')}</span>
+              <span style={{fontWeight:700,color:'var(--sf-accent)'}}>{o.total} {cur}</span>
             </div>
           </div>
         ))}
@@ -1223,65 +779,78 @@ function FloatingChat({userId,storeInfo}:{userId:string;storeInfo:StoreInfo}) {
     setLoading(false);
   };
   return (<>
-    <button onClick={()=>setOpen(v=>!v)} style={{width:56,height:56,borderRadius:'50%',background:'linear-gradient(135deg,#7C3AED,#A855F7)',border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 4px 24px rgba(124,58,237,0.55)',position:'fixed',bottom:28,left:20,zIndex:200,color:'#fff',transition:'all .25s cubic-bezier(.4,0,.2,1)'}}>
+    <button onClick={()=>setOpen(v=>!v)} style={{width:54,height:54,borderRadius:'50%',background:'var(--sf-accent)',border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'var(--sf-shadow-lg)',position:'fixed',bottom:28,left:20,zIndex:200,color:'#fff',transition:'all .2s'}}>
       {open?<X size={22}/>:<Bot size={22}/>}
-      {unread>0&&!open&&<div style={{position:'absolute',top:-4,right:-4,width:18,height:18,background:'#EF4444',borderRadius:'50%',fontSize:11,fontWeight:900,display:'flex',alignItems:'center',justifyContent:'center',border:'2px solid #0B1020'}}>{unread}</div>}
+      {unread>0&&!open&&<div style={{position:'absolute',top:-4,right:-4,width:18,height:18,background:'var(--sf-danger)',borderRadius:'50%',fontSize:11,fontWeight:900,display:'flex',alignItems:'center',justifyContent:'center',border:'2px solid #fff',color:'#fff'}}>{unread}</div>}
     </button>
     {open&&(
-      <div style={{position:'fixed',bottom:96,left:16,right:16,maxWidth:360,marginLeft:'auto',background:'linear-gradient(180deg,#151f35 0%,#0f1829 100%)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:22,boxShadow:'0 16px 60px rgba(0,0,0,0.6)',zIndex:200,overflow:'hidden',display:'flex',flexDirection:'column',maxHeight:460}}>
-        <div style={{padding:'12px 16px',background:'linear-gradient(135deg,#7C3AED,#A855F7)',display:'flex',alignItems:'center',gap:10}}>
+      <div style={{position:'fixed',bottom:96,left:16,right:16,maxWidth:360,marginLeft:'auto',background:'var(--sf-surface)',border:'1px solid var(--sf-border)',borderRadius:'var(--sf-r)',boxShadow:'var(--sf-shadow-lg)',zIndex:200,overflow:'hidden',display:'flex',flexDirection:'column',maxHeight:460}}>
+        <div style={{padding:'12px 16px',background:'var(--sf-accent)',display:'flex',alignItems:'center',gap:10}}>
           <div style={{width:32,height:32,borderRadius:'50%',background:'rgba(255,255,255,.2)',display:'flex',alignItems:'center',justifyContent:'center'}}><Bot size={16} color="#fff"/></div>
-          <div><div style={{fontSize:13,fontWeight:700,color:'#fff'}}>مساعد {storeInfo.brand.name}</div><div style={{fontSize:10,color:'rgba(255,255,255,.7)'}}>متاح الآن · AI</div></div>
-          <button onClick={()=>setOpen(false)} style={{marginRight:'auto',background:'none',border:'none',cursor:'pointer',color:'rgba(255,255,255,.8)',display:'flex'}}><X size={16}/></button>
+          <div><div style={{fontSize:13,fontWeight:700,color:'#fff'}}>مساعد {storeInfo.brand.name}</div><div style={{fontSize:10,color:'rgba(255,255,255,.8)'}}>متاح الآن</div></div>
+          <button onClick={()=>setOpen(false)} style={{marginRight:'auto',background:'none',border:'none',cursor:'pointer',color:'rgba(255,255,255,.85)',display:'flex'}}><X size={16}/></button>
         </div>
-        <div style={{flex:1,overflow:'auto',padding:'12px',display:'flex',flexDirection:'column',gap:8}}>
+        <div style={{flex:1,overflow:'auto',padding:'12px',display:'flex',flexDirection:'column',gap:8,background:'var(--sf-bg)'}}>
           {msgs.map((m,i)=>(
             <div key={i} style={{maxWidth:'85%',alignSelf:m.role==='user'?'flex-end':'flex-start'}}>
-              <div style={{padding:'8px 12px',borderRadius:m.role==='user'?'14px 14px 4px 14px':'14px 14px 14px 4px',background:m.role==='user'?'linear-gradient(135deg,#FF6A00,#FF8533)':'rgba(255,255,255,0.08)',border:m.role==='user'?'none':'1px solid rgba(255,255,255,0.1)',color:'#fff',fontSize:12,lineHeight:1.5,whiteSpace:'pre-wrap'}}>{m.content}</div>
+              <div style={{padding:'8px 12px',borderRadius:m.role==='user'?'14px 14px 4px 14px':'14px 14px 14px 4px',background:m.role==='user'?'var(--sf-accent)':'var(--sf-surface)',border:m.role==='user'?'none':'1px solid var(--sf-border)',color:m.role==='user'?'#fff':'var(--sf-text)',fontSize:12,lineHeight:1.5,whiteSpace:'pre-wrap'}}>{m.content}</div>
             </div>
           ))}
-          {loading&&<div style={{padding:'8px 12px',borderRadius:'14px 14px 14px 4px',background:'rgba(255,255,255,0.07)',border:'1px solid rgba(255,255,255,0.1)',color:'rgba(255,255,255,0.5)',fontSize:12,alignSelf:'flex-start'}}>يكتب...</div>}
+          {loading&&<div style={{padding:'8px 12px',borderRadius:'14px 14px 14px 4px',background:'var(--sf-surface)',border:'1px solid var(--sf-border)',color:'var(--sf-text3)',fontSize:12,alignSelf:'flex-start'}}>يكتب...</div>}
           <div ref={endRef}/>
         </div>
-        <div style={{padding:'6px 10px',display:'flex',gap:5,flexWrap:'wrap',borderTop:'1px solid rgba(255,255,255,0.07)'}}>
+        <div style={{padding:'6px 10px',display:'flex',gap:5,flexWrap:'wrap',borderTop:'1px solid var(--sf-border)'}}>
           {['اشوف المنتجات','بكام التوصيل؟','تتبع طلبي'].map(q=>(
-            <button key={q} onClick={()=>send(q)} style={{fontSize:10,padding:'4px 9px',borderRadius:99,background:'rgba(255,255,255,0.07)',border:'1px solid rgba(255,255,255,0.12)',color:'rgba(255,255,255,0.6)',cursor:'pointer'}}>{q}</button>
+            <button key={q} onClick={()=>send(q)} style={{fontSize:10,padding:'4px 9px',borderRadius:99,background:'var(--sf-surface2)',border:'1px solid var(--sf-border)',color:'var(--sf-text2)',cursor:'pointer'}}>{q}</button>
           ))}
         </div>
-        <div style={{padding:'8px 10px',borderTop:'1px solid rgba(255,255,255,0.07)',display:'flex',gap:8}}>
+        <div style={{padding:'8px 10px',borderTop:'1px solid var(--sf-border)',display:'flex',gap:8}}>
           <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&!e.shiftKey&&send()} placeholder="اكتب سؤالك..."
-            style={{flex:1,padding:'7px 12px',fontSize:12,borderRadius:10,border:'1px solid rgba(255,255,255,0.12)',background:'rgba(255,255,255,0.07)',color:'#fff',outline:'none',fontFamily:'Tajawal,sans-serif'}}/>
-          <button onClick={()=>send()} disabled={!input.trim()||loading} style={{width:36,height:36,borderRadius:'50%',background:'linear-gradient(135deg,#7C3AED,#A855F7)',border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',opacity:(!input.trim()||loading)?.5:1}}><Send size={14} color="#fff"/></button>
+            style={{flex:1,padding:'7px 12px',fontSize:12,borderRadius:'var(--sf-r-sm)',border:'1px solid var(--sf-border)',background:'var(--sf-surface)',color:'var(--sf-text)',outline:'none',fontFamily:'Tajawal,sans-serif'}}/>
+          <button onClick={()=>send()} disabled={!input.trim()||loading} style={{width:34,height:34,borderRadius:'50%',background:'var(--sf-accent)',border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',opacity:(!input.trim()||loading)?.5:1}}><Send size={14} color="#fff"/></button>
         </div>
       </div>
     )}
   </>);
 }
 
-// ─── TRUST COUNTERS ───────────────────────────────────────────────────────────
-function TrustCounters({productCount}:{productCount:number}) {
-  const [count,setCount]=useState({c:0,o:0,r:0});
-  useEffect(()=>{
-    const targets={c:Math.max(productCount*12,1200),o:Math.max(productCount*5,500),r:98};
-    let frame=0;const total=60;
-    const id=setInterval(()=>{
-      frame++;const pct=frame/total;
-      setCount({c:Math.round(targets.c*pct),o:Math.round(targets.o*pct),r:Math.round(targets.r*pct)});
-      if(frame>=total)clearInterval(id);
-    },16);
-    return()=>clearInterval(id);
-  },[productCount]);
+// ─── HERO (real stats only) ───────────────────────────────────────────────────
+function HeroSection({brand,productCount,serviceCount,totalSales,onShop,onServices}:{brand:StoreInfo['brand'];productCount:number;serviceCount:number;totalSales:number;onShop:()=>void;onServices:()=>void}) {
+  const hasServices=serviceCount>0;
+  const stats=[{n:productCount,l:'منتج'}];
+  if(hasServices) stats.push({n:serviceCount,l:'خدمة'});
+  if(totalSales>0) stats.push({n:totalSales,l:'مبيعة'});
   return (
-    <div style={{margin:'16px 14px',background:'rgba(255,255,255,0.05)',backdropFilter:'blur(16px)',borderRadius:18,padding:'18px 14px',border:'1px solid rgba(255,255,255,0.09)',boxShadow:'0 4px 24px rgba(0,0,0,0.2)'}}>
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:0,textAlign:'center'}}>
-        {[
-          {n:`${count.c.toLocaleString()}+`,l:'عميل سعيد',icon:'😊',c:'#FF6A00'},
-          {n:`${count.o.toLocaleString()}+`,l:'طلب منجز',icon:'📦',c:'#A855F7'},
-          {n:`${count.r}%`,l:'رضا العملاء',icon:'⭐',c:'#00D2B3'},
-        ].map((s,i)=>(
-          <div key={i} style={{padding:'0 8px',borderLeft:i>0?'1px solid rgba(255,255,255,0.08)':'none'}}>
-            <div style={{fontSize:22,fontWeight:900,color:s.c,letterSpacing:'-0.03em',textShadow:`0 0 20px ${s.c}55`}}>{s.n}</div>
-            <div style={{fontSize:9,color:'rgba(255,255,255,0.4)',fontWeight:600,marginTop:3,textTransform:'uppercase',letterSpacing:'.06em'}}>{s.icon} {s.l}</div>
+    <div style={{background:'var(--sf-surface)',borderBottom:'1px solid var(--sf-border)',padding:'24px 20px 20px'}}>
+      <div style={{display:'flex',gap:16,alignItems:'center',marginBottom:18}}>
+        <div style={{flexShrink:0,width:72,height:72,borderRadius:18,overflow:'hidden',background:'var(--sf-surface2)',border:'1px solid var(--sf-border)',display:'flex',alignItems:'center',justifyContent:'center'}}>
+          {brand.logo?<img src={brand.logo} alt="logo" style={{width:'100%',height:'100%',objectFit:'contain'}}/>
+            :<span style={{fontSize:28,fontWeight:800,color:'var(--sf-accent)'}}>{brand.name?.[0]?.toUpperCase()||'S'}</span>}
+        </div>
+        <div style={{flex:1,minWidth:0}}>
+          <h1 style={{fontSize:'clamp(20px,5vw,26px)',fontWeight:800,color:'var(--sf-text)',margin:'0 0 4px',lineHeight:1.2}}>{brand.name||'المتجر'}</h1>
+          {brand.description&&<p style={{fontSize:13,color:'var(--sf-text2)',margin:'0 0 8px',lineHeight:1.5,overflow:'hidden',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical'}}>{brand.description}</p>}
+          <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+            {brand.phone&&<a href={`https://wa.me/${brand.phone.replace(/\D/g,'')}`} target="_blank" rel="noreferrer" style={{padding:'4px 11px',borderRadius:99,background:'var(--sf-surface2)',border:'1px solid var(--sf-border)',color:'var(--sf-text2)',fontSize:11,fontWeight:600,textDecoration:'none'}}>💬 واتساب</a>}
+            {brand.instagram&&<a href={`https://instagram.com/${brand.instagram}`} target="_blank" rel="noreferrer" style={{padding:'4px 11px',borderRadius:99,background:'var(--sf-surface2)',border:'1px solid var(--sf-border)',color:'var(--sf-text2)',fontSize:11,fontWeight:600,textDecoration:'none'}}>📸 Instagram</a>}
+            {brand.facebook&&<a href={`https://facebook.com/${brand.facebook}`} target="_blank" rel="noreferrer" style={{padding:'4px 11px',borderRadius:99,background:'var(--sf-surface2)',border:'1px solid var(--sf-border)',color:'var(--sf-text2)',fontSize:11,fontWeight:600,textDecoration:'none'}}>📘 Facebook</a>}
+          </div>
+        </div>
+      </div>
+      <div style={{display:'flex',gap:10,marginBottom:16}}>
+        <button onClick={onShop} style={{flex:1,height:46,borderRadius:'var(--sf-r)',background:'var(--sf-accent)',border:'none',color:'#fff',fontSize:14,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
+          <ShoppingCart size={16}/> تسوق الآن
+        </button>
+        {hasServices&&<button onClick={onServices} style={{flex:1,height:46,borderRadius:'var(--sf-r)',background:'var(--sf-surface)',border:'1.5px solid var(--sf-border)',color:'var(--sf-text)',fontSize:14,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
+          🔧 الخدمات
+        </button>}
+      </div>
+      {/* Real stats */}
+      <div style={{display:'flex',background:'var(--sf-surface2)',borderRadius:'var(--sf-r)',padding:'12px',border:'1px solid var(--sf-border)'}}>
+        {stats.map((s,i)=>(
+          <div key={i} style={{flex:1,textAlign:'center',borderLeft:i>0?'1px solid var(--sf-border)':'none'}}>
+            <div style={{fontSize:19,fontWeight:800,color:'var(--sf-text)'}}>{s.n.toLocaleString()}</div>
+            <div style={{fontSize:11,color:'var(--sf-text3)',fontWeight:600,marginTop:2}}>{s.l}</div>
           </div>
         ))}
       </div>
@@ -1289,105 +858,54 @@ function TrustCounters({productCount}:{productCount:number}) {
   );
 }
 
-// ─── HERO SECTION ─────────────────────────────────────────────────────────────
-function HeroSection({brand,productCount,serviceCount,onShop,onServices}:{brand:StoreInfo['brand'];productCount:number;serviceCount:number;onShop:()=>void;onServices:()=>void}) {
-  const hasServices=serviceCount>0;
-  return (
-    <div style={{position:'relative',overflow:'hidden',background:'linear-gradient(145deg,rgba(124,58,237,0.3) 0%,rgba(0,0,0,0) 40%,rgba(255,106,0,0.2) 100%)'}}>
-      {/* Ambient glows */}
-      <div style={{position:'absolute',top:-60,right:-60,width:240,height:240,borderRadius:'50%',background:'radial-gradient(circle,rgba(124,58,237,0.35),transparent 70%)',pointerEvents:'none'}}/>
-      <div style={{position:'absolute',bottom:-40,left:-40,width:200,height:200,borderRadius:'50%',background:'radial-gradient(circle,rgba(255,106,0,0.25),transparent 70%)',pointerEvents:'none'}}/>
-      <div style={{padding:'28px 20px 0',position:'relative',zIndex:1}}>
-        {/* Store logo + info */}
-        <div style={{display:'flex',gap:16,alignItems:'flex-start',marginBottom:20}}>
-          <div style={{flexShrink:0,width:76,height:76,borderRadius:22,overflow:'hidden',background:'rgba(255,255,255,0.1)',backdropFilter:'blur(16px)',border:'1.5px solid rgba(255,255,255,0.25)',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 8px 32px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.1)'}}>
-            {brand.logo?<img src={brand.logo} alt="logo" style={{width:'100%',height:'100%',objectFit:'contain'}}/>
-              :<span style={{fontSize:30,fontWeight:900,color:'#fff'}}>{brand.name?.[0]?.toUpperCase()||'S'}</span>}
-          </div>
-          <div style={{flex:1}}>
-            <h1 style={{fontSize:'clamp(20px,5vw,30px)',fontWeight:900,color:'#fff',margin:'0 0 5px',lineHeight:1.2,textShadow:'0 2px 16px rgba(0,0,0,0.3)'}}>{brand.name||'المتجر'}</h1>
-            {brand.description&&<p style={{fontSize:13,color:'rgba(255,255,255,0.72)',margin:'0 0 12px',lineHeight:1.55}}>{brand.description}</p>}
-            <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-              {brand.phone&&<a href={`https://wa.me/${brand.phone.replace(/\D/g,'')}`} target="_blank" rel="noreferrer" style={{padding:'5px 12px',borderRadius:99,background:'rgba(255,255,255,0.1)',backdropFilter:'blur(8px)',border:'1px solid rgba(255,255,255,0.2)',color:'rgba(255,255,255,0.85)',fontSize:11,fontWeight:700,textDecoration:'none'}}>💬 واتساب</a>}
-              {brand.instagram&&<a href={`https://instagram.com/${brand.instagram}`} target="_blank" rel="noreferrer" style={{padding:'5px 12px',borderRadius:99,background:'rgba(255,255,255,0.1)',backdropFilter:'blur(8px)',border:'1px solid rgba(255,255,255,0.2)',color:'rgba(255,255,255,0.85)',fontSize:11,fontWeight:700,textDecoration:'none'}}>📸 Instagram</a>}
-            </div>
-          </div>
-        </div>
-        {/* CTA buttons */}
-        <div style={{display:'flex',gap:10,marginBottom:20}}>
-          <button onClick={onShop} style={{flex:1,height:48,borderRadius:16,background:'linear-gradient(135deg,#FF6A00,#FF8533)',border:'none',color:'#fff',fontSize:14,fontWeight:800,cursor:'pointer',boxShadow:'0 4px 24px rgba(255,106,0,0.45)',display:'flex',alignItems:'center',justifyContent:'center',gap:6,transition:'all .25s cubic-bezier(.4,0,.2,1)'}}
-            onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.transform='translateY(-2px)';(e.currentTarget as HTMLElement).style.boxShadow='0 8px 32px rgba(255,106,0,0.55)';}}
-            onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.transform='';(e.currentTarget as HTMLElement).style.boxShadow='0 4px 24px rgba(255,106,0,0.45)';}}>
-            <ShoppingCart size={16}/> تسوق الآن ({productCount})
-          </button>
-          {hasServices&&<button onClick={onServices} style={{flex:1,height:48,borderRadius:16,background:'linear-gradient(135deg,#7C3AED,#A855F7)',border:'none',color:'#fff',fontSize:14,fontWeight:700,cursor:'pointer',boxShadow:'0 4px 24px rgba(124,58,237,0.45)',display:'flex',alignItems:'center',justifyContent:'center',gap:6,transition:'all .25s'}}
-            onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.transform='translateY(-2px)';}}
-            onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.transform='';}}>
-            🔧 الخدمات ({serviceCount})
-          </button>}
-        </div>
-        {/* Stats strip */}
-        <div style={{background:'rgba(255,255,255,0.06)',backdropFilter:'blur(16px)',borderRadius:'16px 16px 0 0',padding:'12px 16px',display:'flex',justifyContent:'space-around',border:'1px solid rgba(255,255,255,0.1)',borderBottom:'none'}}>
-          {[{n:productCount,l:'منتج',c:'#FF6A00'},{n:serviceCount,l:'خدمة',c:'#A855F7'},{n:'24h',l:'توصيل',c:'#00D2B3'}].map((s,i)=>(
-            <div key={i} style={{textAlign:'center',flex:1,borderLeft:i>0?'1px solid rgba(255,255,255,0.08)':'none'}}>
-              <div style={{fontSize:20,fontWeight:900,color:s.c,textShadow:`0 0 16px ${s.c}66`}}>{s.n}</div>
-              <div style={{fontSize:10,color:'rgba(255,255,255,0.5)',fontWeight:600,marginTop:2}}>{s.l}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── SCROLL TO TOP ─────────────────────────────────────────────────────────────
+// ─── SCROLL TO TOP ────────────────────────────────────────────────────────────
 function ScrollToTop() {
   const [show,setShow]=useState(false);
   useEffect(()=>{const h=()=>setShow(window.scrollY>400);window.addEventListener('scroll',h);return()=>window.removeEventListener('scroll',h);},[]);
   if(!show)return null;
   return (
-    <button onClick={()=>window.scrollTo({top:0,behavior:'smooth'})} style={{position:'fixed',bottom:100,right:20,zIndex:150,width:42,height:42,borderRadius:'50%',background:'rgba(255,255,255,0.08)',backdropFilter:'blur(16px)',border:'1px solid rgba(255,255,255,0.15)',color:'#FF6A00',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 4px 20px rgba(0,0,0,0.3)',transition:'all .2s'}}><ChevronUp size={18}/></button>
+    <button onClick={()=>window.scrollTo({top:0,behavior:'smooth'})} style={{position:'fixed',bottom:100,right:20,zIndex:150,width:42,height:42,borderRadius:'50%',background:'var(--sf-surface)',border:'1px solid var(--sf-border)',color:'var(--sf-accent)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'var(--sf-shadow-md)',transition:'all .2s'}}><ChevronUp size={18}/></button>
   );
 }
 
-// ─── FILTER DRAWER ─────────────────────────────────────────────────────────────
+// ─── FILTER DRAWER ────────────────────────────────────────────────────────────
 function FilterDrawer({onClose,priceMin,priceMax,setPriceMin,setPriceMax,typeFilter,setTypeFilter,sortBy,setSortBy,maxP}:{onClose:()=>void;priceMin:number;priceMax:number;setPriceMin:(v:number)=>void;setPriceMax:(v:number)=>void;typeFilter:string;setTypeFilter:(v:string)=>void;sortBy:string;setSortBy:(v:any)=>void;maxP:number}) {
   const [lMin,setLMin]=useState(priceMin);
   const [lMax,setLMax]=useState(priceMax||maxP);
   const apply=()=>{setPriceMin(lMin);setPriceMax(lMax>=maxP?0:lMax);onClose();};
   const reset=()=>{setLMin(0);setLMax(maxP);setPriceMin(0);setPriceMax(0);setTypeFilter('all');onClose();};
   return (
-    <div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.6)',backdropFilter:'blur(8px)',zIndex:400,display:'flex',alignItems:'flex-end',justifyContent:'center'}}>
-      <div onClick={e=>e.stopPropagation()} style={{width:'100%',maxWidth:520,background:'linear-gradient(180deg,#151f35 0%,#0f1829 100%)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:'24px 24px 0 0',padding:'20px 20px 36px',boxShadow:'0 -8px 60px rgba(0,0,0,0.5)'}}>
-        <div style={{width:40,height:4,background:'rgba(255,255,255,0.2)',borderRadius:99,margin:'0 auto 20px'}}/>
+    <div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(16,24,40,.4)',backdropFilter:'blur(3px)',zIndex:400,display:'flex',alignItems:'flex-end',justifyContent:'center'}}>
+      <div onClick={e=>e.stopPropagation()} style={{width:'100%',maxWidth:520,background:'var(--sf-surface)',borderRadius:'20px 20px 0 0',padding:'20px 20px 32px',boxShadow:'var(--sf-shadow-lg)'}}>
+        <div style={{width:40,height:4,background:'var(--sf-border2)',borderRadius:99,margin:'0 auto 18px'}}/>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
-          <h3 style={{fontSize:16,fontWeight:900,color:'#fff',display:'flex',alignItems:'center',gap:8}}><SlidersHorizontal size={16} color="#FF6A00"/> الفلاتر</h3>
-          <button onClick={reset} style={{fontSize:12,color:'#FF6A00',background:'rgba(255,106,0,0.12)',border:'1px solid rgba(255,106,0,0.25)',cursor:'pointer',fontWeight:700,padding:'5px 12px',borderRadius:8}}>إعادة تعيين</button>
+          <h3 style={{fontSize:16,fontWeight:800,color:'var(--sf-text)',display:'flex',alignItems:'center',gap:8}}><SlidersHorizontal size={16} color="var(--sf-accent)"/> الفلاتر</h3>
+          <button onClick={reset} style={{fontSize:12,color:'var(--sf-accent)',background:'var(--sf-accent-soft)',border:'1px solid var(--sf-accent-border)',cursor:'pointer',fontWeight:700,padding:'5px 12px',borderRadius:8}}>إعادة تعيين</button>
         </div>
         <div style={{marginBottom:20}}>
-          <div style={{fontSize:12,fontWeight:700,color:'rgba(255,255,255,0.45)',marginBottom:10}}>نوع المنتج</div>
+          <div style={{fontSize:12,fontWeight:700,color:'var(--sf-text3)',marginBottom:10}}>نوع المنتج</div>
           <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
             {[['all','🛍️ الكل'],['product','📦 منتجات'],['service','🔧 خدمات'],['digital','💻 رقمي']].map(([v,l])=>(
-              <button key={v} onClick={()=>setTypeFilter(v)} style={{padding:'7px 14px',borderRadius:99,border:`1.5px solid ${typeFilter===v?'#FF6A00':'rgba(255,255,255,0.12)'}`,background:typeFilter===v?'rgba(255,106,0,0.12)':'rgba(255,255,255,0.05)',color:typeFilter===v?'#FF6A00':'rgba(255,255,255,0.6)',fontSize:12,fontWeight:700,cursor:'pointer'}}>{l}</button>
+              <button key={v} onClick={()=>setTypeFilter(v)} style={{padding:'7px 14px',borderRadius:99,border:`1.5px solid ${typeFilter===v?'var(--sf-accent)':'var(--sf-border)'}`,background:typeFilter===v?'var(--sf-accent-soft)':'var(--sf-surface)',color:typeFilter===v?'var(--sf-accent)':'var(--sf-text2)',fontSize:12,fontWeight:700,cursor:'pointer'}}>{l}</button>
             ))}
           </div>
         </div>
         <div style={{marginBottom:20}}>
-          <div style={{fontSize:12,fontWeight:700,color:'rgba(255,255,255,0.45)',marginBottom:10}}>السعر: <span style={{color:'#FF6A00'}}>{lMin} — {lMax>=maxP?'∞':lMax}</span></div>
+          <div style={{fontSize:12,fontWeight:700,color:'var(--sf-text3)',marginBottom:10}}>السعر: <span style={{color:'var(--sf-accent)'}}>{lMin} — {lMax>=maxP?'∞':lMax}</span></div>
           <div style={{display:'flex',gap:12}}>
-            <div style={{flex:1}}><div style={{fontSize:10,color:'rgba(255,255,255,0.35)',marginBottom:4}}>من</div><input type="range" min={0} max={maxP} step={10} value={lMin} onChange={e=>setLMin(Math.min(+e.target.value,lMax-10))} style={{width:'100%',accentColor:'#FF6A00'}}/></div>
-            <div style={{flex:1}}><div style={{fontSize:10,color:'rgba(255,255,255,0.35)',marginBottom:4}}>إلى</div><input type="range" min={0} max={maxP} step={10} value={lMax} onChange={e=>setLMax(Math.max(+e.target.value,lMin+10))} style={{width:'100%',accentColor:'#FF6A00'}}/></div>
+            <div style={{flex:1}}><div style={{fontSize:10,color:'var(--sf-text3)',marginBottom:4}}>من</div><input type="range" min={0} max={maxP} step={10} value={lMin} onChange={e=>setLMin(Math.min(+e.target.value,lMax-10))} style={{width:'100%',accentColor:'var(--sf-accent)'}}/></div>
+            <div style={{flex:1}}><div style={{fontSize:10,color:'var(--sf-text3)',marginBottom:4}}>إلى</div><input type="range" min={0} max={maxP} step={10} value={lMax} onChange={e=>setLMax(Math.max(+e.target.value,lMin+10))} style={{width:'100%',accentColor:'var(--sf-accent)'}}/></div>
           </div>
         </div>
         <div style={{marginBottom:24}}>
-          <div style={{fontSize:12,fontWeight:700,color:'rgba(255,255,255,0.45)',marginBottom:10}}>الترتيب</div>
+          <div style={{fontSize:12,fontWeight:700,color:'var(--sf-text3)',marginBottom:10}}>الترتيب</div>
           <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
             {[['popular','🔥 الأكثر طلباً'],['newest','✨ الأحدث'],['price-asc','💰 الأقل سعراً'],['price-desc','💎 الأعلى سعراً']].map(([v,l])=>(
-              <button key={v} onClick={()=>setSortBy(v)} style={{padding:'7px 12px',borderRadius:99,border:`1.5px solid ${sortBy===v?'#FF6A00':'rgba(255,255,255,0.12)'}`,background:sortBy===v?'rgba(255,106,0,0.12)':'rgba(255,255,255,0.05)',color:sortBy===v?'#FF6A00':'rgba(255,255,255,0.6)',fontSize:12,fontWeight:700,cursor:'pointer'}}>{l}</button>
+              <button key={v} onClick={()=>setSortBy(v)} style={{padding:'7px 12px',borderRadius:99,border:`1.5px solid ${sortBy===v?'var(--sf-accent)':'var(--sf-border)'}`,background:sortBy===v?'var(--sf-accent-soft)':'var(--sf-surface)',color:sortBy===v?'var(--sf-accent)':'var(--sf-text2)',fontSize:12,fontWeight:700,cursor:'pointer'}}>{l}</button>
             ))}
           </div>
         </div>
-        <button onClick={apply} style={{width:'100%',height:50,background:'linear-gradient(135deg,#FF6A00,#FF8533)',border:'none',borderRadius:16,color:'#fff',fontSize:15,fontWeight:700,cursor:'pointer',boxShadow:'0 4px 24px rgba(255,106,0,0.4)'}}>تطبيق</button>
+        <button onClick={apply} style={{width:'100%',height:48,background:'var(--sf-accent)',border:'none',borderRadius:'var(--sf-r)',color:'#fff',fontSize:15,fontWeight:700,cursor:'pointer'}}>تطبيق</button>
       </div>
     </div>
   );
@@ -1420,23 +938,26 @@ export default function Storefront() {
   const [cartAnim,setCartAnim]=useState(false);
   const [successOrderId,setSuccessOrderId]=useState('');
   const [selectedCategory,setSelectedCategory]=useState('all');
-  const [showWishlist,setShowWishlist]=useState(false); // 🆕
+  void successOrderId;
 
   const maxP=useMemo(()=>Math.max(...products.map(p=>p.price),500),[products]);
   const handleAddToCart=(p:SProduct,size?:string,color?:string)=>{
-    sfBuzz(40); // 🆕 اهتزاز
     cart.add(p,size||p.sizes?.[0]||'',color||p.colors?.[0]||'');
     setCartAnim(true);setTimeout(()=>setCartAnim(false),600);
   };
 
   useEffect(()=>{(window as any).__sfProducts=products;},[products]);
-  useEffect(()=>{ if(storeInfo) (window as any).__sfBrand=storeInfo.brand; },[storeInfo]); // 🆕
   useEffect(()=>{
     if(!products.length)return;
     const pid=new URLSearchParams(window.location.search).get('p');
     if(pid){const f=products.find(x=>x.id===pid);if(f)setViewProduct(f);}
   },[products]);
   useEffect(()=>{if(viewProduct)trackStoreEvent(userId,'view',{id:viewProduct.id,name:viewProduct.name});},[viewProduct?.id]);
+  // Related products dispatch listener
+  useEffect(()=>{
+    const h=(e:any)=>{if(e.detail)setViewProduct(e.detail);};
+    document.addEventListener('viewProduct',h);return()=>document.removeEventListener('viewProduct',h);
+  },[]);
 
   const trackViewed=useCallback((p:SProduct)=>{
     try{const k=`sahar_viewed_${userId}`;const prev:string[]=JSON.parse(localStorage.getItem(k)||'[]');localStorage.setItem(k,JSON.stringify([p.id,...prev.filter(id=>id!==p.id)].slice(0,20)));}catch{}
@@ -1446,6 +967,8 @@ export default function Storefront() {
   const allServices=products.filter(p=>p.type==='service');
   const allDigital=products.filter(p=>p.type==='digital');
   const categories=['all',...Array.from(new Set(products.map(p=>p.category).filter(Boolean)))];
+  // Real aggregate: total units sold across catalog
+  const totalSales=useMemo(()=>products.reduce((s,p)=>s+(p.sales||0),0),[products]);
 
   const filterBySearch=(list:SProduct[])=>list.filter(p=>
     (!search||p.name.includes(search)||p.description?.includes(search)||p.sku?.includes(search))
@@ -1464,51 +987,52 @@ export default function Storefront() {
   const filteredServices=sortList(filterBySearch(typeFilter==='all'||typeFilter==='service'?allServices:[]));
   const filteredDigital=sortList(filterBySearch(typeFilter==='all'||typeFilter==='digital'?allDigital:[]));
   const hasActiveFilter=priceMin>0||priceMax>0||typeFilter!=='all';
-  void successOrderId;
 
   // ── Loading
   if(loading) return (
-    <div dir="rtl" style={{...SF,minHeight:'100dvh',background:'linear-gradient(180deg,#0B1020 0%,#121826 100%)',padding:16,fontFamily:'Tajawal,system-ui,sans-serif'} as React.CSSProperties}>
-      <style>{`@keyframes sfshim{0%{background-position:200% 0}100%{background-position:-200% 0}}.sfsk{background:linear-gradient(90deg,rgba(255,255,255,0.05) 25%,rgba(255,255,255,0.09) 50%,rgba(255,255,255,0.05) 75%);background-size:200% 100%;animation:sfshim 1.4s infinite;border-radius:10px;}`}</style>
+    <div dir="rtl" style={{...SF,minHeight:'100dvh',background:'var(--sf-bg)',padding:16,fontFamily:'Tajawal,system-ui,sans-serif'} as React.CSSProperties}>
+      <style>{`@keyframes sfshim{0%{background-position:200% 0}100%{background-position:-200% 0}}.sfsk{background:linear-gradient(90deg,#ECECF0 25%,#F6F7F9 50%,#ECECF0 75%);background-size:200% 100%;animation:sfshim 1.4s infinite;border-radius:10px;}`}</style>
       <div style={{height:48,borderRadius:14,marginBottom:12}} className="sfsk"/>
-      <div style={{height:110,borderRadius:18,marginBottom:14}} className="sfsk"/>
+      <div style={{height:130,borderRadius:18,marginBottom:14}} className="sfsk"/>
       <div style={{height:36,borderRadius:99,marginBottom:14}} className="sfsk"/>
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
         {Array.from({length:6}).map((_,i)=>(
-          <div key={i} style={{borderRadius:20,overflow:'hidden',border:'1px solid rgba(255,255,255,0.07)'}}><div style={{height:180}} className="sfsk"/><div style={{padding:'10px 12px',display:'flex',flexDirection:'column',gap:6,background:'rgba(255,255,255,0.04)'}}><div style={{height:10,width:'60%'}} className="sfsk"/><div style={{height:14,width:'90%'}} className="sfsk"/><div style={{height:18,width:'40%'}} className="sfsk"/></div></div>
+          <div key={i} style={{borderRadius:14,overflow:'hidden',border:'1px solid #ECECF0'}}><div style={{aspectRatio:'1/1'}} className="sfsk"/><div style={{padding:'10px 12px',display:'flex',flexDirection:'column',gap:6}}><div style={{height:10,width:'60%'}} className="sfsk"/><div style={{height:14,width:'90%'}} className="sfsk"/><div style={{height:18,width:'40%'}} className="sfsk"/></div></div>
         ))}
       </div>
     </div>
   );
 
   if(!userId) return (
-    <div dir="rtl" style={{...SF,minHeight:'100dvh',background:'linear-gradient(180deg,#0B1020 0%,#121826 100%)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:24,textAlign:'center',gap:16,fontFamily:'Tajawal,system-ui,sans-serif'} as React.CSSProperties}>
+    <div dir="rtl" style={{...SF,minHeight:'100dvh',background:'var(--sf-bg)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:24,textAlign:'center',gap:16,fontFamily:'Tajawal,system-ui,sans-serif'} as React.CSSProperties}>
       <div style={{fontSize:56}}>🏪</div>
-      <div style={{fontSize:22,fontWeight:900,color:'#fff'}}>متجر SAHAR Shop</div>
-      <div style={{fontSize:14,color:'rgba(255,255,255,0.5)',maxWidth:320,lineHeight:1.8}}>اطلب من التاجر مشاركة رابط متجره الخاص معك.</div>
-      <a href="/" style={{padding:'10px 24px',background:'linear-gradient(135deg,#FF6A00,#FF8533)',borderRadius:12,color:'#fff',fontWeight:700,fontSize:14,textDecoration:'none'}}>الصفحة الرئيسية</a>
+      <div style={{fontSize:22,fontWeight:800,color:'var(--sf-text)'}}>متجر SAHAR Shop</div>
+      <div style={{fontSize:14,color:'var(--sf-text3)',maxWidth:320,lineHeight:1.8}}>اطلب من التاجر مشاركة رابط متجره الخاص معك.</div>
+      <a href="/" style={{padding:'10px 24px',background:'var(--sf-accent)',borderRadius:'var(--sf-r-sm)',color:'#fff',fontWeight:700,fontSize:14,textDecoration:'none'}}>الصفحة الرئيسية</a>
     </div>
   );
 
   if(error||(!loading&&!storeInfo)) return (
-    <div dir="rtl" style={{...SF,minHeight:'100dvh',background:'linear-gradient(180deg,#0B1020 0%,#121826 100%)',display:'flex',alignItems:'center',justifyContent:'center',color:'rgba(255,255,255,0.5)',textAlign:'center',padding:24,fontFamily:'Tajawal,system-ui,sans-serif'} as React.CSSProperties}>
-      <div><div style={{fontSize:40,marginBottom:16}}>🏪</div><div style={{fontSize:18,fontWeight:700,color:'#fff',marginBottom:8}}>المتجر غير موجود</div><div style={{fontSize:14}}>{error||'تحقق من الرابط'}</div></div>
+    <div dir="rtl" style={{...SF,minHeight:'100dvh',background:'var(--sf-bg)',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--sf-text2)',textAlign:'center',padding:24,fontFamily:'Tajawal,system-ui,sans-serif'} as React.CSSProperties}>
+      <div><div style={{fontSize:40,marginBottom:16}}>🏪</div><div style={{fontSize:18,fontWeight:700,color:'var(--sf-text)',marginBottom:8}}>المتجر غير موجود</div><div style={{fontSize:14}}>{error||'تحقق من الرابط'}</div></div>
     </div>
   );
 
   const brand=storeInfo!.brand;
   const cur=brand.currency||'MAD';
+  const openStatus=storeOpenStatus(brand.workStart,brand.workEnd);
+  const minDel=minDeliveryCost(storeInfo!.deliveryCosts);
 
   if(!loading&&!error&&storeInfo&&products.length===0) return (
-    <div dir="rtl" style={{...SF,minHeight:'100dvh',background:'linear-gradient(180deg,#0B1020 0%,#121826 100%)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'32px 24px',textAlign:'center',fontFamily:'Tajawal,system-ui,sans-serif'} as React.CSSProperties}>
-      <div style={{width:76,height:76,borderRadius:20,overflow:'hidden',background:'rgba(255,255,255,0.07)',border:'1px solid rgba(255,255,255,0.15)',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:20}}>
+    <div dir="rtl" style={{...SF,minHeight:'100dvh',background:'var(--sf-bg)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'32px 24px',textAlign:'center',fontFamily:'Tajawal,system-ui,sans-serif'} as React.CSSProperties}>
+      <div style={{width:72,height:72,borderRadius:18,overflow:'hidden',background:'var(--sf-surface)',border:'1px solid var(--sf-border)',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:20,boxShadow:'var(--sf-shadow)'}}>
         {brand.logo?<img src={brand.logo} alt="logo" style={{width:'100%',height:'100%',objectFit:'contain'}}/>:<span style={{fontSize:32}}>🏪</span>}
       </div>
-      <h1 style={{fontSize:26,fontWeight:900,color:'#FF6A00',marginBottom:8,textShadow:'0 0 24px rgba(255,106,0,0.4)'}}>{brand.name||'المتجر'}</h1>
-      <div style={{fontSize:64,margin:'20px 0 14px'}}>📦</div>
-      <h2 style={{fontSize:18,fontWeight:800,color:'#fff',marginBottom:8}}>المتجر قيد التجهيز</h2>
-      <p style={{fontSize:14,color:'rgba(255,255,255,0.5)',maxWidth:300,lineHeight:1.8,marginBottom:28}}>سيضاف المنتجات قريباً — تابعونا!</p>
-      {brand.phone&&<a href={`https://wa.me/${brand.phone.replace(/\D/g,'')}`} target="_blank" rel="noreferrer" style={{padding:'12px 24px',borderRadius:14,background:'#25D366',color:'#fff',fontSize:14,fontWeight:700,textDecoration:'none',boxShadow:'0 4px 20px rgba(37,211,102,0.35)'}}>💬 تواصل معنا</a>}
+      <h1 style={{fontSize:24,fontWeight:800,color:'var(--sf-text)',marginBottom:8}}>{brand.name||'المتجر'}</h1>
+      <div style={{fontSize:60,margin:'20px 0 14px'}}>📦</div>
+      <h2 style={{fontSize:18,fontWeight:700,color:'var(--sf-text)',marginBottom:8}}>المتجر قيد التجهيز</h2>
+      <p style={{fontSize:14,color:'var(--sf-text3)',maxWidth:300,lineHeight:1.8,marginBottom:28}}>ستضاف المنتجات قريباً — تابعونا!</p>
+      {brand.phone&&<a href={`https://wa.me/${brand.phone.replace(/\D/g,'')}`} target="_blank" rel="noreferrer" style={{padding:'12px 24px',borderRadius:'var(--sf-r)',background:'#25D366',color:'#fff',fontSize:14,fontWeight:700,textDecoration:'none'}}>💬 تواصل معنا</a>}
     </div>
   );
 
@@ -1517,68 +1041,45 @@ export default function Storefront() {
   const recentlyViewed=recentlyViewedIds.slice(0,8).map(id=>products.find(p=>p.id===id)).filter(Boolean) as SProduct[];
 
   return (
-    <div dir="rtl" style={{
-      ...SF,
-      minHeight:'100dvh',
-      background:'radial-gradient(circle at 20% 20%,rgba(124,58,237,0.15),transparent 45%),radial-gradient(circle at 80% 80%,rgba(255,106,0,0.12),transparent 45%),linear-gradient(180deg,#0B1020 0%,#121826 100%)',
-      color:'#fff',
-      fontFamily:'Tajawal,system-ui,sans-serif',
-    } as React.CSSProperties}>
+    <div dir="rtl" style={{...SF,minHeight:'100dvh',background:'var(--sf-bg)',color:'var(--sf-text)',fontFamily:'Tajawal,system-ui,sans-serif'} as React.CSSProperties}>
       <style>{`
-        @keyframes sfmarquee{0%{transform:translateX(-50%)}100%{transform:translateX(0%)}}
-        @keyframes sfgradientshift{0%{background-position:0% 0}100%{background-position:200% 0}}
-        @keyframes sfpulse{0%,100%{box-shadow:0 0 0 0 rgba(255,106,0,0.5)}50%{box-shadow:0 0 0 6px rgba(255,106,0,0)}}
-        @keyframes sfshim{0%{background-position:200% 0}100%{background-position:-200% 0}}
-        .sfsk{background:linear-gradient(90deg,rgba(255,255,255,0.05) 25%,rgba(255,255,255,0.09) 50%,rgba(255,255,255,0.05) 75%);background-size:200% 100%;animation:sfshim 1.4s infinite;border-radius:10px;}
-        body{background:#0B1020!important}
-        .sf-input:focus{border-color:#FF6A00!important;outline:none!important;box-shadow:0 0 0 3px rgba(255,106,0,0.15)!important}
-        ::-webkit-scrollbar{width:4px;height:4px}
+        body{background:#F6F7F9!important}
+        .sf-input:focus{border-color:var(--sf-accent)!important;outline:none!important}
+        ::-webkit-scrollbar{width:8px;height:8px}
         ::-webkit-scrollbar-track{background:transparent}
-        ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.15);border-radius:99px}
+        ::-webkit-scrollbar-thumb{background:#D7D9E0;border-radius:99px}
       `}</style>
 
-      <PromoBar/>
-      {/* 🆕 عداد العروض */}
-      <FlashSaleBar/>
+      <InfoBar status={openStatus} minDelivery={minDel} currency={cur}/>
 
       {/* ── HEADER */}
-      <header style={{position:'sticky',top:0,zIndex:100,background:'rgba(11,16,32,0.85)',backdropFilter:'blur(20px)',WebkitBackdropFilter:'blur(20px)',borderBottom:'1px solid rgba(255,255,255,0.08)',padding:'0 14px',height:62,display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,boxShadow:'0 1px 0 rgba(255,255,255,0.05),0 4px 24px rgba(0,0,0,0.3)'}}>
+      <header style={{position:'sticky',top:0,zIndex:100,background:'rgba(255,255,255,0.92)',backdropFilter:'blur(10px)',borderBottom:'1px solid var(--sf-border)',padding:'0 14px',height:62,display:'flex',alignItems:'center',justifyContent:'space-between',gap:10}}>
         <div style={{display:'flex',alignItems:'center',gap:10,flexShrink:0}}>
-          <div style={{width:38,height:38,borderRadius:11,overflow:'hidden',background:'rgba(255,255,255,0.08)',border:'1px solid rgba(255,255,255,0.15)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+          <div style={{width:38,height:38,borderRadius:10,overflow:'hidden',background:'var(--sf-surface2)',border:'1px solid var(--sf-border)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
             {brand.logo?<img src={brand.logo} alt="logo" style={{width:'100%',height:'100%',objectFit:'contain'}}/>
-              :<span style={{fontSize:16,fontWeight:900,color:'#FF6A00'}}>{brand.name?.[0]?.toUpperCase()||'S'}</span>}
+              :<span style={{fontSize:16,fontWeight:800,color:'var(--sf-accent)'}}>{brand.name?.[0]?.toUpperCase()||'S'}</span>}
           </div>
-          <div style={{fontSize:14,fontWeight:800,color:'#fff',maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{brand.name}</div>
+          <div style={{fontSize:14,fontWeight:700,color:'var(--sf-text)',maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{brand.name}</div>
         </div>
-        {/* Search bar */}
         <div style={{flex:1,maxWidth:260,position:'relative'}}>
-          <Search size={14} style={{position:'absolute',right:12,top:'50%',transform:'translateY(-50%)',color:'rgba(255,255,255,0.4)',pointerEvents:'none'}}/>
+          <Search size={14} style={{position:'absolute',right:12,top:'50%',transform:'translateY(-50%)',color:'var(--sf-text3)',pointerEvents:'none'}}/>
           <input className="sf-input" placeholder="ابحث..." value={search} onChange={e=>setSearch(e.target.value)}
-            style={{width:'100%',paddingRight:36,paddingLeft:38,height:38,borderRadius:20,border:'1px solid rgba(255,255,255,0.12)',background:'rgba(255,255,255,0.07)',backdropFilter:'blur(12px)',color:'#fff',fontSize:13,outline:'none',boxSizing:'border-box',fontFamily:'Tajawal,sans-serif',transition:'all .2s'}}/>
-          {/* 🆕 بحث صوتي */}
-          <VoiceSearchBtn onResult={t=>setSearch(t)}/>
+            style={{width:'100%',paddingRight:36,paddingLeft:14,height:38,borderRadius:99,border:'1.5px solid var(--sf-border)',background:'var(--sf-surface2)',color:'var(--sf-text)',fontSize:13,outline:'none',boxSizing:'border-box',fontFamily:'Tajawal,sans-serif'}}/>
         </div>
         <div style={{display:'flex',gap:7,alignItems:'center',flexShrink:0}}>
-          <button onClick={()=>setShowTrack(true)} style={{padding:'5px 10px',borderRadius:9,background:'rgba(255,255,255,0.07)',border:'1px solid rgba(255,255,255,0.12)',color:'rgba(255,255,255,0.7)',fontSize:11,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',gap:4,backdropFilter:'blur(8px)'}}><Package size={12}/> طلباتي</button>
-          {brand.phone&&<a href={`https://wa.me/${brand.phone.replace(/\D/g,'')}`} target="_blank" rel="noreferrer" style={{padding:'5px 10px',borderRadius:9,background:'rgba(37,211,102,0.1)',border:'1px solid rgba(37,211,102,0.25)',color:'#25D366',fontSize:11,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',gap:4,textDecoration:'none'}}><MessageCircle size={12}/> واتساب</a>}
-          {/* 🆕 زر المفضلة */}
-          <WishlistHeaderBtn onOpen={()=>setShowWishlist(true)}/>
-          <button onClick={()=>setShowCart(true)} style={{position:'relative',width:40,height:40,borderRadius:11,background:cartAnim?'linear-gradient(135deg,#FF6A00,#FF8533)':'rgba(255,255,255,0.07)',border:`1px solid ${cartAnim?'transparent':'rgba(255,255,255,0.12)'}`,color:'#fff',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',transition:'all .25s',boxShadow:cartAnim?'0 4px 20px rgba(255,106,0,0.4)':'none'}}>
+          <button onClick={()=>setShowTrack(true)} style={{padding:'5px 10px',borderRadius:9,background:'var(--sf-surface2)',border:'1px solid var(--sf-border)',color:'var(--sf-text2)',fontSize:11,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',gap:4}}><Package size={12}/> طلباتي</button>
+          {brand.phone&&<a href={`https://wa.me/${brand.phone.replace(/\D/g,'')}`} target="_blank" rel="noreferrer" style={{padding:'5px 10px',borderRadius:9,background:'var(--sf-success-soft)',border:'1px solid #BBF7D0',color:'var(--sf-success)',fontSize:11,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',gap:4,textDecoration:'none'}}><MessageCircle size={12}/> واتساب</a>}
+          <button onClick={()=>setShowCart(true)} style={{position:'relative',width:40,height:40,borderRadius:10,background:cartAnim?'var(--sf-accent)':'var(--sf-surface2)',border:`1px solid ${cartAnim?'var(--sf-accent)':'var(--sf-border)'}`,color:cartAnim?'#fff':'var(--sf-text2)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',transition:'all .2s'}}>
             <ShoppingCart size={18}/>
-            {cart.count>0&&<span style={{position:'absolute',top:-5,left:-5,width:18,height:18,background:'#FF6A00',borderRadius:'50%',fontSize:10,fontWeight:900,color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',border:'2px solid #0B1020',boxShadow:'0 0 8px rgba(255,106,0,0.5)'}}>{cart.count}</span>}
+            {cart.count>0&&<span style={{position:'absolute',top:-5,left:-5,width:18,height:18,background:'var(--sf-accent)',borderRadius:'50%',fontSize:10,fontWeight:900,color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',border:'2px solid #fff'}}>{cart.count}</span>}
           </button>
         </div>
       </header>
 
-      {/* ── HERO + TRUST */}
-      <HeroSection brand={brand} productCount={allProducts.length} serviceCount={allServices.length} onShop={()=>{setActiveTab('all');setSelectedCategory('all');}} onServices={()=>{setActiveTab('خدمات');setSelectedCategory('خدمات');}}/>
-      <TrustCounters productCount={products.length}/>
-
-      {/* 🆕 Stories Bar */}
-      <StoriesBar products={products} onView={p=>{trackViewed(p);setViewProduct(p);}}/>
+      <HeroSection brand={brand} productCount={allProducts.length} serviceCount={allServices.length} totalSales={totalSales} onShop={()=>{setActiveTab('all');setSelectedCategory('all');}} onServices={()=>{setActiveTab('خدمات');setSelectedCategory('خدمات');}}/>
 
       {/* ── CATEGORY BAR */}
-      <div style={{background:'rgba(11,16,32,0.8)',backdropFilter:'blur(16px)',borderBottom:'1px solid rgba(255,255,255,0.07)',padding:'10px 0',position:'sticky',top:62,zIndex:90}}>
+      <div style={{background:'var(--sf-surface)',borderBottom:'1px solid var(--sf-border)',padding:'10px 0',position:'sticky',top:62,zIndex:90}}>
         <div style={{display:'flex',gap:8,overflowX:'auto',padding:'0 14px',scrollbarWidth:'none'}}>
           {categories.map(cat=>{
             const count=cat==='all'?products.length:products.filter(p=>p.category===cat).length;
@@ -1588,13 +1089,10 @@ export default function Storefront() {
             return (
               <button key={cat} onClick={()=>{setActiveTab(cat);setSelectedCategory(cat);}}
                 style={{flexShrink:0,padding:'7px 14px',borderRadius:99,fontSize:12,fontWeight:700,cursor:'pointer',
-                  border:`1px solid ${active?'rgba(255,106,0,0.5)':'rgba(255,255,255,0.1)'}`,
-                  background:active?'rgba(255,106,0,0.15)':'rgba(255,255,255,0.05)',
-                  color:active?'#FF6A00':'rgba(255,255,255,0.6)',
-                  backdropFilter:'blur(8px)',
-                  boxShadow:active?'0 0 12px rgba(255,106,0,0.2)':'none',
-                  transition:'all .2s',display:'flex',alignItems:'center',gap:5,whiteSpace:'nowrap'}}>
-                <span>{emoji}</span>{cat==='all'?'الكل':cat}<span style={{fontSize:10,opacity:.6,fontWeight:500}}>({count})</span>
+                  border:`1.5px solid ${active?'var(--sf-accent)':'var(--sf-border)'}`,
+                  background:active?'var(--sf-accent)':'var(--sf-surface)',
+                  color:active?'#fff':'var(--sf-text2)',transition:'all .15s',display:'flex',alignItems:'center',gap:5,whiteSpace:'nowrap'}}>
+                <span>{emoji}</span>{cat==='all'?'الكل':cat}<span style={{fontSize:10,opacity:.7,fontWeight:500}}>({count})</span>
               </button>
             );
           })}
@@ -1603,53 +1101,43 @@ export default function Storefront() {
 
       {/* ── SEARCH + FILTER ROW */}
       <div style={{padding:'12px 14px 0',display:'flex',alignItems:'center',justifyContent:'space-between',gap:10}}>
-        <span style={{fontSize:12,color:'rgba(255,255,255,0.45)',fontWeight:600}}>
+        <span style={{fontSize:12,color:'var(--sf-text3)',fontWeight:600}}>
           {filteredProducts.length+filteredServices.length+filteredDigital.length} نتيجة
-          {hasActiveFilter&&<button onClick={()=>{setPriceMin(0);setPriceMax(0);setTypeFilter('all');}} style={{marginRight:6,fontSize:10,color:'#FF6A00',background:'rgba(255,106,0,0.12)',border:'none',borderRadius:99,padding:'2px 8px',cursor:'pointer',fontWeight:700}}>× مسح</button>}
+          {hasActiveFilter&&<button onClick={()=>{setPriceMin(0);setPriceMax(0);setTypeFilter('all');}} style={{marginRight:6,fontSize:10,color:'var(--sf-accent)',background:'var(--sf-accent-soft)',border:'none',borderRadius:99,padding:'2px 8px',cursor:'pointer',fontWeight:700}}>× مسح</button>}
         </span>
         <div style={{display:'flex',gap:6}}>
-          <select value={sortBy} onChange={e=>setSortBy(e.target.value as any)} style={{background:'rgba(255,255,255,0.07)',border:'1px solid rgba(255,255,255,0.12)',borderRadius:9,padding:'5px 10px',color:'rgba(255,255,255,0.7)',fontSize:12,cursor:'pointer',outline:'none',backdropFilter:'blur(8px)'}}>
+          <select value={sortBy} onChange={e=>setSortBy(e.target.value as any)} style={{background:'var(--sf-surface)',border:'1px solid var(--sf-border)',borderRadius:9,padding:'5px 10px',color:'var(--sf-text2)',fontSize:12,cursor:'pointer',outline:'none'}}>
             <option value="popular">الأكثر طلباً</option>
             <option value="newest">الأحدث</option>
             <option value="price-asc">الأقل سعراً</option>
             <option value="price-desc">الأعلى سعراً</option>
           </select>
-          <button onClick={()=>setShowFilters(true)} style={{width:36,height:36,borderRadius:9,background:hasActiveFilter?'rgba(255,106,0,0.15)':'rgba(255,255,255,0.07)',border:`1px solid ${hasActiveFilter?'rgba(255,106,0,0.4)':'rgba(255,255,255,0.12)'}`,color:hasActiveFilter?'#FF6A00':'rgba(255,255,255,0.6)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',position:'relative',backdropFilter:'blur(8px)'}}>
+          <button onClick={()=>setShowFilters(true)} style={{width:36,height:36,borderRadius:9,background:hasActiveFilter?'var(--sf-accent)':'var(--sf-surface)',border:`1px solid ${hasActiveFilter?'var(--sf-accent)':'var(--sf-border)'}`,color:hasActiveFilter?'#fff':'var(--sf-text2)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',position:'relative'}}>
             <Filter size={14}/>
-            {hasActiveFilter&&<span style={{position:'absolute',top:-4,right:-4,width:10,height:10,background:'#EF4444',borderRadius:'50%',border:'2px solid #0B1020'}}/>}
+            {hasActiveFilter&&<span style={{position:'absolute',top:-4,right:-4,width:10,height:10,background:'var(--sf-danger)',borderRadius:'50%',border:'2px solid #fff'}}/>}
           </button>
         </div>
       </div>
 
-      {/* ── TRUST BADGES */}
-      <div style={{padding:'10px 14px',display:'flex',gap:8,overflowX:'auto',scrollbarWidth:'none'}}>
-        {[{i:'🚚',t:'توصيل 24-48h'},{i:'💵',t:'دفع عند الاستلام'},{i:'🔄',t:'إرجاع 7 أيام'},{i:'🔒',t:'دفع آمن'},{i:'⭐',t:'جودة مضمونة'}].map(b=>(
-          <div key={b.t} style={{display:'flex',alignItems:'center',gap:5,whiteSpace:'nowrap',fontSize:11,color:'rgba(255,255,255,0.6)',fontWeight:600,padding:'5px 11px',borderRadius:99,background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.09)',flexShrink:0,backdropFilter:'blur(8px)'}}>
-            <span>{b.i}</span><span>{b.t}</span>
-          </div>
-        ))}
-      </div>
-
-      <div style={{padding:'0 14px 110px'}}>
-
-        {/* ── BEST SELLERS */}
+      <div style={{padding:'14px 14px 110px'}}>
+        {/* ── BEST SELLERS (real) */}
         {bestSellers.length>=2&&!search&&activeTab==='all'&&(
           <div style={{marginBottom:28}}>
             <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14}}>
-              <Flame size={16} color="#FF6A00" style={{filter:'drop-shadow(0 0 6px rgba(255,106,0,0.6))'}}/>
-              <span style={{fontSize:15,fontWeight:800,color:'#fff'}}>الأكثر طلباً</span>
+              <Flame size={16} color="var(--sf-accent)"/>
+              <span style={{fontSize:15,fontWeight:800,color:'var(--sf-text)'}}>الأكثر مبيعاً</span>
             </div>
             <div style={{display:'flex',gap:10,overflowX:'auto',paddingBottom:6,scrollbarWidth:'none'}}>
-              {bestSellers.map(p=>(
-                <div key={p.id} onClick={()=>{trackViewed(p);setViewProduct(p);}} style={{flexShrink:0,width:220,borderRadius:18,overflow:'hidden',cursor:'pointer',background:'rgba(255,255,255,0.06)',backdropFilter:'blur(16px)',border:'1px solid rgba(255,255,255,0.1)',transition:'all .25s'}}
-                  onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.transform='translateY(-4px)';(e.currentTarget as HTMLElement).style.boxShadow='0 12px 40px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,106,0,0.2)';}} onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.transform='';(e.currentTarget as HTMLElement).style.boxShadow='';}}>
-                  <div style={{height:110,position:'relative',background:'rgba(0,0,0,0.3)',overflow:'hidden'}}>
+              {bestSellers.map((p,idx)=>(
+                <div key={p.id} onClick={()=>{trackViewed(p);setViewProduct(p);}} style={{flexShrink:0,width:200,borderRadius:'var(--sf-r)',overflow:'hidden',cursor:'pointer',background:'var(--sf-surface)',border:'1px solid var(--sf-border)',boxShadow:'var(--sf-shadow)',transition:'all .2s'}}
+                  onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.boxShadow='var(--sf-shadow-md)';(e.currentTarget as HTMLElement).style.transform='translateY(-2px)';}} onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.boxShadow='var(--sf-shadow)';(e.currentTarget as HTMLElement).style.transform='';}}>
+                  <div style={{height:110,position:'relative',background:'var(--sf-surface2)',overflow:'hidden'}}>
                     {p.imageUrl?<img src={p.imageUrl} alt={p.name} style={{width:'100%',height:'100%',objectFit:'cover'}} loading="lazy"/>:<div style={{width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:40}}>{p.emoji||'📦'}</div>}
-                    <span style={{position:'absolute',top:8,right:8,background:'linear-gradient(135deg,#FF6A00,#FF3D00)',color:'#fff',fontSize:9,fontWeight:800,padding:'3px 8px',borderRadius:99,boxShadow:'0 2px 8px rgba(255,106,0,0.5)'}}>🔥 #{bestSellers.indexOf(p)+1}</span>
+                    <span style={{position:'absolute',top:8,right:8,background:'var(--sf-accent)',color:'#fff',fontSize:9,fontWeight:800,padding:'3px 8px',borderRadius:99}}>#{idx+1}</span>
                   </div>
                   <div style={{padding:'10px 12px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                    <div><div style={{fontSize:12,fontWeight:700,color:'#fff',overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis',maxWidth:120}}>{p.name}</div><div style={{fontSize:10,color:'rgba(255,255,255,0.4)'}}>{p.sales} طلب</div></div>
-                    <div style={{fontSize:15,fontWeight:900,color:'#FF6A00',flexShrink:0}}>{p.price.toLocaleString()}</div>
+                    <div><div style={{fontSize:12,fontWeight:600,color:'var(--sf-text)',overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis',maxWidth:110}}>{p.name}</div><div style={{fontSize:10,color:'var(--sf-text3)'}}>{p.sales} مبيع</div></div>
+                    <div style={{fontSize:15,fontWeight:800,color:'var(--sf-text)',flexShrink:0}}>{p.price.toLocaleString()}</div>
                   </div>
                 </div>
               ))}
@@ -1660,12 +1148,10 @@ export default function Storefront() {
         {/* ── PRODUCTS */}
         {filteredProducts.length>0&&(
           <div style={{marginBottom:32}}>
-            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
-              <div style={{display:'flex',alignItems:'center',gap:10}}>
-                <div style={{width:3,height:22,background:'linear-gradient(180deg,#FF6A00,#FF8533)',borderRadius:99,boxShadow:'0 0 8px rgba(255,106,0,0.5)'}}/>
-                <span style={{fontSize:16,fontWeight:900,color:'#fff'}}>منتجاتنا</span>
-                <span style={{fontSize:11,color:'rgba(255,255,255,0.45)',background:'rgba(255,255,255,0.07)',border:'1px solid rgba(255,255,255,0.1)',padding:'2px 9px',borderRadius:99}}>{filteredProducts.length}</span>
-              </div>
+            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:16}}>
+              <div style={{width:3,height:20,background:'var(--sf-accent)',borderRadius:99}}/>
+              <span style={{fontSize:16,fontWeight:800,color:'var(--sf-text)'}}>منتجاتنا</span>
+              <span style={{fontSize:11,color:'var(--sf-text3)',background:'var(--sf-surface2)',border:'1px solid var(--sf-border)',padding:'2px 9px',borderRadius:99}}>{filteredProducts.length}</span>
             </div>
             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))',gap:14}}>
               {filteredProducts.map(p=>(
@@ -1679,9 +1165,9 @@ export default function Storefront() {
         {filteredServices.length>0&&(
           <div style={{marginBottom:32}}>
             <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:16}}>
-              <div style={{width:3,height:22,background:'linear-gradient(180deg,#7C3AED,#A855F7)',borderRadius:99,boxShadow:'0 0 8px rgba(124,58,237,0.5)'}}/>
-              <span style={{fontSize:16,fontWeight:900,color:'#fff'}}>خدماتنا</span>
-              <span style={{fontSize:11,color:'rgba(255,255,255,0.45)',background:'rgba(255,255,255,0.07)',border:'1px solid rgba(255,255,255,0.1)',padding:'2px 9px',borderRadius:99}}>{filteredServices.length}</span>
+              <div style={{width:3,height:20,background:'#16181D',borderRadius:99}}/>
+              <span style={{fontSize:16,fontWeight:800,color:'var(--sf-text)'}}>خدماتنا</span>
+              <span style={{fontSize:11,color:'var(--sf-text3)',background:'var(--sf-surface2)',border:'1px solid var(--sf-border)',padding:'2px 9px',borderRadius:99}}>{filteredServices.length}</span>
             </div>
             <div style={{display:'flex',flexDirection:'column',gap:10}}>
               {filteredServices.map(p=>(
@@ -1695,9 +1181,9 @@ export default function Storefront() {
         {filteredDigital.length>0&&(
           <div style={{marginBottom:32}}>
             <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:16}}>
-              <div style={{width:3,height:22,background:'linear-gradient(180deg,#0EA5E9,#38BDF8)',borderRadius:99,boxShadow:'0 0 8px rgba(14,165,233,0.5)'}}/>
-              <span style={{fontSize:16,fontWeight:900,color:'#fff'}}>المنتجات الرقمية</span>
-              <span style={{fontSize:11,color:'rgba(255,255,255,0.45)',background:'rgba(255,255,255,0.07)',border:'1px solid rgba(255,255,255,0.1)',padding:'2px 9px',borderRadius:99}}>{filteredDigital.length}</span>
+              <div style={{width:3,height:20,background:'#16181D',borderRadius:99}}/>
+              <span style={{fontSize:16,fontWeight:800,color:'var(--sf-text)'}}>المنتجات الرقمية</span>
+              <span style={{fontSize:11,color:'var(--sf-text3)',background:'var(--sf-surface2)',border:'1px solid var(--sf-border)',padding:'2px 9px',borderRadius:99}}>{filteredDigital.length}</span>
             </div>
             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))',gap:14}}>
               {filteredDigital.map(p=><ProductCard key={p.id} p={p} currency={cur} onAdd={handleAddToCart} onView={p=>{trackViewed(p);setViewProduct(p);}}/>)}
@@ -1705,20 +1191,20 @@ export default function Storefront() {
           </div>
         )}
 
-        {/* ── RECENTLY VIEWED */}
+        {/* ── RECENTLY VIEWED (real localStorage) */}
         {recentlyViewed.length>0&&!search&&(
           <div style={{marginBottom:20}}>
             <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}>
-              <Eye size={14} color="rgba(255,255,255,0.4)"/>
-              <span style={{fontSize:13,fontWeight:700,color:'rgba(255,255,255,0.55)'}}>شاهدتها مؤخراً</span>
+              <Eye size={14} color="var(--sf-text3)"/>
+              <span style={{fontSize:13,fontWeight:700,color:'var(--sf-text2)'}}>شاهدتها مؤخراً</span>
             </div>
             <div style={{display:'flex',gap:8,overflowX:'auto',paddingBottom:4,scrollbarWidth:'none'}}>
               {recentlyViewed.filter(p=>!viewProduct||p.id!==viewProduct.id).slice(0,6).map(p=>(
-                <div key={p.id} onClick={()=>{trackViewed(p);setViewProduct(p);}} style={{flexShrink:0,width:90,borderRadius:12,overflow:'hidden',cursor:'pointer',background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.09)',backdropFilter:'blur(8px)'}}>
-                  <div style={{height:72,background:'rgba(0,0,0,0.3)',overflow:'hidden'}}>
+                <div key={p.id} onClick={()=>{trackViewed(p);setViewProduct(p);}} style={{flexShrink:0,width:90,borderRadius:'var(--sf-r-sm)',overflow:'hidden',cursor:'pointer',background:'var(--sf-surface)',border:'1px solid var(--sf-border)'}}>
+                  <div style={{height:72,background:'var(--sf-surface2)',overflow:'hidden'}}>
                     {p.imageUrl?<img src={p.imageUrl} alt={p.name} style={{width:'100%',height:'100%',objectFit:'cover'}} loading="lazy"/>:<div style={{width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:24}}>{p.emoji||'📦'}</div>}
                   </div>
-                  <div style={{padding:'5px 7px'}}><div style={{fontSize:10,fontWeight:700,color:'rgba(255,255,255,0.8)',overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis'}}>{p.name}</div><div style={{fontSize:11,fontWeight:900,color:'#FF6A00'}}>{p.price.toLocaleString()}</div></div>
+                  <div style={{padding:'5px 7px'}}><div style={{fontSize:10,fontWeight:600,color:'var(--sf-text)',overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis'}}>{p.name}</div><div style={{fontSize:11,fontWeight:800,color:'var(--sf-text)'}}>{p.price.toLocaleString()}</div></div>
                 </div>
               ))}
             </div>
@@ -1727,35 +1213,34 @@ export default function Storefront() {
 
         {/* ── EMPTY */}
         {filteredProducts.length===0&&filteredServices.length===0&&filteredDigital.length===0&&(search||hasActiveFilter)&&(
-          <div style={{textAlign:'center',padding:'60px 20px',background:'rgba(255,255,255,0.04)',borderRadius:18,border:'1px solid rgba(255,255,255,0.08)'}}>
-            <Package size={48} style={{margin:'0 auto 16px',opacity:.2,color:'#fff'}}/>
-            <div style={{fontSize:16,fontWeight:700,color:'rgba(255,255,255,0.7)',marginBottom:8}}>لم نجد نتائج</div>
-            <div style={{fontSize:13,color:'rgba(255,255,255,0.4)',marginBottom:16}}>جرب كلمة أخرى أو امسح الفلاتر</div>
-            <button onClick={()=>{setSearch('');setPriceMin(0);setPriceMax(0);setTypeFilter('all');setActiveTab('all');setSelectedCategory('all');}} style={{padding:'9px 22px',background:'linear-gradient(135deg,#FF6A00,#FF8533)',border:'none',borderRadius:12,color:'#fff',cursor:'pointer',fontWeight:700,fontSize:13}}>مسح الكل</button>
+          <div style={{textAlign:'center',padding:'60px 20px',background:'var(--sf-surface)',borderRadius:'var(--sf-r)',border:'1px solid var(--sf-border)'}}>
+            <Package size={48} style={{margin:'0 auto 16px',opacity:.25,color:'var(--sf-text3)'}}/>
+            <div style={{fontSize:16,fontWeight:700,color:'var(--sf-text2)',marginBottom:8}}>لم نجد نتائج</div>
+            <div style={{fontSize:13,color:'var(--sf-text3)',marginBottom:16}}>جرب كلمة أخرى أو امسح الفلاتر</div>
+            <button onClick={()=>{setSearch('');setPriceMin(0);setPriceMax(0);setTypeFilter('all');setActiveTab('all');setSelectedCategory('all');}} style={{padding:'9px 22px',background:'var(--sf-accent)',border:'none',borderRadius:'var(--sf-r-sm)',color:'#fff',cursor:'pointer',fontWeight:700,fontSize:13}}>مسح الكل</button>
           </div>
         )}
 
         {/* ── FOOTER */}
-        <div style={{marginTop:40,paddingTop:24,borderTop:'1px solid rgba(255,255,255,0.07)',textAlign:'center'}}>
-          <div style={{fontSize:12,color:'rgba(255,255,255,0.4)',marginBottom:8,fontWeight:700}}>{brand.name}</div>
+        <div style={{marginTop:40,paddingTop:24,borderTop:'1px solid var(--sf-border)',textAlign:'center'}}>
+          <div style={{fontSize:12,color:'var(--sf-text2)',marginBottom:8,fontWeight:700}}>{brand.name}</div>
+          {brand.address&&<div style={{fontSize:11,color:'var(--sf-text3)',marginBottom:10}}>📍 {brand.address}</div>}
           <div style={{display:'flex',justifyContent:'center',gap:14,marginBottom:14}}>
-            {brand.phone&&<a href={`https://wa.me/${brand.phone.replace(/\D/g,'')}`} target="_blank" rel="noreferrer" style={{fontSize:12,color:'#25D366',fontWeight:700,textDecoration:'none'}}>💬 واتساب</a>}
+            {brand.phone&&<a href={`https://wa.me/${brand.phone.replace(/\D/g,'')}`} target="_blank" rel="noreferrer" style={{fontSize:12,color:'var(--sf-success)',fontWeight:700,textDecoration:'none'}}>💬 واتساب</a>}
             {brand.instagram&&<a href={`https://instagram.com/${brand.instagram}`} target="_blank" rel="noreferrer" style={{fontSize:12,color:'#E1306C',fontWeight:700,textDecoration:'none'}}>📸 Instagram</a>}
-            {brand.facebook&&<a href={`https://facebook.com/${brand.facebook}`} target="_blank" rel="noreferrer" style={{fontSize:12,color:'#4F83F0',fontWeight:700,textDecoration:'none'}}>📘 Facebook</a>}
+            {brand.facebook&&<a href={`https://facebook.com/${brand.facebook}`} target="_blank" rel="noreferrer" style={{fontSize:12,color:'#1877F2',fontWeight:700,textDecoration:'none'}}>📘 Facebook</a>}
           </div>
-          <div style={{fontSize:10,color:'rgba(255,255,255,0.2)'}}>Powered by SAHAR Shop 🇲🇦</div>
+          <div style={{fontSize:10,color:'var(--sf-text3)',opacity:.7}}>Powered by SAHAR Shop 🇲🇦</div>
         </div>
       </div>
 
       {/* ── STICKY CART */}
       {cart.count>0&&!showCart&&(
         <div style={{position:'fixed',bottom:20,right:14,left:14,zIndex:150}}>
-          {/* 🆕 شريط الشحن المجاني */}
-          <FreeShippingProgress total={cart.total} currency={cur}/>
-          <button onClick={()=>setShowCart(true)} style={{width:'100%',height:54,background:'linear-gradient(135deg,#FF6A00,#FF8533)',border:'none',borderRadius:18,color:'#fff',fontSize:15,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:10,boxShadow:'0 8px 32px rgba(255,106,0,0.5),0 0 0 1px rgba(255,255,255,0.1)'}}>
+          <button onClick={()=>setShowCart(true)} style={{width:'100%',height:52,background:'var(--sf-accent)',border:'none',borderRadius:'var(--sf-r)',color:'#fff',fontSize:15,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:10,boxShadow:'var(--sf-shadow-lg)'}}>
             <ShoppingCart size={18}/>
             السلة ({cart.count})
-            <span style={{background:'rgba(255,255,255,0.2)',backdropFilter:'blur(8px)',borderRadius:99,padding:'2px 12px',fontSize:13,fontWeight:800}}>{cart.total.toLocaleString()} {cur}</span>
+            <span style={{background:'rgba(255,255,255,.2)',borderRadius:99,padding:'2px 12px',fontSize:13,fontWeight:800}}>{cart.total.toLocaleString()} {cur}</span>
           </button>
         </div>
       )}
@@ -1765,10 +1250,6 @@ export default function Storefront() {
       {showCart&&<CartSidebar cart={cart} storeInfo={storeInfo!} userId={userId} onClose={()=>setShowCart(false)} onOrderSuccess={id=>{setSuccessOrderId(id);setShowCart(false);}}/>}
       {showTrack&&<TrackingModal userId={userId} storeInfo={storeInfo!} onClose={()=>setShowTrack(false)}/>}
       {showFilters&&<FilterDrawer onClose={()=>setShowFilters(false)} priceMin={priceMin} priceMax={priceMax||maxP} setPriceMin={setPriceMin} setPriceMax={setPriceMax} typeFilter={typeFilter} setTypeFilter={setTypeFilter} sortBy={sortBy} setSortBy={setSortBy} maxP={maxP}/>}
-      {/* 🆕 المودالات الجديدة */}
-      {showWishlist&&<WishlistDrawer products={products} currency={cur} onView={p=>{trackViewed(p);setViewProduct(p);}} onClose={()=>setShowWishlist(false)}/>}
-      <LiveSalesToast products={products}/>
-      <SpinWheel/>
       <FloatingChat userId={userId} storeInfo={storeInfo!}/>
       <ScrollToTop/>
     </div>
