@@ -1,4 +1,4 @@
-sauvgardimport { useState } from 'react';
+import { useState } from 'react'; { useState } from 'react';
 import { useStore } from '../store';
 import { CheckCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 
