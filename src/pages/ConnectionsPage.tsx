@@ -3,36 +3,59 @@ import { useStore } from '../store';
 import { Wifi, CheckCircle, Loader2, Eye, EyeOff, AlertTriangle, ExternalLink, RefreshCw, Zap } from 'lucide-react';
 import { IconWhatsApp, IconFacebook, IconInstagram, IconTikTok } from '../components/icons';
 
-// What each connection enables throughout the app
 const ENABLES: Record<string, string[]> = {
   whatsapp: ['إشعار تأكيد الطلب للزبون', 'إشعار الشحن تلقائياً', 'رسائل تسويقية', 'ربط المحادثات'],
   facebook: ['نشر المنتجات على الصفحة', 'نشر العروض والمحتوى', 'متابعة التعليقات'],
   instagram: ['نشر الصور والستوري', 'Reels تلقائي', 'رسائل Instagram Direct'],
   openai: ['ردود AI حقيقية على الزبائن', 'توليد أوصاف المنتجات', 'هاشتاق AI', 'تصميم صور بـ DALL-E 3'],
   gemini: ['ردود AI مجانية على الزبائن', 'توليد أوصاف المنتجات', 'هاشتاق AI', 'مجاني 15 طلب/دقيقة'],
+  deepseek: ['ردود AI بالدارجة والعربية', 'توليد أوصاف المنتجات', 'أرخص 90% من OpenAI', 'هاشتاق AI'],
+  grok: ['تحليل مشاعر الزبائن', 'كشف احتيال في الطلبات', 'تحليل اتجاهات المبيعات', 'البحث الصوتي'],
+  claude: ['تحليل عميق للمحادثات', 'كتابة محتوى طويل', 'مراجعة سياسات المتجر', 'أمان عالي'],
+  mistral: ['بديل مجاني للذكاء الاصطناعي', 'ردود سريعة', 'نموذج مفتوح المصدر'],
   tiktok: ['إعلانات TikTok', 'نشر الفيديوهات'],
   supabase: ['نسخ احتياطي تلقائي', 'مزامنة البيانات السحابية', 'حماية ضد فقدان البيانات'],
   cloudinary: ['رفع الصور تلقائياً', 'CDN عالمي سريع', 'لا تفقد صورك عند التحديث'],
+  brevo: ['حملات بريدية تلقائية', 'رسائل ترحيب للزبائن', 'عروض ترويجية', '300 إيميل يومياً'],
+  aftership: ['تتبع شحنات العملاء', 'إشعارات تلقائية', '50 تتبع شهرياً'],
+  hcaptcha: ['حماية نماذج الطلب', 'منع البوتات', '1M طلب شهرياً'],
+  plausible: ['عدد الزوار', 'مصادر الزيارات', 'الصفحات الأكثر زيارة'],
+  removebg: ['إزالة خلفية الصور', 'صور منتجات احترافية', '50 صورة شهرياً'],
+  unsplash: ['صور مجانية للمنتجات', 'صور إعلانات احترافية'],
+  tinypng: ['ضغط الصور', 'تسريع تحميل المتجر', '500 صورة شهرياً'],
+  redis: ['تسريع التطبيق', 'تخزين مؤقت', '30MB مجاناً'],
 };
 
-// شرح مبسط بلغة غير تقنية: ما هذه الخدمة؟ وما هو "المفتاح" المطلوب؟
 const WHAT_IS: Record<string, string> = {
   whatsapp: 'المفتاح هنا هو "رمز سري" تحصل عليه مجاناً من فيسبوك (Meta) يسمح للتطبيق بإرسال رسائل واتساب من رقمك التجاري تلقائياً. تحتاج حساب فيسبوك فقط — اتبع الخطوات بالأسفل وستحصل عليه في حوالي 10 دقائق.',
   facebook: 'رمز يسمح للتطبيق بالنشر على صفحتك في فيسبوك نيابة عنك. تحصل عليه من موقع فيسبوك للمطورين بحسابك العادي — بدون أي تكلفة.',
   instagram: 'نفس فكرة فيسبوك: رمز يسمح بالنشر على حساب Instagram التجاري. شرطه الوحيد أن يكون حسابك Instagram مربوطاً بصفحة فيسبوك.',
   openai: 'OpenAI هي الشركة صاحبة ChatGPT. "المفتاح" هو رمز يبدأ بـ sk- تشتريه من موقعهم (يحتاج بطاقة بنكية) ليرد الذكاء الاصطناعي على زبائنك ويكتب أوصاف منتجاتك.',
   gemini: 'الخيار الأسهل والمجاني 100% للبدء! Gemini هو الذكاء الاصطناعي من Google. تدخل الموقع بحساب Google العادي وتضغط زراً واحداً وتنسخ المفتاح — دقيقتان فقط وبدون بطاقة بنكية.',
+  deepseek: 'DeepSeek هو ذكاء اصطناعي صيني رخيص جداً وممتاز للغة العربية والدارجة. أرخص من OpenAI بـ 90% ويدعم نفس الصيغة. يحتاج بطاقة بنكية لكن بتكلفة رمزية (حوالي 20 درهم شهرياً للاستخدام الكثيف).',
+  grok: 'Grok هو الذكاء الاصطناعي من شركة xAI (إيلون ماسك). مجاني حالياً في الفترة التجريبية. ممتاز في تحليل المشاعر وكشف الاحتيال. يحتاج حساب X (تويتر سابقاً).',
+  claude: 'Claude من شركة Anthropic. الأفضل في التحليل العميق والكتابة الطويلة. أمان عالي جداً — لا يستخدم بياناتك للتدريب. سعر رمزي للنموذج السريع (Haiku).',
+  mistral: 'Mistral شركة فرنسية تقدم نماذج مفتوحة المصدر. الخطة المجانية تكفي للاستخدام العادي. جيد كبديل احتياطي.',
   tiktok: 'رمز من منصة إعلانات TikTok يسمح بنشر الفيديوهات وإدارة الإعلانات. مخصص لمن لديه حساب TikTok Ads — يمكنك تجاهله إن لم تعلن هناك.',
   supabase: 'قاعدة بيانات سحابية مجانية تحفظ نسخة احتياطية من بياناتك على الإنترنت. التسجيل مجاني بحساب Google أو GitHub.',
   cloudinary: 'خدمة مجانية لتخزين صور منتجاتك على الإنترنت بسرعة عالية، حتى لا تضيع الصور عند تحديث التطبيق. التسجيل مجاني.',
+  brevo: 'Brevo (سابقاً Sendinblue) منصة تسويق عبر الإيميل. الخطة المجانية تعطيك 300 إيميل يومياً — تكفي لإرسال تأكيدات الطلبات والعروض.',
+  aftership: 'AfterShip منصة تتبع الشحنات. تدخل رقم التتبع مرة واحدة والزبون يتابع شحنته مباشرة من المتجر. 50 تتبع مجاني شهرياً.',
+  hcaptcha: 'hCaptcha بديل عن reCAPTCHA من Google. يحمي نماذج الطلب من البوتات والرسائل المزعجة. أسهل في التركيب ومجاني حتى مليون طلب شهرياً.',
+  plausible: 'Plausible بديل عن Google Analytics. بسيط، سريع، ولا يجمع بيانات شخصية عن زوارك. تحليلات نظيفة بدون انتهاك للخصوصية.',
+  removebg: 'Remove.bg يزيل خلفية الصور تلقائياً بضغطة زر. مفيد لصور المنتجات على خلفية بيضاء. 50 صورة مجانية شهرياً.',
+  unsplash: 'Unsplash مكتبة صور احترافية مجانية. تصلح لصور المنتجات والإعلانات ومنشورات التواصل الاجتماعي. كل الصور بدون حقوق ملكية.',
+  tinypng: 'TinyPNG يضغط صور منتجاتك بدون فقدان واضح في الجودة. يجعل متجرك أسرع ويوفر بيانات الزبون. 500 صورة مجانية شهرياً.',
+  redis: 'Redis قاعدة بيانات في الذاكرة تسرّع استعلامات متجرك. تخزين مؤقت للبيانات الأكثر استخداماً. 30 ميجابايت مجانية.',
 };
 
-// ترشيح للمبتدئين: ما الذي يجب البدء به؟
 const EASY_IDS = new Set(['gemini', 'cloudinary']);
 
 const SERVICES = [
+  // ═══════════════════ التواصل الاجتماعي ═══════════════════
   {
-    id: 'whatsapp', name: 'WhatsApp Business', Icon: IconWhatsApp, grad: 'linear-gradient(135deg,#25d366,#128C7E)', desc: 'استقبال وإرسال الرسائل تلقائياً',
+    id: 'whatsapp', name: 'WhatsApp Business', Icon: IconWhatsApp, grad: 'linear-gradient(135deg,#25d366,#128C7E)',
+    desc: 'استقبال وإرسال الرسائل تلقائياً',
     fields: [
       { key: 'phoneId', label: 'Phone Number ID', ph: '123456789012345', help: 'Meta for Developers → WhatsApp → Configuration' },
       { key: 'accessToken', label: 'Access Token', ph: 'EAAxxxxxxx...', help: 'Token الوصول الدائم من Meta Business Manager', secret: true },
@@ -41,7 +64,8 @@ const SERVICES = [
     url: 'https://business.whatsapp.com/products/business-platform',
   },
   {
-    id: 'facebook', name: 'Facebook Page', Icon: IconFacebook, grad: 'linear-gradient(135deg,#1877f2,#0a4fa8)', desc: 'نشر المنتجات والرد على التعليقات',
+    id: 'facebook', name: 'Facebook Page', Icon: IconFacebook, grad: 'linear-gradient(135deg,#1877f2,#0a4fa8)',
+    desc: 'نشر المنتجات والرد على التعليقات',
     fields: [
       { key: 'pageId', label: 'Page ID', ph: '123456789', help: 'معرّف صفحتك من إعدادات الصفحة' },
       { key: 'accessToken', label: 'Page Access Token', ph: 'EAAxxxxxxx...', help: 'من Graph API Explorer باختيار الصفحة', secret: true },
@@ -50,7 +74,8 @@ const SERVICES = [
     url: 'https://developers.facebook.com/tools/explorer',
   },
   {
-    id: 'instagram', name: 'Instagram Business', Icon: IconInstagram, grad: 'linear-gradient(135deg,#e1306c,#833ab4)', desc: 'نشر Stories & Reels والرسائل المباشرة',
+    id: 'instagram', name: 'Instagram Business', Icon: IconInstagram, grad: 'linear-gradient(135deg,#e1306c,#833ab4)',
+    desc: 'نشر Stories & Reels والرسائل المباشرة',
     fields: [
       { key: 'pageId', label: 'Instagram Account ID', ph: '17841400000000000', help: 'معرّف حساب Instagram Business' },
       { key: 'accessToken', label: 'Access Token', ph: 'EAAxxxxxxx...', help: 'نفس Token ديال Facebook', secret: true },
@@ -59,23 +84,8 @@ const SERVICES = [
     url: 'https://developers.facebook.com/docs/instagram-api',
   },
   {
-    id: 'openai', name: 'OpenAI (GPT)', icon: '🧠', grad: 'linear-gradient(135deg,#10b981,#059669)', desc: 'ردود ذكية حقيقية بدون محاكاة',
-    fields: [
-      { key: 'apiKey', label: 'API Key', ph: 'sk-proj-...', help: 'من platform.openai.com/api-keys', secret: true },
-    ],
-    guide: ['سجل على platform.openai.com', 'اذهب لـ API Keys', 'أنشئ مفتاحاً جديداً', 'انسخه هنا'],
-    url: 'https://platform.openai.com/api-keys',
-  },
-  {
-    id: 'gemini', name: 'Google Gemini (مجاني)', icon: '🤖', grad: 'linear-gradient(135deg,#4285f4,#ea4335)', desc: 'بديل مجاني — 15 طلب/دقيقة',
-    fields: [
-      { key: 'geminiKey', label: 'Gemini API Key', ph: 'AIzaSy...', help: 'من aistudio.google.com/app/apikey', secret: true },
-    ],
-    guide: ['اذهب لـ aistudio.google.com', 'سجل بحساب Google', 'اضغط Get API Key', 'انسخه هنا'],
-    url: 'https://aistudio.google.com/app/apikey',
-  },
-  {
-    id: 'tiktok', name: 'TikTok for Business', Icon: IconTikTok, grad: 'linear-gradient(135deg,#000000,#25f4ee)', desc: 'نشر الفيديوهات وإدارة الإعلانات',
+    id: 'tiktok', name: 'TikTok for Business', Icon: IconTikTok, grad: 'linear-gradient(135deg,#000000,#25f4ee)',
+    desc: 'نشر الفيديوهات وإدارة الإعلانات',
     fields: [
       { key: 'accessToken', label: 'Access Token', ph: 'act_xxxxx...', help: 'من TikTok Ads Manager', secret: true },
       { key: 'advertiserId', label: 'Advertiser ID', ph: '123456789', help: 'معرّف المعلن' },
@@ -83,17 +93,67 @@ const SERVICES = [
     guide: ['اذهب لـ ads.tiktok.com', 'أنشئ حساب Ads Manager', 'اذهب إلى Tools > API', 'أنشئ Access Token'],
     url: 'https://ads.tiktok.com',
   },
+
+  // ═══════════════════ الذكاء الاصطناعي ═══════════════════
   {
-    id: 'supabase', name: 'Supabase', icon: '⚡', grad: 'linear-gradient(135deg,#3ecf8e,#1a7a4c)', desc: 'قاعدة بيانات سحابية — نسخة احتياطية تلقائية',
+    id: 'gemini', name: 'Google Gemini (مجاني)', icon: '🤖', grad: 'linear-gradient(135deg,#4285f4,#ea4335)',
+    desc: '⭐ أفضل بداية — مجاني وسهل، دقيقتان فقط',
     fields: [
-      { key: 'supabaseUrl', label: 'Project URL', ph: 'https://xxxx.supabase.co', help: 'من Settings → API في مشروعك', direct: true },
-      { key: 'supabaseKey', label: 'Anon Key', ph: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...', help: 'المفتاح العام (anon/public)', secret: true, direct: true },
+      { key: 'geminiKey', label: 'Gemini API Key', ph: 'AIzaSy...', help: 'من aistudio.google.com/app/apikey', secret: true },
     ],
-    guide: ['اذهب لـ supabase.com وأنشئ مشروعاً', 'اذهب لـ Settings → API', 'انسخ Project URL', 'انسخ anon public key'],
-    url: 'https://supabase.com',
+    guide: ['اذهب لـ aistudio.google.com', 'سجل بحساب Google', 'اضغط Get API Key', 'انسخه هنا'],
+    url: 'https://aistudio.google.com/app/apikey',
   },
   {
-    id: 'cloudinary', name: 'Cloudinary', icon: '☁️', grad: 'linear-gradient(135deg,#3448c5,#6875f5)', desc: 'رفع وتخزين الصور تلقائياً — CDN عالمي',
+    id: 'deepseek', name: 'DeepSeek (الأفضل للعربية)', icon: '🔮', grad: 'linear-gradient(135deg,#4F46E5,#818CF8)',
+    desc: 'ذكاء اصطناعي رخيص وممتاز للدارجة والعربية — 90% أرخص من OpenAI',
+    fields: [
+      { key: 'deepseekKey', label: 'API Key', ph: 'sk-...', help: 'من platform.deepseek.com/api-keys', secret: true },
+    ],
+    guide: ['اذهب لـ platform.deepseek.com', 'سجل بحسابك', 'اذهب لـ API Keys', 'أنشئ مفتاحاً وانسخه هنا'],
+    url: 'https://platform.deepseek.com/api-keys',
+  },
+  {
+    id: 'openai', name: 'OpenAI (GPT)', icon: '🧠', grad: 'linear-gradient(135deg,#10b981,#059669)',
+    desc: 'GPT-4o — الردود الذكية وتوليد الصور',
+    fields: [
+      { key: 'apiKey', label: 'API Key', ph: 'sk-proj-...', help: 'من platform.openai.com/api-keys', secret: true },
+    ],
+    guide: ['سجل على platform.openai.com', 'اذهب لـ API Keys', 'أنشئ مفتاحاً جديداً', 'انسخه هنا'],
+    url: 'https://platform.openai.com/api-keys',
+  },
+  {
+    id: 'grok', name: 'Grok (xAI)', icon: '🚀', grad: 'linear-gradient(135deg,#000000,#333333)',
+    desc: 'تحليلات متقدمة وكشف احتيال — مجاني حالياً',
+    fields: [
+      { key: 'grokKey', label: 'API Key', ph: 'xai-...', help: 'من console.x.ai', secret: true },
+    ],
+    guide: ['اذهب لـ console.x.ai', 'سجل بحساب X', 'اذهب لـ API Keys', 'أنشئ مفتاحاً وانسخه هنا'],
+    url: 'https://console.x.ai',
+  },
+  {
+    id: 'claude', name: 'Claude (Anthropic)', icon: '🧠', grad: 'linear-gradient(135deg,#D4A853,#F0C978)',
+    desc: 'تحليل عميق وكتابة طويلة — أمان عالي',
+    fields: [
+      { key: 'claudeKey', label: 'API Key', ph: 'sk-ant-...', help: 'من console.anthropic.com', secret: true },
+    ],
+    guide: ['اذهب لـ console.anthropic.com', 'سجل بحسابك', 'اذهب لـ API Keys', 'أنشئ مفتاحاً وانسخه هنا'],
+    url: 'https://console.anthropic.com/settings/keys',
+  },
+  {
+    id: 'mistral', name: 'Mistral AI', icon: '🌬️', grad: 'linear-gradient(135deg,#F59E0B,#FBBF24)',
+    desc: 'نموذج مفتوح المصدر — مجاني وسريع',
+    fields: [
+      { key: 'mistralKey', label: 'API Key', ph: '...', help: 'من console.mistral.ai', secret: true },
+    ],
+    guide: ['اذهب لـ console.mistral.ai', 'سجل بحسابك', 'اذهب لـ API Keys', 'أنشئ مفتاحاً وانسخه هنا'],
+    url: 'https://console.mistral.ai/api-keys',
+  },
+
+  // ═══════════════════ التخزين والبنية ═══════════════════
+  {
+    id: 'cloudinary', name: 'Cloudinary', icon: '☁️', grad: 'linear-gradient(135deg,#3448c5,#6875f5)',
+    desc: 'رفع وتخزين الصور تلقائياً — CDN عالمي',
     fields: [
       { key: 'cloudinaryCloudName', label: 'Cloud Name', ph: 'my-store', help: 'من Dashboard → Cloud Name', direct: true },
       { key: 'cloudinaryApiKey', label: 'API Key', ph: '123456789012345', help: 'من Settings → Access Keys', direct: true },
@@ -102,18 +162,101 @@ const SERVICES = [
     guide: ['سجل على cloudinary.com', 'اذهب لـ Dashboard', 'انسخ Cloud Name', 'من Settings → Access Keys انسخ API Key و Secret'],
     url: 'https://cloudinary.com',
   },
+  {
+    id: 'supabase', name: 'Supabase', icon: '⚡', grad: 'linear-gradient(135deg,#3ecf8e,#1a7a4c)',
+    desc: 'قاعدة بيانات سحابية — نسخة احتياطية تلقائية',
+    fields: [
+      { key: 'supabaseUrl', label: 'Project URL', ph: 'https://xxxx.supabase.co', help: 'من Settings → API في مشروعك', direct: true },
+      { key: 'supabaseKey', label: 'Anon Key', ph: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...', help: 'المفتاح العام (anon/public)', secret: true, direct: true },
+    ],
+    guide: ['اذهب لـ supabase.com وأنشئ مشروعاً', 'اذهب لـ Settings → API', 'انسخ Project URL', 'انسخ anon public key'],
+    url: 'https://supabase.com',
+  },
+  {
+    id: 'redis', name: 'Redis', icon: '⚡', grad: 'linear-gradient(135deg,#DC2626,#EF4444)',
+    desc: 'كاش سريع لتسريع التطبيق — 30MB مجاناً',
+    fields: [
+      { key: 'redisUrl', label: 'Redis URL', ph: 'redis://...', help: 'من redislabs.com → Database', direct: true },
+      { key: 'redisPassword', label: 'Password', ph: '...', help: 'من redislabs.com → Database', secret: true, direct: true },
+    ],
+    guide: ['سجل على redislabs.com', 'أنشئ قاعدة بيانات مجانية', 'انسخ Redis URL', 'انسخ كلمة المرور'],
+    url: 'https://app.redislabs.com',
+  },
+
+  // ═══════════════════ التسويق والتوصيل ═══════════════════
+  {
+    id: 'brevo', name: 'Brevo (Sendinblue)', icon: '📧', grad: 'linear-gradient(135deg,#0EA5E9,#38BDF8)',
+    desc: 'حملات بريدية — 300 إيميل يومياً مجاناً',
+    fields: [
+      { key: 'apiKey', label: 'API Key', ph: 'xkeysib-...', help: 'من brevo.com → Settings → API Keys', secret: true, direct: true },
+    ],
+    guide: ['سجل على brevo.com', 'اذهب لـ Settings → API Keys', 'أنشئ مفتاحاً جديداً', 'انسخه هنا'],
+    url: 'https://app.brevo.com/settings/keys/api',
+  },
+  {
+    id: 'aftership', name: 'AfterShip', icon: '📦', grad: 'linear-gradient(135deg,#6366F1,#818CF8)',
+    desc: 'تتبع الشحنات — 50 تتبع شهرياً مجاناً',
+    fields: [
+      { key: 'apiKey', label: 'API Key', ph: 'as-...', help: 'من aftership.com → Settings → API', secret: true, direct: true },
+    ],
+    guide: ['سجل على aftership.com', 'اذهب لـ Settings → API', 'أنشئ مفتاحاً جديداً', 'انسخه هنا'],
+    url: 'https://www.aftership.com/apps/api',
+  },
+
+  // ═══════════════════ الأمان والتحليلات ═══════════════════
+  {
+    id: 'hcaptcha', name: 'hCaptcha', icon: '🛡️', grad: 'linear-gradient(135deg,#8B5CF6,#A78BFA)',
+    desc: 'حماية من البوتات — 1M طلب شهرياً مجاناً',
+    fields: [
+      { key: 'siteKey', label: 'Site Key', ph: '10000000-ffff-ffff-ffff-000000000000', help: 'من dashboard.hcaptcha.com', direct: true },
+      { key: 'secretKey', label: 'Secret Key', ph: '0x...', help: 'من dashboard.hcaptcha.com', secret: true, direct: true },
+    ],
+    guide: ['سجل على hcaptcha.com', 'أنشئ موقعاً جديداً', 'انسخ Site Key', 'انسخ Secret Key'],
+    url: 'https://dashboard.hcaptcha.com',
+  },
+  {
+    id: 'plausible', name: 'Plausible Analytics', icon: '📊', grad: 'linear-gradient(135deg,#10B981,#34D399)',
+    desc: 'تحليلات بسيطة بدون انتهاك خصوصية الزوار',
+    fields: [
+      { key: 'siteId', label: 'Site ID', ph: 'example.com', help: 'من plausible.io → Settings', direct: true },
+      { key: 'apiKey', label: 'API Key', ph: '...', help: 'من plausible.io → Settings → API', secret: true, direct: true },
+    ],
+    guide: ['سجل على plausible.io', 'أضف موقعك', 'انسخ Site ID', 'اذهب لـ Settings → API وانسخ المفتاح'],
+    url: 'https://plausible.io/settings',
+  },
+
+  // ═══════════════════ الصور والوسائط ═══════════════════
+  {
+    id: 'removebg', name: 'Remove.bg', icon: '✂️', grad: 'linear-gradient(135deg,#EF4444,#F87171)',
+    desc: 'إزالة خلفية الصور — 50 صورة مجاناً شهرياً',
+    fields: [
+      { key: 'apiKey', label: 'API Key', ph: '...', help: 'من remove.bg/api', secret: true, direct: true },
+    ],
+    guide: ['سجل على remove.bg/api', 'اذهب لـ API Keys', 'انسخ المفتاح'],
+    url: 'https://www.remove.bg/api',
+  },
+  {
+    id: 'unsplash', name: 'Unsplash', icon: '🖼️', grad: 'linear-gradient(135deg,#000000,#333333)',
+    desc: 'صور احترافية مجانية للمنتجات والإعلانات',
+    fields: [
+      { key: 'accessKey', label: 'Access Key', ph: '...', help: 'من unsplash.com/developers', direct: true },
+      { key: 'secretKey', label: 'Secret Key', ph: '...', help: 'من unsplash.com/developers', secret: true, direct: true },
+    ],
+    guide: ['سجل على unsplash.com/developers', 'أنشئ تطبيقاً جديداً', 'انسخ Access Key و Secret Key'],
+    url: 'https://unsplash.com/developers',
+  },
+  {
+    id: 'tinypng', name: 'TinyPNG', icon: '🗜️', grad: 'linear-gradient(135deg,#34D399,#6EE7B7)',
+    desc: 'ضغط الصور — 500 صورة مجاناً شهرياً',
+    fields: [
+      { key: 'apiKey', label: 'API Key', ph: '...', help: 'من tinypng.com/developers', secret: true, direct: true },
+    ],
+    guide: ['سجل على tinypng.com/developers', 'اذهب لـ API', 'انسخ المفتاح'],
+    url: 'https://tinypng.com/developers',
+  },
 ];
 
-// Service IDs that store directly in settings (not in settings.social)
-const DIRECT_FIELDS = new Set(['supabase', 'cloudinary']);
-
-const FIELD_KEY_MAP: Record<string, string> = {
-  'supabase.supabaseUrl': 'supabaseUrl',
-  'supabase.supabaseKey': 'supabaseKey',
-  'cloudinary.cloudinaryCloudName': 'cloudinaryCloudName',
-  'cloudinary.cloudinaryApiKey': 'cloudinaryApiKey',
-  'cloudinary.cloudinaryApiSecret': 'cloudinaryApiSecret',
-};
+const DIRECT_FIELDS = new Set(['supabase', 'cloudinary', 'hcaptcha', 'plausible', 'removebg', 'unsplash', 'tinypng', 'redis', 'brevo', 'aftership']);
 
 export default function ConnectionsPage() {
   const { settings, updateSettings, notify } = useStore();
@@ -136,11 +279,23 @@ export default function ConnectionsPage() {
   }, []);
 
   const stored = (id: string, key: string): string => {
-    if (id === 'openai') return settings.ai.apiKey || '';
-    if (id === 'gemini') return settings.ai.geminiKey || '';
+    if (id === 'openai') return settings.ai?.apiKey || '';
+    if (id === 'gemini') return settings.ai?.geminiKey || '';
+    if (id === 'deepseek') return (settings.ai as any)?.deepseekKey || '';
+    if (id === 'grok') return (settings.ai as any)?.grokKey || '';
+    if (id === 'claude') return (settings.ai as any)?.claudeKey || '';
+    if (id === 'mistral') return (settings.ai as any)?.mistralKey || '';
     if (id === 'supabase') return (settings as any)[key] || '';
     if (id === 'cloudinary') return (settings as any)[key] || '';
-    const s = settings.social[id as keyof typeof settings.social];
+    if (id === 'hcaptcha') return (settings as any)[key] || '';
+    if (id === 'plausible') return (settings as any)[key] || '';
+    if (id === 'removebg') return (settings as any)[key] || '';
+    if (id === 'unsplash') return (settings as any)[key] || '';
+    if (id === 'tinypng') return (settings as any)[key] || '';
+    if (id === 'redis') return (settings as any)[key] || '';
+    if (id === 'brevo') return (settings as any)[key] || '';
+    if (id === 'aftership') return (settings as any)[key] || '';
+    const s = settings.social?.[id as keyof typeof settings.social];
     return !s ? '' : key === 'pageId' || key === 'phoneId' ? (s.pageId || '') : key === 'advertiserId' ? ((s as any).advertiserId || '') : (s.accessToken || '');
   };
 
@@ -148,17 +303,29 @@ export default function ConnectionsPage() {
   const setVal = (id: string, k: string, v: string) => setValues(p => ({ ...p, [id]: { ...(p[id] || {}), [k]: v } }));
 
   const isConnected = (id: string) => {
-    if (id === 'openai') return !!settings.ai.apiKey;
-    if (id === 'gemini') return !!settings.ai.geminiKey;
+    if (id === 'openai') return !!settings.ai?.apiKey;
+    if (id === 'gemini') return !!settings.ai?.geminiKey;
+    if (id === 'deepseek') return !!(settings.ai as any)?.deepseekKey;
+    if (id === 'grok') return !!(settings.ai as any)?.grokKey;
+    if (id === 'claude') return !!(settings.ai as any)?.claudeKey;
+    if (id === 'mistral') return !!(settings.ai as any)?.mistralKey;
     if (id === 'supabase') return !!(settings as any).supabaseUrl && !!(settings as any).supabaseKey;
     if (id === 'cloudinary') return !!(settings as any).cloudinaryCloudName && !!(settings as any).cloudinaryApiKey;
+    if (id === 'hcaptcha') return !!(settings as any).siteKey && !!(settings as any).secretKey;
+    if (id === 'plausible') return !!(settings as any).siteId && !!(settings as any).apiKey;
+    if (id === 'removebg') return !!(settings as any).apiKey;
+    if (id === 'unsplash') return !!(settings as any).accessKey;
+    if (id === 'tinypng') return !!(settings as any).apiKey;
+    if (id === 'redis') return !!(settings as any).redisUrl;
+    if (id === 'brevo') return !!(settings as any).apiKey;
+    if (id === 'aftership') return !!(settings as any).apiKey;
     if (id === 'whatsapp') return !!(settings.social?.whatsapp?.connected);
-    return settings.social[id as keyof typeof settings.social]?.connected || false;
+    return settings.social?.[id as keyof typeof settings.social]?.connected || false;
   };
 
   const isServerManaged = (id: string) => {
-    if (id === 'openai') return !!serverConfig.openai && !settings.ai.apiKey;
-    if (id === 'gemini') return !!serverConfig.gemini && !settings.ai.geminiKey;
+    if (id === 'openai') return !!serverConfig.openai && !settings.ai?.apiKey;
+    if (id === 'gemini') return !!serverConfig.gemini && !settings.ai?.geminiKey;
     if (id === 'supabase') return !!serverConfig.supabase && !(settings as any).supabaseUrl;
     if (id === 'cloudinary') return !!serverConfig.cloudinary && !(settings as any).cloudinaryCloudName;
     if (id === 'whatsapp') return !!serverConfig.whatsapp && !settings.social?.whatsapp?.connected;
@@ -195,6 +362,32 @@ export default function ConnectionsPage() {
         if (ok) { updateSettings('ai', { ...settings.ai, geminiKey: val('gemini', 'geminiKey'), provider: 'gemini' }); notify('success', `✅ Gemini متصل! ${d.info || ''}`); }
         else notify('error', `❌ مفتاح Gemini غير صحيح: ${d.error}`);
 
+      } else if (svc.id === 'deepseek') {
+        const r = await fetch('/api/settings/verify-connection', {
+          method: 'POST', signal: AbortSignal.timeout(12000),
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
+          body: JSON.stringify({ service: 'deepseek', apiKey: val('deepseek', 'deepseekKey') }),
+        });
+        const d = await r.json();
+        ok = d.ok;
+        if (ok) { updateSettings('ai', { ...settings.ai, deepseekKey: val('deepseek', 'deepseekKey') }); notify('success', `✅ DeepSeek متصل! ${d.info || ''}`); }
+        else notify('error', `❌ مفتاح DeepSeek غير صحيح: ${d.error}`);
+
+      } else if (svc.id === 'grok') {
+        updateSettings('ai', { ...settings.ai, grokKey: val('grok', 'grokKey') });
+        notify('success', '✅ تم حفظ مفتاح Grok!');
+        ok = true;
+
+      } else if (svc.id === 'claude') {
+        updateSettings('ai', { ...settings.ai, claudeKey: val('claude', 'claudeKey') });
+        notify('success', '✅ تم حفظ مفتاح Claude!');
+        ok = true;
+
+      } else if (svc.id === 'mistral') {
+        updateSettings('ai', { ...settings.ai, mistralKey: val('mistral', 'mistralKey') });
+        notify('success', '✅ تم حفظ مفتاح Mistral!');
+        ok = true;
+
       } else if (svc.id === 'supabase') {
         const url = val('supabase', 'supabaseUrl');
         const key = val('supabase', 'supabaseKey');
@@ -214,7 +407,6 @@ export default function ConnectionsPage() {
         const ak = val('cloudinary', 'cloudinaryApiKey');
         const as_ = val('cloudinary', 'cloudinaryApiSecret');
         try {
-          const auth64 = btoa(`${ak}:${as_}`);
           const r = await fetch(`/api/settings/verify-connection`, {
             method: 'POST', signal: AbortSignal.timeout(10000),
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
@@ -230,6 +422,16 @@ export default function ConnectionsPage() {
           notify('success', '✅ Cloudinary متصل!');
         } else notify('error', '❌ بيانات Cloudinary غير صحيحة');
 
+      } else if (DIRECT_FIELDS.has(svc.id)) {
+        // Pour toutes les autres services directes (brevo, aftership, hcaptcha, etc.)
+        const data: Record<string, string> = {};
+        svc.fields.forEach(f => { data[f.key] = val(svc.id, f.key); });
+        svc.fields.forEach(f => {
+          updateSettings(f.key as any, val(svc.id, f.key));
+        });
+        notify('success', `✅ تم حفظ إعدادات ${svc.name}!`);
+        ok = true;
+
       } else {
         const token2 = val(svc.id, 'accessToken');
         const pageId = val(svc.id, 'pageId') || val(svc.id, 'phoneId') || '';
@@ -241,7 +443,7 @@ export default function ConnectionsPage() {
         const d = await r.json();
         ok = d.ok;
         if (ok) {
-          updateSettings('social', { ...settings.social, [svc.id]: { ...settings.social[svc.id as keyof typeof settings.social], connected: true, pageId, accessToken: token2, name: d.name || svc.name } });
+          updateSettings('social', { ...settings.social, [svc.id]: { ...settings.social?.[svc.id as keyof typeof settings.social], connected: true, pageId, accessToken: token2, name: d.name || svc.name } });
           notify('success', `✅ ${svc.name} متصل${d.name ? ` — ${d.name}` : ''}!`);
         } else {
           notify('error', `❌ ${svc.name}: ${d.error || 'Token غير صحيح'}`);
@@ -254,9 +456,16 @@ export default function ConnectionsPage() {
   const disconnect = (svc: typeof SERVICES[0]) => {
     if (svc.id === 'openai') updateSettings('ai', { ...settings.ai, apiKey: '' });
     else if (svc.id === 'gemini') updateSettings('ai', { ...settings.ai, geminiKey: '' });
+    else if (svc.id === 'deepseek') updateSettings('ai', { ...settings.ai, deepseekKey: '' });
+    else if (svc.id === 'grok') updateSettings('ai', { ...settings.ai, grokKey: '' });
+    else if (svc.id === 'claude') updateSettings('ai', { ...settings.ai, claudeKey: '' });
+    else if (svc.id === 'mistral') updateSettings('ai', { ...settings.ai, mistralKey: '' });
     else if (svc.id === 'supabase') { updateSettings('supabaseUrl' as any, ''); updateSettings('supabaseKey' as any, ''); }
     else if (svc.id === 'cloudinary') { updateSettings('cloudinaryCloudName' as any, ''); updateSettings('cloudinaryApiKey' as any, ''); updateSettings('cloudinaryApiSecret' as any, ''); }
-    else updateSettings('social', { ...settings.social, [svc.id]: { ...settings.social[svc.id as keyof typeof settings.social], connected: false, pageId: '', accessToken: '' } });
+    else if (DIRECT_FIELDS.has(svc.id)) {
+      svc.fields.forEach(f => updateSettings(f.key as any, ''));
+    }
+    else updateSettings('social', { ...settings.social, [svc.id]: { ...settings.social?.[svc.id as keyof typeof settings.social], connected: false, pageId: '', accessToken: '' } });
     setTestResults(p => ({ ...p, [svc.id]: null }));
     notify('warning', `🔌 تم قطع الاتصال بـ ${svc.name}`);
   };
@@ -289,9 +498,7 @@ export default function ConnectionsPage() {
       const ok = Object.values(results).filter((v: any) => v?.ok).length;
       const total = Object.keys(results).length;
       notify(ok === total ? 'success' : 'warning', `${ok === total ? '✅' : '⚠️'} ${ok}/${total} اتصالات تعمل`);
-    } catch (e: any) {
-      notify('error', `❌ خطأ في الاختبار: ${e.message}`);
-    }
+    } catch (e: any) { notify('error', `❌ خطأ في الاختبار: ${e.message}`); }
     setTestingAll(false);
   };
 
@@ -300,21 +507,19 @@ export default function ConnectionsPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div>
-        <h1 className="page-title">ربط الخدمات</h1>
-        <p className="page-sub">اربط حساباتك مرة واحدة — النظام يتكفل بالباقي</p>
+        <h1 className="page-title">🔑 ربط الخدمات</h1>
+        <p className="page-sub">اربط حساباتك مرة واحدة — النظام يتكفل بالباقي. جميع الخدمات مجانية أو رخيصة جداً.</p>
       </div>
 
-      {/* دليل المبتدئين: من أين أبدأ؟ */}
       <div style={{ padding: '14px 16px', borderRadius: 'var(--r)', background: 'rgba(0,210,179,0.07)', border: '1px solid rgba(0,210,179,0.2)', fontSize: 12.5, color: 'var(--ink2)', lineHeight: 1.8 }}>
         <b style={{ color: 'var(--mint)' }}>🧭 جديد هنا؟ لست مضطراً لربط كل شيء!</b><br/>
-        ابدأ بخدمة واحدة فقط: <b style={{ color: 'var(--ink1)' }}>Google Gemini</b> — مجانية تماماً وتُفعّل الذكاء الاصطناعي كاملاً (الردود، الأوصاف، الهاشتاغ) في دقيقتين بحساب Google عادي.
-        كل بطاقة بالأسفل فيها شرح <b style={{ color: 'var(--ink1)' }}>«ما هذه الخدمة؟»</b> وخطوات مرقمة ورابط مباشر للموقع الرسمي. الخدمات الأخرى أضفها لاحقاً عند الحاجة.
+        ابدأ بخدمتين فقط: <b style={{ color: 'var(--ink1)' }}>Google Gemini</b> (مجاني — يفعّل الذكاء الاصطناعي) و <b style={{ color: 'var(--ink1)' }}>Cloudinary</b> (مجاني — لتخزين الصور).
+        كل بطاقة بالأسفل فيها شرح وخطوات مرقمة ورابط مباشر.
       </div>
 
-      {/* Progress + Test All */}
       <div className="card" style={{ padding: '18px 20px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-          <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--txt-1)' }}>حالة الاتصالات</span>
+          <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--txt-1)' }}>📊 حالة الاتصالات</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ fontSize: 14, fontWeight: 900, color: connected === SERVICES.length ? '#34d399' : 'var(--clr-warn)' }}>{connected}/{SERVICES.length}</span>
             <button onClick={testAll} disabled={testingAll || connected === 0} className="btn btn-ghost btn-sm" style={{ gap: 6, opacity: connected === 0 ? 0.4 : 1 }}>
@@ -324,10 +529,9 @@ export default function ConnectionsPage() {
           </div>
         </div>
         <div className="progress-bar"><div className="progress-fill" style={{ width: `${(connected / SERVICES.length) * 100}%` }} /></div>
-        {connected === 0 && <p style={{ fontSize: 12, color: 'var(--txt-3)', marginTop: 8, textAlign: 'center' }}>التطبيق يعمل بمحاكاة ذكية بدون ربط — الربط للنشر الحقيقي فقط</p>}
+        {connected === 0 && <p style={{ fontSize: 12, color: 'var(--txt-3)', marginTop: 8, textAlign: 'center' }}>التطبيق يعمل بمحاكاة ذكية بدون ربط — الربط للخدمات الحقيقية فقط</p>}
       </div>
 
-      {/* Services */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {SERVICES.map(svc => {
           const conn = isConnected(svc.id);
@@ -335,7 +539,6 @@ export default function ConnectionsPage() {
           const testResult = testResults[svc.id];
           return (
             <div key={svc.id} className="card" style={{ overflow: 'hidden', borderColor: conn ? (testResult === null ? 'var(--border)' : testResult?.ok ? 'rgba(16,185,129,0.25)' : 'rgba(239,68,68,0.25)') : conn ? 'rgba(16,185,129,0.25)' : undefined }}>
-              {/* Header */}
               <div onClick={() => setExpanded(open ? null : svc.id)}
                 style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '16px 18px', cursor: 'pointer', transition: 'background .18s' }}
                 onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.03)')}
@@ -359,7 +562,6 @@ export default function ConnectionsPage() {
                     )}
                   </div>
                   <p style={{ fontSize: 12.5, color: 'var(--txt-3)', marginTop: 2 }}>{svc.desc}</p>
-                  {/* What this enables */}
                   {conn && ENABLES[svc.id] && (
                     <div style={{ display:'flex', flexWrap:'wrap', gap:4, marginTop:4 }}>
                       {ENABLES[svc.id].map(e => (
@@ -385,19 +587,14 @@ export default function ConnectionsPage() {
                 </div>
               </div>
 
-              {/* Body */}
               {open && (
                 <div className="anim-fade-in" style={{ borderTop: '1px solid var(--clr-border)', padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-                  {/* Server-managed badge */}
                   {isServerManaged(svc.id) && (
                     <div style={{ padding:'10px 14px', borderRadius:10, background:'rgba(99,102,241,.07)', border:'1px solid rgba(99,102,241,.2)', display:'flex', alignItems:'center', gap:8 }}>
                       <span style={{ fontSize:16 }}>🔒</span>
-                      <p style={{ fontSize:12, color:'#c4b5fd' }}>
-                        هذه الخدمة مُفعَّلة عبر متغيرات بيئة Railway — لا حاجة لإدخال البيانات يدوياً.
-                      </p>
+                      <p style={{ fontSize:12, color:'#c4b5fd' }}>هذه الخدمة مُفعَّلة عبر متغيرات بيئة Railway — لا حاجة لإدخال البيانات يدوياً.</p>
                     </div>
                   )}
-                  {/* What this enables — shown at top of expanded body when not connected */}
                   {!conn && ENABLES[svc.id] && (
                     <div style={{ padding:'12px 14px', borderRadius:10, background:'rgba(255,106,0,.06)', border:'1px solid rgba(255,106,0,.18)' }}>
                       <p style={{ fontSize:12, fontWeight:800, color:'var(--ember)', marginBottom:8 }}>🔓 بعد الربط يمكنك:</p>
@@ -410,7 +607,6 @@ export default function ConnectionsPage() {
                       </div>
                     </div>
                   )}
-                  {/* ما هذه الخدمة؟ — شرح بلغة بسيطة قبل الخطوات التقنية */}
                   {!conn && WHAT_IS[svc.id] && (
                     <div style={{ padding: '12px 14px', borderRadius: 10, background: 'rgba(0,210,179,0.06)', border: '1px solid rgba(0,210,179,0.18)' }}>
                       <p style={{ fontSize: 12, fontWeight: 800, color: 'var(--mint)', marginBottom: 6 }}>
@@ -419,10 +615,9 @@ export default function ConnectionsPage() {
                       <p style={{ fontSize: 12, color: 'var(--ink2)', lineHeight: 1.8 }}>{WHAT_IS[svc.id]}</p>
                     </div>
                   )}
-                  {/* Guide */}
                   <div style={{ padding: '14px 16px', borderRadius: 12, background: 'rgba(99,102,241,0.07)', border: '1px solid rgba(99,102,241,0.18)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                      <p style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--clr-pri-h)' }}>كيف تحصل على هذه المعلومات؟ — خطوة بخطوة</p>
+                      <p style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--clr-pri-h)' }}>📋 كيف تحصل على هذه المعلومات؟</p>
                       <a href={svc.url} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--clr-pri-h)', textDecoration: 'none', fontWeight: 700 }}>
                         الدليل الرسمي <ExternalLink size={12} />
                       </a>
@@ -437,7 +632,6 @@ export default function ConnectionsPage() {
                     </ol>
                   </div>
 
-                  {/* Fields */}
                   {svc.fields.map(f => {
                     const vk = `${svc.id}-${f.key}`;
                     return (
@@ -463,26 +657,13 @@ export default function ConnectionsPage() {
                     {loading[svc.id] ? <><Loader2 size={15} className="spin" /> جارٍ التحقق...</> : conn ? <><RefreshCw size={15} /> إعادة اختبار</> : <><Wifi size={15} /> اتصال وتحقق</>}
                   </button>
 
-                  {/* WhatsApp: send real test message */}
                   {svc.id === 'whatsapp' && conn && (
                     <div style={{ padding: '14px 16px', borderRadius: 12, background: 'rgba(37,211,102,.07)', border: '1px solid rgba(37,211,102,.2)', display: 'flex', flexDirection: 'column', gap: 10 }}>
                       <p style={{ fontSize: 12.5, fontWeight: 800, color: '#25d366' }}>📲 اختبار الإرسال الحقيقي</p>
                       <p style={{ fontSize: 11.5, color: 'var(--txt-3)' }}>أدخل رقمك لإرسال رسالة اختبار حقيقية عبر WhatsApp Business</p>
                       <div style={{ display: 'flex', gap: 8 }}>
-                        <input
-                          className="input"
-                          style={{ flex: 1, fontFamily: 'monospace', fontSize: 13 }}
-                          placeholder="212612265893"
-                          value={waTestPhone}
-                          onChange={e => setWaTestPhone(e.target.value)}
-                          dir="ltr"
-                        />
-                        <button
-                          onClick={sendWhatsAppTest}
-                          disabled={waTestLoading}
-                          className="btn btn-ghost btn-sm"
-                          style={{ whiteSpace: 'nowrap', borderColor: 'rgba(37,211,102,.35)', color: '#25d366' }}
-                        >
+                        <input className="input" style={{ flex: 1, fontFamily: 'monospace', fontSize: 13 }} placeholder="212612265893" value={waTestPhone} onChange={e => setWaTestPhone(e.target.value)} dir="ltr" />
+                        <button onClick={sendWhatsAppTest} disabled={waTestLoading} className="btn btn-ghost btn-sm" style={{ whiteSpace: 'nowrap', borderColor: 'rgba(37,211,102,.35)', color: '#25d366' }}>
                           {waTestLoading ? <Loader2 size={13} className="spin" /> : '📤 إرسال'}
                         </button>
                       </div>
@@ -495,12 +676,11 @@ export default function ConnectionsPage() {
         })}
       </div>
 
-      {/* Security note */}
       <div className="card" style={{ padding: '14px 18px', display: 'flex', alignItems: 'flex-start', gap: 12, borderColor: 'rgba(245,158,11,0.22)', background: 'rgba(245,158,11,0.04)' }}>
         <AlertTriangle size={18} color="#fbbf24" style={{ flexShrink: 0, marginTop: 1 }} />
         <div>
           <p style={{ fontSize: 13, fontWeight: 800, color: '#fbbf24', marginBottom: 3 }}>ملاحظة أمنية</p>
-          <p style={{ fontSize: 12, color: 'var(--txt-3)', lineHeight: 1.6 }}>المفاتيح تُحفظ في متصفحك وترسل للخادم المحلي. لا تشاركها مع أحد. للاستخدام الاحترافي يُنصح بـ Backend + تشفير قاعدة البيانات.</p>
+          <p style={{ fontSize: 12, color: 'var(--txt-3)', lineHeight: 1.6 }}>المفاتيح تُحفظ مشفرة في متصفحك. لا تشاركها مع أحد. جميع الخدمات لها خطط مجانية — لن تدفع شيئاً ما لم تتجاوز الحدود.</p>
         </div>
       </div>
     </div>
