@@ -349,6 +349,7 @@ function ProductCard({p,onAdd,onView,currency}:{p:SProduct;onAdd:(p:SProduct)=>v
   const isNew=p.createdAt&&(Date.now()-new Date(p.createdAt).getTime()<7*24*60*60*1000);
   const discount=p.cost&&p.cost>p.price?Math.round((1-p.price/p.cost)*100):0;
   const rating=p.sales>20?5:p.sales>10?4:p.sales>3?4:3;
+  const madeInMA=p.customFields?.some(f=>f.type==='boolean'&&f.value==='true'&&f.label.includes('صنع في المغرب'));
 
   const toggleLike=(e:React.MouseEvent)=>{
     e.stopPropagation();
@@ -436,6 +437,11 @@ function ProductCard({p,onAdd,onView,currency}:{p:SProduct;onAdd:(p:SProduct)=>v
           {p.stock===0&&(
             <span style={{background:'rgba(255,255,255,0.06)',backdropFilter:'blur(8px)',color:DS.textTertiary,fontSize:10,fontWeight:700,padding:'4px 10px',borderRadius:DS.radiusFull,border:DS.glassBorder}}>
               نفذ
+            </span>
+          )}
+          {madeInMA&&(
+            <span style={{background:'rgba(34,197,94,0.2)',backdropFilter:'blur(8px)',color:'#22C55E',fontSize:10,fontWeight:700,padding:'4px 10px',borderRadius:DS.radiusFull,border:'1px solid rgba(34,197,94,0.3)'}}>
+              🇲🇦 صنع في المغرب
             </span>
           )}
         </div>
@@ -854,17 +860,52 @@ function ProductModal({p,cart,onClose,currency,userId}:{p:SProduct;cart:ReturnTy
             )}
           </div>
 
-          {/* Custom fields */}
-          {p.customFields&&p.customFields.filter(f=>f.value).length>0&&(
-            <div style={{marginBottom:16,padding:'12px 14px',background:DS.glassBg,borderRadius:DS.radiusMd,border:DS.glassBorder,display:'flex',flexDirection:'column',gap:6}}>
-              {p.customFields.filter(f=>f.value).map(f=>(
-                <div key={f.id} style={{display:'flex',justifyContent:'space-between',fontSize:12}}>
-                  <span style={{color:DS.textTertiary}}>{f.label}</span>
-                  <span style={{color:DS.textPrimary,fontWeight:600}}>{f.value}</span>
-                </div>
-              ))}
-            </div>
-          )}
+          {/* Custom fields — شارات + مواصفات + نصوص طويلة */}
+          {(()=>{
+            const cfs=(p.customFields||[]).filter(f=>f.value&&!(f.type==='boolean'&&f.value!=='true'));
+            if(!cfs.length)return null;
+            const badges=cfs.filter(f=>f.type==='boolean');
+            const longs=cfs.filter(f=>f.type==='textarea');
+            const specs=cfs.filter(f=>f.type!=='boolean'&&f.type!=='textarea');
+            return (
+              <div style={{marginBottom:16,display:'flex',flexDirection:'column',gap:8}}>
+                {badges.length>0&&(
+                  <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                    {badges.map(f=>(
+                      <span key={f.id} style={{display:'flex',alignItems:'center',gap:5,fontSize:11,fontWeight:600,color:'#22C55E',background:'rgba(34,197,94,0.12)',border:'1px solid rgba(34,197,94,0.3)',padding:'5px 12px',borderRadius:DS.radiusFull}}>
+                        <Check size={10}/>{f.label}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {specs.length>0&&(
+                  <div style={{padding:'12px 14px',background:DS.glassBg,borderRadius:DS.radiusMd,border:DS.glassBorder}}>
+                    <div style={{fontSize:10,color:DS.textTertiary,fontWeight:700,letterSpacing:'.06em',marginBottom:8}}>{p.type==='service'?'تفاصيل الخدمة':'تفاصيل المنتج'}</div>
+                    <div style={{display:'flex',flexDirection:'column',gap:6}}>
+                      {specs.map(f=>(
+                        <div key={f.id} style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:10,fontSize:12}}>
+                          <span style={{color:DS.textTertiary,flexShrink:0}}>{f.label}</span>
+                          {f.type==='multiselect'
+                            ?<span style={{display:'flex',gap:4,flexWrap:'wrap',justifyContent:'flex-end'}}>
+                              {f.value.split('، ').filter(Boolean).map((v,i)=>(
+                                <span key={i} style={{fontSize:10,color:DS.textSecondary,background:DS.bgGlass,padding:'2px 9px',borderRadius:DS.radiusFull}}>{v}</span>
+                              ))}
+                            </span>
+                            :<span style={{color:DS.textPrimary,fontWeight:600,textAlign:'left'}}>{f.value}</span>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {longs.map(f=>(
+                  <div key={f.id} style={{padding:'12px 14px',background:DS.glassBg,borderRadius:DS.radiusMd,border:DS.glassBorder}}>
+                    <div style={{fontSize:10,color:DS.textTertiary,fontWeight:700,letterSpacing:'.06em',marginBottom:6}}>{f.label}</div>
+                    <p style={{fontSize:12,color:DS.textSecondary,lineHeight:1.7,margin:0,whiteSpace:'pre-wrap'}}>{f.value}</p>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
 
           {/* Service meta */}
           {p.type==='service'&&(p.duration||p.workArea)&&(

@@ -5,6 +5,10 @@ import {
   Sparkles, Share2, Camera, Image, Download, Palette, Eye,
 } from 'lucide-react';
 import type { Product, ProductStatus, CustomFieldDef, CustomFieldType } from '../types';
+import {
+  CATEGORY_FIELDS, MULTI_SEP, buildCategoryCustomFields, splitCustomFields,
+  missingRequiredCatFields, type CatFieldDef,
+} from '../data/categoryFields';
 
 // ── Category config ───────────────────────────────────────────
 
@@ -35,83 +39,45 @@ const CATS = [
 
 type CatId = typeof CATS[number]['id'];
 
+// الحقول التفصيلية لكل فئة تأتي من الخريطة الكاملة في src/data/categoryFields.ts
 const CAT_CFG: Record<string, {
   emoji: string;
   sizes: string[];
   colors: string[];
-  fields: { id: string; label: string; options: string[] }[];
 }> = {
   men: {
     emoji: '👕',
     sizes: ['XS','S','M','L','XL','XXL','XXXL'],
     colors: ['أسود','أبيض','رمادي','كحلي','بيج','أزرق','أحمر','زيتي'],
-    fields: [
-      { id: 'fabric',  label: 'نوع القماش', options: ['قطن','جينز','صوف','كتان','بوليستر','حرير'] },
-      { id: 'season',  label: 'الموسم',      options: ['صيف','شتاء','ربيع/خريف','كل الفصول'] },
-      { id: 'subtype', label: 'نوع القطعة',  options: ['قميص','بنطال','جاكيت','تيشيرت','بوذي','سترة'] },
-    ],
   },
   women: {
     emoji: '👗',
     sizes: ['XS','S','M','L','XL','XXL'],
     colors: ['أسود','أبيض','وردي','أحمر','بيج','نبيتي','تركواز','بنفسجي'],
-    fields: [
-      { id: 'fabric',  label: 'نوع القماش', options: ['قطن','حرير','كريب','شيفون','جيرسي','قيفورة'] },
-      { id: 'season',  label: 'الموسم',      options: ['صيف','شتاء','ربيع/خريف','كل الفصول'] },
-      { id: 'subtype', label: 'نوع القطعة',  options: ['فستان','بلوزة','تيشيرت','بنطال','عباية','قفطان','تنورة'] },
-    ],
   },
   kids: {
     emoji: '🧒',
     sizes: ['0-6m','6-12m','1-2Y','2-4Y','4-6Y','6-8Y','8-10Y','10-12Y'],
     colors: ['أزرق','وردي','أصفر','أبيض','أحمر','أخضر','برتقالي'],
-    fields: [
-      { id: 'ageRange', label: 'الفئة العمرية', options: ['حديث الولادة','0-6 أشهر','6-12 شهر','1-3 سنوات','3-6 سنوات','6-12 سنة','12-16 سنة'] },
-      { id: 'gender',   label: 'الجنس',         options: ['ولد','بنت','للجنسين'] },
-    ],
   },
   shoes: {
     emoji: '👟',
     sizes: ['35','36','37','38','39','40','41','42','43','44','45','46'],
     colors: ['أسود','أبيض','رمادي','بني','بيج','أزرق'],
-    fields: [
-      { id: 'material', label: 'المادة',    options: ['جلد طبيعي','جلد صناعي','قماش','رياضي','مطاط'] },
-      { id: 'usage',    label: 'الاستخدام', options: ['رياضي','رسمي','يومي','كلاسيكي','كاجوال'] },
-    ],
   },
   access: {
     emoji: '👜',
     sizes: [],
     colors: ['أسود','بني','بيج','ذهبي','فضي','أحمر'],
-    fields: [
-      { id: 'subtype',  label: 'نوع الإكسسوار', options: ['حقيبة','ساعة','نظارات','مجوهرات','حزام','كاب','وشاح','محفظة'] },
-      { id: 'material', label: 'المادة',         options: ['جلد','معدن','ذهب','فضة','قماش'] },
-    ],
   },
   home: {
     emoji: '🏠',
     sizes: [],
     colors: ['أسود','أبيض','بيج','بني','رمادي','ذهبي'],
-    fields: [
-      { id: 'material', label: 'المادة',           options: ['خشب','معدن','زجاج','بلاستيك','سيراميك','نسيج'] },
-      { id: 'room',     label: 'الغرفة المناسبة',  options: ['غرفة نوم','صالون','مطبخ','حمام','مكتب'] },
-    ],
   },
-  other:   { emoji: '📦', sizes: [], colors: [], fields: [] },
-  service: {
-    emoji: '🔧', sizes: [], colors: [],
-    fields: [
-      { id: 'serviceType', label: 'نوع الخدمة', options: ['كهرباء','سباكة','نجارة','تصميم','تدريس','تنظيف','تصوير','برمجة','تسويق','أخرى'] },
-      { id: 'workArea',    label: 'منطقة العمل', options: ['الدار البيضاء','الرباط','مراكش','فاس','طنجة','أكادير','جميع المدن'] },
-    ],
-  },
-  digital: {
-    emoji: '💻', sizes: [], colors: [],
-    fields: [
-      { id: 'format',   label: 'صيغة الملف',  options: ['PDF','MP4','ZIP','MP3','صورة','أخرى'] },
-      { id: 'language', label: 'اللغة',        options: ['العربية','الفرنسية','الإنجليزية','دارجة','أمازيغية'] },
-    ],
-  },
+  other:   { emoji: '📦', sizes: [], colors: [] },
+  service: { emoji: '🔧', sizes: [], colors: [] },
+  digital: { emoji: '💻', sizes: [], colors: [] },
 };
 
 // ── Variant types ─────────────────────────────────────────────
@@ -120,9 +86,114 @@ type SizeStock = { name: string; stock: number };
 type ColorVariant = { id: string; color: string; hex: string; images: string[]; sizes: SizeStock[] };
 
 // ── Custom field helpers ──────────────────────────────────────
-const FIELD_TYPE_LABELS: Record<CustomFieldType, string> = {
+const FIELD_TYPE_LABELS: Record<string, string> = {
   text: '📝 نص', number: '🔢 رقم', select: '📋 قائمة', boolean: '✅ نعم/لا', color: '🎨 لون',
+  multiselect: '☑️ متعدد', textarea: '📄 نص طويل',
 };
+// الأنواع المتاحة عند إنشاء حقل يدوي (حقول الفئة تأتي جاهزة من الخريطة)
+const MANUAL_FIELD_TYPES: CustomFieldType[] = ['text', 'number', 'select', 'boolean', 'color'];
+
+// ── محرر حقول الفئة (الخريطة الكاملة) ─────────────────────────
+function CatFieldControl({ f, value, onChange }: { f: CatFieldDef; value: string; onChange: (v: string) => void }) {
+  if (f.type === 'select') return (
+    <select className="select" value={value} onChange={e => onChange(e.target.value)}>
+      <option value="">اختر...</option>
+      {(f.options || []).map(o => <option key={o} value={o}>{o}</option>)}
+    </select>
+  );
+  if (f.type === 'multiselect') {
+    const chosen = value ? value.split(MULTI_SEP).filter(Boolean) : [];
+    const toggle = (o: string) => {
+      const next = chosen.includes(o) ? chosen.filter(x => x !== o) : [...chosen, o];
+      onChange(next.join(MULTI_SEP));
+    };
+    return (
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+        {(f.options || []).map(o => (
+          <button key={o} type="button" onClick={() => toggle(o)}
+            className={`chip ${chosen.includes(o) ? 'active' : ''}`}
+            style={{ fontSize: 11 }}>
+            {o}
+          </button>
+        ))}
+      </div>
+    );
+  }
+  if (f.type === 'textarea') return (
+    <textarea className="textarea" rows={2} value={value} placeholder={f.placeholder || ''}
+      onChange={e => onChange(e.target.value)} style={{ resize: 'none', fontSize: 12 }} />
+  );
+  if (f.type === 'number') return (
+    <input className="input" type="number" value={value} placeholder={f.placeholder || '0'}
+      onChange={e => onChange(e.target.value)} />
+  );
+  if (f.type === 'boolean') return (
+    <label style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '8px 14px', background: 'var(--panel2)', borderRadius: 8, cursor: 'pointer' }}>
+      <input type="checkbox" checked={value === 'true'}
+        onChange={e => onChange(String(e.target.checked))}
+        style={{ width: 18, height: 18 }} />
+      <span style={{ fontSize: 13, color: 'var(--ink2)' }}>{value === 'true' ? 'نعم' : 'لا'}</span>
+    </label>
+  );
+  return (
+    <input className="input" value={value} placeholder={f.placeholder || `أدخل ${f.label}...`}
+      onChange={e => onChange(e.target.value)} />
+  );
+}
+
+function CatFieldsEditor({ catId, catLabel, values, onChange }: {
+  catId: string; catLabel: string;
+  values: Record<string, string>;
+  onChange: (id: string, v: string) => void;
+}) {
+  const defs = CATEGORY_FIELDS[catId] || [];
+  const [showAll, setShowAll] = useState(false);
+  if (defs.length === 0) return null;
+
+  const requiredDefs = defs.filter(f => f.required);
+  const optionalDefs = defs.filter(f => !f.required);
+  const filled = defs.filter(f => {
+    const v = (values[f.id] || '').trim();
+    return f.type === 'boolean' ? v === 'true' : !!v;
+  }).length;
+
+  const renderField = (f: CatFieldDef) => (
+    <div key={f.id}>
+      <label className="label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        {f.label}{f.required && <span style={{ color: 'var(--ember)' }}>*</span>}
+        {f.hint && <span style={{ fontSize: 9, fontWeight: 400, color: 'var(--ink3)' }}>({f.hint})</span>}
+      </label>
+      <CatFieldControl f={f} value={values[f.id] || ''} onChange={v => onChange(f.id, v)} />
+    </div>
+  );
+
+  return (
+    <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink2)' }}>إعدادات {catLabel}</span>
+        <span style={{ fontSize: 10, color: 'var(--ink3)', background: 'var(--panel2)', padding: '2px 8px', borderRadius: 99, border: '1px solid var(--border)' }}>
+          {filled} / {defs.length}
+        </span>
+      </div>
+      {requiredDefs.map(renderField)}
+      {optionalDefs.length > 0 && (
+        showAll ? (
+          <>
+            {optionalDefs.map(renderField)}
+            <button type="button" onClick={() => setShowAll(false)} className="btn btn-ghost btn-xs" style={{ alignSelf: 'center', fontSize: 11 }}>
+              إخفاء الإعدادات الإضافية ▲
+            </button>
+          </>
+        ) : (
+          <button type="button" onClick={() => setShowAll(true)} className="btn btn-ghost btn-xs"
+            style={{ alignSelf: 'stretch', justifyContent: 'center', fontSize: 11, border: '1.5px dashed var(--border)', padding: '8px 0' }}>
+            + عرض كل الإعدادات الاختيارية ({optionalDefs.length})
+          </button>
+        )
+      )}
+    </div>
+  );
+}
 
 // ── Wizard state ──────────────────────────────────────────────
 
@@ -147,6 +218,7 @@ type WizardData = {
   status: ProductStatus;
   variants: ColorVariant[];
   customFields: CustomFieldDef[];
+  catValues: Record<string, string>; // قيم حقول الفئة من الخريطة الكاملة
   designOpts: {
     showName: boolean;
     showPrice: boolean;
@@ -162,7 +234,7 @@ const initData = (): WizardData => ({
   price: '', cost: '', stock: '', duration: '', workArea: '',
   portfolio: [], bookingDays: [], bookingTime: '', bookingLocation: '', bookingMethod: 'phone',
   images: [], imageUrl: '', videoUrl: '', status: 'draft',
-  variants: [], customFields: [],
+  variants: [], customFields: [], catValues: {},
   designOpts: { showName: false, showPrice: false, watermark: false, textColor: '#ffffff' },
   processedImages: [],
 });
@@ -402,9 +474,13 @@ export default function ProductsPage() {
   const openEdit = (p: Product) => {
     const catId = (Object.entries(CAT_CFG).find(([, v]) => v.emoji === p.emoji)?.[0]) ||
       ((p as any).type === 'service' ? 'service' : 'other');
+    // فصل حقول الفئة المحفوظة عن الحقول اليدوية
+    const { catValues, manual } = splitCustomFields(catId, (p as any).customFields || []);
+    if (catId === 'kids' && (p as any).ageRange && !catValues.ageRange) catValues.ageRange = (p as any).ageRange;
     setData({
       ...initData(),
       category: catId,
+      catValues,
       type: (p as any).type || 'product',
       name: p.name,
       description: p.description || '',
@@ -416,7 +492,7 @@ export default function ProductsPage() {
       videoUrl: (p as any).videoUrl || '',
       status: p.status || 'draft',
       variants: (p as any).variants || [],
-      customFields: (p as any).customFields || [],
+      customFields: manual,
       duration: (p as any).duration || '',
       workArea: (p as any).workArea || '',
       portfolio: (p as any).portfolio || [],
@@ -688,9 +764,16 @@ export default function ProductsPage() {
       notify('warning', '⚠️ يفضل إضافة صورة واحدة على الأقل للمنتج');
     }
 
+    if (status === 'published') {
+      const missing = missingRequiredCatFields(data.category, data.catValues);
+      if (missing.length) notify('warning', `⚠️ حقول مهمة غير معبأة: ${missing.join('، ')}`);
+    }
+
     setSaving(true);
     try {
       const catLabel = CATS.find(c => c.id === data.category)?.label || 'أخرى';
+      // حقول الفئة المعبأة + الحقول اليدوية = customFields النهائية
+      const catCustomFields = buildCategoryCustomFields(data.category, data.catValues);
       const finalImages = allImages;
       const finalColors = data.variants.length > 0 ? data.variants.map(v => v.color) : data.colors || [];
       const finalSizes  = data.variants.length > 0 ? [...new Set(data.variants.flatMap(v => v.sizes.map(s => s.name)))] : data.sizes || [];
@@ -716,9 +799,9 @@ export default function ProductsPage() {
         workArea: data.workArea || '',
         service_area: data.workArea || '',
         isForChildren: data.category === 'kids',
-        ageRange: data.ageRange || '',
+        ageRange: data.catValues.ageRange || data.ageRange || '',
         variants: data.variants,
-        customFields: data.customFields,
+        customFields: [...catCustomFields, ...data.customFields],
         portfolio: data.portfolio,
         bookingDays: data.bookingDays,
         bookingTime: data.bookingTime,
@@ -1039,6 +1122,7 @@ export default function ProductsPage() {
                               sizes: CAT_CFG[cat.id]?.sizes?.slice(0, 3) || [],
                               colors: [],
                               variants: [],
+                              catValues: d.category === cat.id ? d.catValues : {},
                             }));
                             setStep(2);
                           }}
@@ -1170,16 +1254,13 @@ export default function ProductsPage() {
                       </div>
                     </>
                   )}
-                  {/* Dynamic category fields */}
-                  {cfg.fields.map(f => (
-                    <div key={f.id}>
-                      <label className="label">{f.label}</label>
-                      <select className="select" value={data[f.id] || ''} onChange={e => setData(d => ({ ...d, [f.id]: e.target.value }))}>
-                        <option value="">اختر...</option>
-                        {f.options.map(o => <option key={o} value={o}>{o}</option>)}
-                      </select>
-                    </div>
-                  ))}
+                  {/* حقول الفئة — الخريطة الكاملة */}
+                  <CatFieldsEditor
+                    catId={data.category}
+                    catLabel={CATS.find(c => c.id === data.category)?.label || 'الفئة'}
+                    values={data.catValues}
+                    onChange={(id, v) => setData(d => ({ ...d, catValues: { ...d.catValues, [id]: v } }))}
+                  />
 
                   {/* ── Custom fields ────────────────────────────── */}
                   <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
@@ -1251,7 +1332,7 @@ export default function ProductsPage() {
                         <div>
                           <label className="label">نوع الحقل</label>
                           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
-                            {(Object.keys(FIELD_TYPE_LABELS) as CustomFieldType[]).map(type => (
+                            {MANUAL_FIELD_TYPES.map(type => (
                               <button key={type} onClick={() => setNewField(f => ({ ...f, type }))}
                                 className={`chip ${newField.type === type ? 'active' : ''}`}
                                 style={{ fontSize: 11, justifyContent: 'center' }}>
@@ -1952,10 +2033,10 @@ export default function ProductsPage() {
                         </div>
                       )}
 
-                      {/* Custom fields preview */}
-                      {data.customFields.length > 0 && (
+                      {/* Custom fields preview (حقول الفئة + اليدوية) */}
+                      {[...buildCategoryCustomFields(data.category, data.catValues), ...data.customFields].length > 0 && (
                         <div style={{ marginBottom: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                          {data.customFields.map(f => (
+                          {[...buildCategoryCustomFields(data.category, data.catValues), ...data.customFields].map(f => (
                             <div key={f.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--ink3)' }}>
                               <span>{f.label}</span>
                               <span style={{ color: 'var(--ink2)', fontWeight: 600 }}>
@@ -1980,8 +2061,8 @@ export default function ProductsPage() {
                         {data.variants.length > 0 && (
                           <span>📐 {[...new Set(data.variants.flatMap(v => v.sizes.map(s => s.name)))].length} مقاس</span>
                         )}
-                        {data.customFields.length > 0 && (
-                          <span>🔧 {data.customFields.length} حقل</span>
+                        {(buildCategoryCustomFields(data.category, data.catValues).length + data.customFields.length) > 0 && (
+                          <span>🔧 {buildCategoryCustomFields(data.category, data.catValues).length + data.customFields.length} حقل</span>
                         )}
                       </div>
                     </div>

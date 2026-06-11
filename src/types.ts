@@ -48,7 +48,7 @@ export interface Product {
   customFields?: CustomFieldDef[];
 }
 
-export type CustomFieldType = 'text' | 'select' | 'number' | 'boolean' | 'color';
+export type CustomFieldType = 'text' | 'select' | 'multiselect' | 'textarea' | 'number' | 'boolean' | 'color';
 export interface CustomFieldDef {
   id: string;
   label: string;
