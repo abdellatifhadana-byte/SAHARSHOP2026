@@ -653,7 +653,7 @@ export default function GuidePage() {
           { label: 'إضافة منتج', page: 'products' as const },
           { label: 'الطلبات', page: 'orders' as const },
           { label: 'ربط الخدمات', page: 'connections' as const },
-          { label: 'الإعدادات', page: 'settings' as const },
+          { label: 'االإعدادات', page: 'settings' as const },
         ].map(link => (
           <button key={link.page} onClick={() => setPage(link.page)}
             style={{

@@ -425,7 +425,7 @@ export default function AuthPage() {
             }}
             onMouseEnter={e => (e.currentTarget.style.color = DS.purpleLight)}
             onMouseLeave={e => (e.currentTarget.style.color = DS.text3)}>
-            <ArrowLeft size={13} /> الصفحة الرئيسية
+            <ArrowLeft size={13} /> الصففحة الرئيسية
           </a>
         </div>
       </div>
