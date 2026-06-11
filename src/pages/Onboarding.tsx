@@ -1,4 +1,4 @@
-import { useState } from 'react'; { useState } from 'react';
+import { useState } from 'react';
 import { useStore } from '../store';
 import { CheckCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 
@@ -12,7 +12,6 @@ const BTYPE_OPTIONS = [
   { id: 'mixed',    icon: '🏪', title: 'الكل',   sub: 'منتجات + خدمات معاً'         , color: '#00D2B3' },
 ];
 
-// Moroccan categories per business type
 const CATS: Record<string, string[]> = {
   products: ['ملابس رجال', 'ملابس نساء', 'ملابس أطفال', 'أحذية', 'إكسسوارات', 'إلكترونيات', 'منزل وديكور', 'تجميل', 'أخرى'],
   services: ['كهربائي', 'سباك', 'نجار', 'صباغ', 'تكييف', 'كاميرات', 'تنظيف', 'تصميم', 'برمجة', 'تصوير', 'نقل', 'أخرى'],
@@ -35,8 +34,6 @@ export default function Onboarding() {
   const next = () => { if (idx < ORDER.length - 1) setStep(ORDER[idx + 1]); };
   const prev = () => { if (idx > 0) setStep(ORDER[idx - 1]); };
 
-  // نرسل فقط الحقول التي أدخلها المستخدم فعلاً — الخادم يدمجها مع الإعدادات
-  // الموجودة (deep merge) فلا تُمسح القيم المحفوظة سابقاً من جهاز آخر.
   const enteredBrand = () => {
     const b: Record<string, string> = {};
     if (brand.name.trim()) b.name = brand.name.trim();
@@ -57,6 +54,7 @@ export default function Onboarding() {
     setOnboardingCompleted(true);
     setPage('dashboard');
   };
+
   const skip = () => {
     const b = enteredBrand();
     if (Object.keys(b).length) updateSettings('brand', { ...settings.brand, ...b });
