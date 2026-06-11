@@ -3,148 +3,152 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <title>SAHAR shop — AI commerce OS</title>
+    <title>SAHAR shop — AI Commerce OS</title>
     <link rel="manifest" href="/manifest.json" />
     <link rel="icon" href="/sahar-logo-text.png" type="image/png" />
     <link rel="apple-touch-icon" href="/sahar-logo-text.png" />
     <meta name="description" content="SAHAR shop — نظام تشغيل التجارة الإلكترونية بالذكاء الاصطناعي للسوق المغربي" />
-    <meta name="theme-color" content="#FF4D1A" />
+    <meta name="theme-color" content="#0A0A0A" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
     <meta name="apple-mobile-web-app-title" content="SAHAR shop" />
-    <meta property="og:title" content="SAHAR shop — AI commerce OS" />
+    <meta property="og:title" content="SAHAR shop — AI Commerce OS" />
     <meta property="og:image" content="/sahar-banner-wide.png" />
 
     <style>
       *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-      html, body { background: #07080D; font-family: 'Tajawal', 'Segoe UI', sans-serif; }
+      html, body { 
+        background: #050505; 
+        font-family: 'Tajawal', 'Segoe UI', system-ui, sans-serif;
+        overflow: hidden;
+      }
       #root { min-height: 100dvh; }
 
-      /* ── SPLASH SCREEN ── */
+      /* ── SPLASH SCREEN — Luxury Minimal ── */
       #splash {
-        position: fixed;
-        inset: 0;
-        background: #07080D;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
+        position: fixed; inset: 0; background: #050505;
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
         z-index: 9999;
-        transition: opacity .4s ease, visibility .4s ease;
+        transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1), 
+                    visibility 0.5s cubic-bezier(0.4, 0, 0.2, 1);
       }
-      #splash.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
-
-      #splash-bg {
-        position: absolute;
-        inset: 0;
-        background-image: url('/sahar-banner-mobile.png');
-        background-size: cover;
-        background-position: center;
-        opacity: .12;
-        filter: blur(3px);
-        transform: scale(1.05);
+      #splash.hidden { 
+        opacity: 0; visibility: hidden; pointer-events: none; 
       }
 
-      #splash-glow {
-        position: absolute;
-        top: -150px; left: 50%;
-        transform: translateX(-50%);
-        width: 500px; height: 400px;
-        background: radial-gradient(ellipse, rgba(255,77,26,.18) 0%, transparent 70%);
-        pointer-events: none;
+      /* Ambient glow */
+      #splash-ambient {
+        position: absolute; inset: 0;
+        background: 
+          radial-gradient(ellipse 80% 50% at 50% 40%, rgba(124,58,237,0.08) 0%, transparent 60%),
+          radial-gradient(ellipse 60% 40% at 50% 60%, rgba(255,122,0,0.05) 0%, transparent 50%);
+        animation: ambientBreathe 4s ease-in-out infinite;
+      }
+
+      @keyframes ambientBreathe {
+        0%, 100% { opacity: 0.8; }
+        50% { opacity: 1; }
       }
 
       #splash-content {
-        position: relative;
-        z-index: 1;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 0;
-        animation: splashIn .6s ease forwards;
+        position: relative; z-index: 1;
+        display: flex; flex-direction: column;
+        align-items: center; gap: 0;
+        animation: splashReveal 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
       }
 
-      #splash-logo-wrap {
-        width: 110px; height: 110px;
-        border-radius: 28px;
-        overflow: hidden;
-        background: rgba(7,8,13,.9);
-        box-shadow: 0 0 0 1px rgba(255,77,26,.35), 0 20px 60px rgba(255,77,26,.3), 0 4px 20px rgba(0,0,0,.6);
-        margin-bottom: 20px;
+      @keyframes splashReveal {
+        from { opacity: 0; transform: translateY(24px) scale(0.96); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+      }
+
+      /* Logo ring */
+      #splash-logo-ring {
+        width: 100px; height: 100px; border-radius: 50%;
+        background: rgba(255,255,255,0.03);
+        border: 1px solid rgba(255,255,255,0.08);
         display: flex; align-items: center; justify-content: center;
+        margin-bottom: 28px;
+        position: relative;
+        box-shadow: 0 0 0 1px rgba(255,255,255,0.03), 0 20px 60px rgba(0,0,0,0.4);
       }
 
-      #splash-logo { width: 90%; height: 90%; object-fit: contain; }
+      #splash-logo-ring::before {
+        content: '';
+        position: absolute; inset: -3px; border-radius: 50%;
+        border: 1.5px solid transparent;
+        border-top-color: rgba(124,58,237,0.4);
+        border-right-color: rgba(255,122,0,0.3);
+        animation: ringSpin 3s linear infinite;
+      }
+
+      @keyframes ringSpin {
+        to { transform: rotate(360deg); }
+      }
+
+      #splash-logo {
+        width: 64px; height: 64px; object-fit: contain;
+        filter: brightness(1.1);
+      }
+
       #splash-logo-fallback {
-        font-size: 52px; font-weight: 900; color: #FF4D1A;
-        font-family: monospace; display: none;
+        font-size: 42px; font-weight: 900; 
+        background: linear-gradient(135deg, #7C3AED, #FF7A00);
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        display: none;
       }
 
+      /* Title */
       #splash-title {
-        font-size: 32px; font-weight: 900; color: #E8E4DC;
-        letter-spacing: -.03em; margin-bottom: 4px; line-height: 1;
-        direction: ltr;
+        font-size: 28px; font-weight: 800; color: #FAFAFA;
+        letter-spacing: -0.03em; margin-bottom: 6px;
       }
-      #splash-title span { color: #FF4D1A; text-shadow: 0 0 30px rgba(255,77,26,.5); }
+
+      #splash-brand {
+        background: linear-gradient(135deg, #A855F7, #FF7A00);
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      }
 
       #splash-sub {
-        font-size: 11px; color: rgba(255,255,255,.3);
-        letter-spacing: .2em; text-transform: uppercase;
-        margin-bottom: 28px; font-weight: 600;
-        direction: ltr;
+        font-size: 10px; color: rgba(255,255,255,0.3);
+        letter-spacing: 0.2em; text-transform: uppercase;
+        margin-bottom: 36px; font-weight: 600;
       }
 
-      #splash-dots {
-        display: flex; gap: 8px; align-items: center;
-      }
-      .splash-dot {
-        width: 7px; height: 7px; border-radius: 50%;
-        background: rgba(255,77,26,.4);
-        animation: dotPulse 1.2s ease infinite;
-      }
-      .splash-dot:nth-child(2) { animation-delay: .2s; }
-      .splash-dot:nth-child(3) { animation-delay: .4s; }
-
-      /* Zellige border top */
-      #splash-zellige {
-        position: absolute;
-        top: 0; left: 0; right: 0;
-        height: 36px;
-        overflow: hidden;
+      /* Progress bar */
+      #splash-progress {
+        width: 120px; height: 2px; background: rgba(255,255,255,0.06);
+        border-radius: 1px; overflow: hidden;
       }
 
-      @keyframes splashIn {
-        from { opacity: 0; transform: translateY(20px); }
-        to   { opacity: 1; transform: translateY(0); }
+      #splash-progress-fill {
+        width: 0%; height: 100%; border-radius: 1px;
+        background: linear-gradient(90deg, #7C3AED, #A855F7, #FF7A00);
+        animation: progressGrow 2.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
       }
-      @keyframes dotPulse {
-        0%,100% { opacity: .35; transform: scale(.85); }
-        50%      { opacity: 1;   transform: scale(1.1); background: #FF4D1A; }
+
+      @keyframes progressGrow {
+        from { width: 0%; }
+        to { width: 100%; }
       }
     </style>
   </head>
   <body>
     <!-- SPLASH SCREEN -->
     <div id="splash">
-      <div id="splash-bg"></div>
-      <div id="splash-glow"></div>
-
-      <!-- Zellige top decoration — SVG filled by script below -->
-      <svg id="splash-zellige" viewBox="0 0 800 36" preserveAspectRatio="xMidYMid slice" aria-hidden="true"></svg>
-
+      <div id="splash-ambient"></div>
       <div id="splash-content">
-        <div id="splash-logo-wrap">
+        <div id="splash-logo-ring">
           <img id="splash-logo" src="/sahar-logo-text.png" alt="SAHAR shop"
             onerror="this.style.display='none';document.getElementById('splash-logo-fallback').style.display='block'"/>
           <div id="splash-logo-fallback">S</div>
         </div>
-        <div id="splash-title"><span>SAHAR</span> shop</div>
-        <div id="splash-sub">AI commerce OS</div>
-        <div id="splash-dots">
-          <div class="splash-dot"></div>
-          <div class="splash-dot"></div>
-          <div class="splash-dot"></div>
+        <div id="splash-title"><span id="splash-brand">SAHAR</span> shop</div>
+        <div id="splash-sub">AI Commerce OS</div>
+        <div id="splash-progress">
+          <div id="splash-progress-fill"></div>
         </div>
       </div>
     </div>
@@ -152,29 +156,11 @@
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
-      // Zellige pattern — outside SVG for Vite compatibility
-      document.addEventListener('DOMContentLoaded', function() {
-        var svg = document.getElementById('splash-zellige');
-        if (!svg) return;
-        var colors = ['#FF4D1A','#C9954C','#00C896'];
-        for (var i = 0; i < 40; i++) {
-          var p = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-          var x = i * 22 - 11;
-          p.setAttribute('points', x+',0 '+(x+11)+',11 '+x+',22 '+(x-11)+',11');
-          p.setAttribute('fill', colors[i % 3]);
-          p.setAttribute('opacity', '0.5');
-          svg.appendChild(p);
-        }
-      });
-    </script>
-    <script>
-      // Hide splash when React app mounts
       window.hideSplash = function() {
         const s = document.getElementById('splash');
-        if (s) { s.classList.add('hidden'); setTimeout(() => s.remove(), 500); }
+        if (s) { s.classList.add('hidden'); setTimeout(() => s.remove(), 600); }
       };
-      // Fallback: hide after 3s max
-      setTimeout(window.hideSplash, 3000);
+      setTimeout(window.hideSplash, 3500);
     </script>
   </body>
 </html>
