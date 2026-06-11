@@ -4,171 +4,584 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>SAHAR shop — AI Commerce OS</title>
+    
+    <!-- Favicon -->
     <link rel="manifest" href="/manifest.json" />
     <link rel="icon" href="/sahar-logo-text.png" type="image/png" />
     <link rel="apple-touch-icon" href="/sahar-logo-text.png" />
+    
+    <!-- Meta -->
     <meta name="description" content="SAHAR shop — نظام تشغيل التجارة الإلكترونية بالذكاء الاصطناعي للسوق المغربي" />
     <meta name="theme-color" content="#0A0A0F" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="SAHAR shop" />
+    
+    <!-- Open Graph -->
     <meta property="og:title" content="SAHAR shop — AI Commerce OS" />
+    <meta property="og:description" content="متجرك الذكي يعمل 24/7 — ذكاء اصطناعي، واتساب، توصيل آلي" />
     <meta property="og:image" content="/sahar-banner-wide.png" />
+    <meta property="og:type" content="website" />
+    
+    <!-- PWA -->
+    <meta name="application-name" content="SAHAR shop" />
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
     <style>
+      /* ═══════════════════════════════════════════════════
+         RESET
+         ═══════════════════════════════════════════════════ */
       *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-      html, body { 
+      
+      html { 
+        scroll-behavior: smooth; 
+        -webkit-text-size-adjust: 100%;
+      }
+      
+      body { 
         background: #0A0A0F; 
         font-family: 'Tajawal', 'IBM Plex Sans Arabic', system-ui, sans-serif;
-        overflow: hidden;
+        direction: rtl;
+        min-height: 100dvh;
+        overflow-x: hidden;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
       }
-      #root { min-height: 100dvh; }
-
-      #splash {
-        position: fixed; inset: 0; background: #0A0A0F; z-index: 9999;
-        display: flex; flex-direction: column; align-items: center; justify-content: center;
-        transition: opacity 0.5s cubic-bezier(0.4,0,0.2,1), visibility 0.5s;
-      }
-      #splash.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
-
-      #splash-bg {
-        position: absolute; inset: 0;
-        background-image: url('/sahar-banner-mobile.png');
-        background-size: cover; background-position: center;
-        opacity: .08; filter: blur(4px); transform: scale(1.05);
-      }
-
-      #splash-ambient {
-        position: absolute; inset: 0;
-        background:
-          radial-gradient(ellipse 70% 40% at 50% 30%, rgba(124,58,237,0.12) 0%, transparent 60%),
-          radial-gradient(ellipse 50% 30% at 50% 70%, rgba(255,106,0,0.08) 0%, transparent 50%);
-        animation: ambientBreathe 4s ease-in-out infinite;
-      }
-
-      @keyframes ambientBreathe {
-        0%,100% { opacity: 0.7; } 50% { opacity: 1; }
-      }
-
-      #splash-content {
-        position: relative; z-index: 1;
-        display: flex; flex-direction: column; align-items: center; gap: 0;
-        animation: splashIn 0.8s cubic-bezier(0.16,1,0.3,1) forwards;
-      }
-
-      @keyframes splashIn {
-        from { opacity: 0; transform: translateY(20px) scale(0.96); }
-        to { opacity: 1; transform: translateY(0) scale(1); }
-      }
-
-      #splash-logo-wrap {
-        width: 120px; height: 120px; border-radius: 28px; overflow: hidden;
-        background: rgba(10,10,15,0.9);
-        box-shadow: 0 0 0 1px rgba(255,106,0,0.3), 0 20px 60px rgba(255,106,0,0.2), 0 4px 20px rgba(0,0,0,0.6);
-        margin-bottom: 24px;
-        display: flex; align-items: center; justify-content: center;
+      
+      #root { 
+        min-height: 100dvh; 
         position: relative;
       }
 
+      /* ═══════════════════════════════════════════════════
+         SPLASH SCREEN — Luxury Dark with Glass & Particles
+         ═══════════════════════════════════════════════════ */
+      #splash {
+        position: fixed;
+        inset: 0;
+        background: #0A0A0F;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1), 
+                    visibility 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        overflow: hidden;
+      }
+      
+      #splash.hidden { 
+        opacity: 0; 
+        visibility: hidden; 
+        pointer-events: none; 
+      }
+
+      /* ── Background Image ── */
+      #splash-bg {
+        position: absolute;
+        inset: 0;
+        background-image: url('/sahar-banner-mobile.png');
+        background-size: cover;
+        background-position: center;
+        opacity: .06;
+        filter: blur(5px);
+        transform: scale(1.05);
+      }
+
+      /* ── Ambient Glows ── */
+      #splash-ambient {
+        position: absolute;
+        inset: 0;
+        background:
+          radial-gradient(ellipse 80% 50% at 50% 25%, rgba(255,106,0,0.10) 0%, transparent 55%),
+          radial-gradient(ellipse 60% 40% at 30% 70%, rgba(124,58,237,0.08) 0%, transparent 50%),
+          radial-gradient(ellipse 50% 35% at 70% 80%, rgba(0,210,179,0.05) 0%, transparent 50%);
+        animation: ambientBreathe 5s ease-in-out infinite;
+      }
+
+      @keyframes ambientBreathe {
+        0%, 100% { opacity: 0.7; }
+        50% { opacity: 1; }
+      }
+
+      /* ── Floating Particles ── */
+      #splash-particles {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+      }
+
+      .splash-particle {
+        position: absolute;
+        width: 3px;
+        height: 3px;
+        border-radius: 50%;
+        animation: particleFloat linear infinite;
+      }
+
+      .splash-particle:nth-child(1) { top: 20%; left: 15%; background: #FF6A00; box-shadow: 0 0 8px #FF6A00; animation-duration: 7s; animation-delay: 0s; }
+      .splash-particle:nth-child(2) { top: 30%; left: 80%; background: #7C3AED; box-shadow: 0 0 8px #7C3AED; animation-duration: 9s; animation-delay: 1s; }
+      .splash-particle:nth-child(3) { top: 65%; left: 10%; background: #00D2B3; box-shadow: 0 0 8px #00D2B3; animation-duration: 8s; animation-delay: 2s; }
+      .splash-particle:nth-child(4) { top: 75%; left: 75%; background: #F6C453; box-shadow: 0 0 8px #F6C453; animation-duration: 11s; animation-delay: 0.5s; }
+      .splash-particle:nth-child(5) { top: 45%; left: 50%; background: #FF8533; box-shadow: 0 0 8px #FF8533; animation-duration: 10s; animation-delay: 3s; }
+      .splash-particle:nth-child(6) { top: 10%; left: 40%; background: #A855F7; box-shadow: 0 0 8px #A855F7; animation-duration: 12s; animation-delay: 1.5s; }
+      .splash-particle:nth-child(7) { top: 85%; left: 35%; background: #22C55E; box-shadow: 0 0 8px #22C55E; animation-duration: 6s; animation-delay: 2.5s; }
+      .splash-particle:nth-child(8) { top: 55%; left: 90%; background: #FF6A00; box-shadow: 0 0 8px #FF6A00; animation-duration: 13s; animation-delay: 4s; }
+
+      @keyframes particleFloat {
+        0%   { transform: translateY(0) translateX(0); opacity: 0; }
+        15%  { opacity: 0.7; }
+        85%  { opacity: 0.7; }
+        100% { transform: translateY(-140px) translateX(40px); opacity: 0; }
+      }
+
+      /* ── Grid Pattern ── */
+      #splash-grid {
+        position: absolute;
+        inset: 0;
+        opacity: 0.02;
+        background-image:
+          linear-gradient(rgba(255,255,255,0.3) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255,255,255,0.3) 1px, transparent 1px);
+        background-size: 50px 50px;
+        mask-image: radial-gradient(ellipse 70% 50% at 50% 40%, black 30%, transparent 70%);
+      }
+
+      /* ── Zellige Border Top ── */
+      #splash-zellige {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 44px;
+        overflow: hidden;
+        opacity: 0.5;
+        z-index: 2;
+      }
+
+      /* ── Main Content ── */
+      #splash-content {
+        position: relative;
+        z-index: 3;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0;
+        animation: splashReveal 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        padding: 20px;
+      }
+
+      @keyframes splashReveal {
+        from { opacity: 0; transform: translateY(28px) scale(0.94); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+      }
+
+      /* ── Logo Container with Rotating Border ── */
+      #splash-logo-wrap {
+        width: 130px;
+        height: 130px;
+        border-radius: 30px;
+        overflow: hidden;
+        background: rgba(10,10,15,0.9);
+        box-shadow: 
+          0 0 0 1px rgba(255,106,0,0.3),
+          0 24px 64px rgba(255,106,0,0.18),
+          0 8px 24px rgba(0,0,0,0.6);
+        margin-bottom: 26px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+      }
+
+      /* Rotating border ring */
       #splash-logo-wrap::before {
         content: '';
-        position: absolute; inset: -3px; border-radius: 31px;
-        border: 1.5px solid transparent;
-        border-top-color: rgba(255,106,0,0.5);
+        position: absolute;
+        inset: -4px;
+        border-radius: 34px;
+        border: 2px solid transparent;
+        border-top-color: rgba(255,106,0,0.6);
         border-right-color: rgba(124,58,237,0.4);
-        animation: ringSpin 3s linear infinite;
+        border-bottom-color: rgba(0,210,179,0.3);
+        animation: ringSpin 4s linear infinite;
+        pointer-events: none;
       }
 
-      @keyframes ringSpin { to { transform: rotate(360deg); } }
+      @keyframes ringSpin {
+        to { transform: rotate(360deg); }
+      }
 
-      #splash-logo { width: 85%; height: 85%; object-fit: contain; }
+      /* Inner glow pulse */
+      #splash-logo-wrap::after {
+        content: '';
+        position: absolute;
+        inset: 6px;
+        border-radius: 24px;
+        box-shadow: inset 0 0 20px rgba(255,106,0,0.1);
+        animation: innerGlow 3s ease-in-out infinite;
+        pointer-events: none;
+      }
+
+      @keyframes innerGlow {
+        0%, 100% { opacity: 0.5; }
+        50% { opacity: 1; }
+      }
+
+      #splash-logo {
+        width: 82%;
+        height: 82%;
+        object-fit: contain;
+        position: relative;
+        z-index: 1;
+        filter: brightness(1.05);
+      }
+
       #splash-logo-fallback {
-        font-size: 56px; font-weight: 900;
-        background: linear-gradient(135deg, #FF6A00, #FFB347);
-        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        font-size: 58px;
+        font-weight: 900;
+        background: linear-gradient(135deg, #FF6A00, #FFB347, #FF6A00);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
         display: none;
+        position: relative;
+        z-index: 1;
       }
 
+      /* ── Title ── */
       #splash-title {
-        font-size: 34px; font-weight: 900; color: #FAFAFA;
-        letter-spacing: -0.03em; margin-bottom: 4px;
+        font-size: 36px;
+        font-weight: 900;
+        color: #FAFAFA;
+        letter-spacing: -0.04em;
+        margin-bottom: 6px;
         direction: ltr;
+        text-shadow: 0 2px 20px rgba(0,0,0,0.3);
       }
+
       #splash-title span {
-        color: #FF6A00; text-shadow: 0 0 30px rgba(255,106,0,0.5);
+        color: #FF6A00;
+        text-shadow: 0 0 30px rgba(255,106,0,0.5);
       }
 
+      /* ── Subtitle ── */
       #splash-sub {
-        font-size: 11px; color: rgba(255,255,255,0.3);
-        letter-spacing: 0.15em; text-transform: uppercase;
-        margin-bottom: 32px; font-weight: 600;
+        font-size: 11px;
+        color: rgba(255,255,255,0.28);
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        margin-bottom: 36px;
+        font-weight: 600;
       }
 
-      #splash-dots { display: flex; gap: 8px; align-items: center; }
-      .splash-dot {
-        width: 6px; height: 6px; border-radius: 50%;
-        background: rgba(255,106,0,0.4);
-        animation: dotPulse 1.2s ease infinite;
+      /* ── Progress Bar ── */
+      #splash-progress-wrap {
+        width: 140px;
+        height: 3px;
+        background: rgba(255,255,255,0.06);
+        border-radius: 2px;
+        overflow: hidden;
       }
+
+      #splash-progress-fill {
+        width: 0%;
+        height: 100%;
+        border-radius: 2px;
+        background: linear-gradient(90deg, #7C3AED, #A855F7, #FF6A00, #FFB347);
+        background-size: 200% 100%;
+        animation: progressGrow 2.8s cubic-bezier(0.4, 0, 0.2, 1) forwards,
+                   progressShimmer 2s linear infinite;
+      }
+
+      @keyframes progressGrow {
+        from { width: 0%; }
+        to { width: 100%; }
+      }
+
+      @keyframes progressShimmer {
+        0% { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
+      }
+
+      /* ── Dots Loading ── */
+      #splash-dots {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        margin-top: 16px;
+      }
+
+      .splash-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: rgba(255,106,0,0.35);
+        animation: dotPulse 1.4s ease infinite;
+      }
+
       .splash-dot:nth-child(2) { animation-delay: 0.2s; }
       .splash-dot:nth-child(3) { animation-delay: 0.4s; }
 
       @keyframes dotPulse {
-        0%,100% { opacity: 0.35; transform: scale(0.85); }
-        50% { opacity: 1; transform: scale(1.1); background: #FF6A00; }
+        0%, 100% { opacity: 0.3; transform: scale(0.8); background: rgba(255,106,0,0.35); }
+        50% { opacity: 1; transform: scale(1.2); background: #FF6A00; box-shadow: 0 0 10px rgba(255,106,0,0.6); }
       }
 
-      #splash-zellige {
-        position: absolute; top: 0; left: 0; right: 0;
-        height: 40px; overflow: hidden; opacity: 0.6;
+      /* ── Version Badge ── */
+      #splash-version {
+        position: absolute;
+        bottom: 24px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 10px;
+        color: rgba(255,255,255,0.15);
+        letter-spacing: 0.08em;
+        font-weight: 500;
+        z-index: 3;
+      }
+
+      /* ═══════════════════════════════════════════════════
+         RESPONSIVE
+         ═══════════════════════════════════════════════════ */
+      @media (max-width: 480px) {
+        #splash-logo-wrap {
+          width: 100px;
+          height: 100px;
+          border-radius: 24px;
+        }
+        #splash-logo-wrap::before {
+          border-radius: 28px;
+        }
+        #splash-title {
+          font-size: 28px;
+        }
+        #splash-sub {
+          font-size: 10px;
+          letter-spacing: 0.15em;
+          margin-bottom: 28px;
+        }
+        #splash-logo-fallback {
+          font-size: 44px;
+        }
+      }
+
+      @media (max-width: 360px) {
+        #splash-logo-wrap {
+          width: 80px;
+          height: 80px;
+          border-radius: 20px;
+        }
+        #splash-logo-wrap::before {
+          border-radius: 24px;
+        }
+        #splash-title {
+          font-size: 24px;
+        }
+        #splash-progress-wrap {
+          width: 100px;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+          animation-duration: 0.01ms !important;
+        }
+        .splash-particle {
+          display: none;
+        }
       }
     </style>
   </head>
   <body>
+    <!-- ═══════════════════════════════════════════════════
+         SPLASH SCREEN
+         ═══════════════════════════════════════════════════ -->
     <div id="splash">
+      <!-- Background -->
       <div id="splash-bg"></div>
       <div id="splash-ambient"></div>
+      <div id="splash-grid"></div>
 
-      <svg id="splash-zellige" viewBox="0 0 800 40" preserveAspectRatio="xMidYMid slice" aria-hidden="true"></svg>
+      <!-- Floating particles -->
+      <div id="splash-particles">
+        <div class="splash-particle"></div>
+        <div class="splash-particle"></div>
+        <div class="splash-particle"></div>
+        <div class="splash-particle"></div>
+        <div class="splash-particle"></div>
+        <div class="splash-particle"></div>
+        <div class="splash-particle"></div>
+        <div class="splash-particle"></div>
+      </div>
 
+      <!-- Zellige border top — SVG filled by script -->
+      <svg id="splash-zellige" viewBox="0 0 800 44" preserveAspectRatio="xMidYMid slice" aria-hidden="true"></svg>
+
+      <!-- Content -->
       <div id="splash-content">
+        <!-- Logo -->
         <div id="splash-logo-wrap">
           <img id="splash-logo" src="/sahar-logo-text.png" alt="SAHAR shop"
-            onerror="this.style.display='none';document.getElementById('splash-logo-fallback').style.display='block'"/>
+            onerror="this.style.display='none';document.getElementById('splash-logo-fallback').style.display='block'" />
           <div id="splash-logo-fallback">S</div>
         </div>
+
+        <!-- Title -->
         <div id="splash-title"><span>SAHAR</span> shop</div>
         <div id="splash-sub">AI Commerce OS</div>
+
+        <!-- Progress -->
+        <div id="splash-progress-wrap">
+          <div id="splash-progress-fill"></div>
+        </div>
+
+        <!-- Dots -->
         <div id="splash-dots">
           <div class="splash-dot"></div>
           <div class="splash-dot"></div>
           <div class="splash-dot"></div>
         </div>
       </div>
+
+      <!-- Version -->
+      <div id="splash-version">v3.2 · Morocco 🇲🇦</div>
     </div>
 
+    <!-- ═══════════════════════════════════════════════════
+         REACT ROOT
+         ═══════════════════════════════════════════════════ -->
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+
+    <!-- ═══════════════════════════════════════════════════
+         SCRIPTS
+         ═══════════════════════════════════════════════════ -->
     <script>
-      document.addEventListener('DOMContentLoaded', function() {
+      // ── Zellige Pattern Generator ──
+      (function() {
         var svg = document.getElementById('splash-zellige');
         if (!svg) return;
-        var colors = ['#FF6A00','#C9954C','#7C3AED'];
-        for (var i = 0; i < 40; i++) {
-          var p = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-          var x = i * 22 - 11;
-          p.setAttribute('points', x+',0 '+(x+11)+',11 '+x+',22 '+(x-11)+',11');
-          p.setAttribute('fill', colors[i % 3]);
-          p.setAttribute('opacity', '0.5');
-          svg.appendChild(p);
+        var colors = ['#FF6A00', '#C9954C', '#7C3AED', '#00D2B3', '#A855F7'];
+        var rows = 4;
+        var cols = 40;
+        for (var row = 0; row < rows; row++) {
+          for (var i = 0; i < cols; i++) {
+            var p = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+            var x = i * 22 - 11 + (row % 2 === 0 ? 0 : 11);
+            var y = row * 11;
+            p.setAttribute('points', x + ',' + y + ' ' + (x + 11) + ',' + (y + 11) + ' ' + x + ',' + (y + 22) + ' ' + (x - 11) + ',' + (y + 11));
+            p.setAttribute('fill', colors[(i + row * 3) % colors.length]);
+            p.setAttribute('opacity', '0.45');
+            svg.appendChild(p);
+          }
         }
-      });
+      })();
+
+      // ── Splash Hide Function ──
       window.hideSplash = function() {
-        var s = document.getElementById('splash');
-        if (s) { s.classList.add('hidden'); setTimeout(function() { s.remove(); }, 600); }
+        var splash = document.getElementById('splash');
+        if (splash) {
+          splash.classList.add('hidden');
+          setTimeout(function() {
+            splash.remove();
+          }, 600);
+        }
       };
-      setTimeout(window.hideSplash, 3500);
+
+      // ── Auto-hide fallback (4 seconds max) ──
+      setTimeout(window.hideSplash, 4000);
+
+      // ── Listen for React app mount ──
+      // The React app will call window.hideSplash() when it's ready
+      // via the main.tsx entry point
+    </script>
+
+    <!-- ═══════════════════════════════════════════════════
+         SERVICE WORKER REGISTRATION
+         ═══════════════════════════════════════════════════ -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+          navigator.serviceWorker.register('/sw.js').then(
+            function(registration) {
+              console.log('[SW] Registered:', registration.scope);
+            },
+            function(err) {
+              console.log('[SW] Failed:', err);
+            }
+          );
+        });
+      }
+    </script>
+
+    <!-- ═══════════════════════════════════════════════════
+         ONLINE/OFFLINE DETECTION
+         ═══════════════════════════════════════════════════ -->
+    <script>
+      var offlineToast = null;
+      
+      function showOfflineToast() {
+        if (offlineToast) return;
+        offlineToast = document.createElement('div');
+        offlineToast.style.cssText = [
+          'position: fixed',
+          'bottom: 20px',
+          'left: 50%',
+          'transform: translateX(-50%)',
+          'background: rgba(239,68,68,0.95)',
+          'color: #fff',
+          'padding: '10px 20px',
+          'border-radius: '99px',
+          'font-size: '12px',
+          'font-weight: '600',
+          'z-index: '9998',
+          'backdrop-filter: blur(12px)',
+          'border: 1px solid rgba(239,68,68,0.4)',
+          'box-shadow: 0 8px 32px rgba(239,68,68,0.3)',
+          'font-family: \'Tajawal\', sans-serif',
+          'direction: rtl',
+          'text-align: center',
+          'animation: slideUp 0.3s ease',
+        ].join(';');
+        offlineToast.textContent = '⚠️ أنت غير متصل بالإنترنت — بعض الميزات قد لا تعمل';
+        document.body.appendChild(offlineToast);
+      }
+
+      function hideOfflineToast() {
+        if (offlineToast) {
+          offlineToast.style.opacity = '0';
+          offlineToast.style.transition = 'opacity 0.3s';
+          setTimeout(function() {
+            if (offlineToast) {
+              offlineToast.remove();
+              offlineToast = null;
+            }
+          }, 300);
+        }
+      }
+
+      window.addEventListener('offline', showOfflineToast);
+      window.addEventListener('online', hideOfflineToast);
+
+      if (!navigator.onLine) {
+        setTimeout(showOfflineToast, 1000);
+      }
+
+      // Add the slideUp animation
+      var styleSheet = document.createElement('style');
+      styleSheet.textContent = [
+        '@keyframes slideUp {',
+        '  from { opacity: 0; transform: translateX(-50%) translateY(16px); }',
+        '  to { opacity: 1; transform: translateX(-50%) translateY(0); }',
+        '}',
+      ].join('');
+      document.head.appendChild(styleSheet);
     </script>
   </body>
 </html>
