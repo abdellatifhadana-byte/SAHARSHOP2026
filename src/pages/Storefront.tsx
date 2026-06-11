@@ -662,6 +662,26 @@ function HeroSection({brand,onShop}:{brand:StoreInfo['brand'];onShop:()=>void}) 
 }
 
 // ═══════════════════════════════════════════════════════════════ PRODUCT MODAL
+// ═══════════════════════════════════════════════════════════════ BACK BUTTON → CLOSE MODAL
+// على الهاتف: زر الرجوع يغلق المودال المفتوح بدل الخروج من الموقع.
+// عند فتح المودال نضيف حالة في سجل المتصفح، وزر الرجوع يستهلكها ويغلق المودال.
+function useBackToClose(open:boolean,onClose:()=>void){
+  const closeRef=useRef(onClose);
+  closeRef.current=onClose;
+  useEffect(()=>{
+    if(!open)return;
+    let popped=false;
+    const onPop=()=>{popped=true;closeRef.current();};
+    window.history.pushState({sfModal:true},'');
+    window.addEventListener('popstate',onPop);
+    return ()=>{
+      window.removeEventListener('popstate',onPop);
+      // أُغلق المودال من الواجهة (X أو إتمام) — نستهلك الحالة المضافة حتى لا تتراكم
+      if(!popped)window.history.back();
+    };
+  },[open]);
+}
+
 function ProductModal({p,cart,onClose,currency,userId}:{p:SProduct;cart:ReturnType<typeof useCart>;onClose:()=>void;currency:string;userId:string}) {
   const [size,setSize]=useState(p.sizes?.[0]||'');
   const [color,setColor]=useState(p.colors?.[0]||'');
@@ -676,6 +696,8 @@ function ProductModal({p,cart,onClose,currency,userId}:{p:SProduct;cart:ReturnTy
   const galleryImgs=[p.imageUrl,...(p.images||[])].filter((x,i,a)=>x&&a.indexOf(x)===i);
   const rating=p.sales>20?5:p.sales>10?4:p.sales>3?4:3;
   void userId;
+  useBackToClose(true,onClose);
+  useBackToClose(lightboxIdx!==null,()=>setLightboxIdx(null));
 
   const handleAddAll=()=>{
     variantRows.forEach(row=>{
@@ -971,6 +993,7 @@ function CartSidebar({cart,storeInfo,userId,onClose,onOrderSuccess}:{cart:Return
   const [loading,setLoading]=useState(false);
   const [orderId,setOrderId]=useState('');
   const cur=storeInfo.brand.currency||'MAD';
+  useBackToClose(true,onClose);
   const deliveryCost=getDeliveryCost(form.city,storeInfo.deliveryCosts);
   const grandTotal=Math.max(0,cart.total-couponDiscount)+deliveryCost;
   const filteredCities=MOROCCAN_CITIES.filter(c=>c.includes(citySearch)||citySearch==='');
@@ -1149,6 +1172,7 @@ function TrackingModal({userId,storeInfo,onClose}:{userId:string;storeInfo:Store
   const [loading,setLoading]=useState(false);
   const [searched,setSearched]=useState(false);
   const cur=storeInfo.brand.currency||'MAD';
+  useBackToClose(true,onClose);
   const STATUS_AR:Record<string,string>={pending:'⏳ بانتظار التأكيد',approved:'✅ تم التأكيد',processing:'⚙️ جارٍ التحضير',shipped:'🚚 في الطريق',delivered:'📦 وصل',cancelled:'❌ ملغي'};
   const STATUS_COLOR:Record<string,string>={pending:'#F59E0B',approved:'#10B981',processing:'#F59E0B',shipped:'#10B981',delivered:'#10B981',cancelled:'#EF4444'};
 
@@ -1219,7 +1243,8 @@ function FloatingChat({userId,storeInfo}:{userId:string;storeInfo:StoreInfo}) {
   const [loading,setLoading]=useState(false);
   const [unread,setUnread]=useState(0);
   const endRef=useRef<HTMLDivElement>(null);
-  
+  useBackToClose(open,()=>setOpen(false));
+
   useEffect(()=>{if(open){setUnread(0);endRef.current?.scrollIntoView();}},[msgs,open]);
   
   const send=async(msg?:string)=>{

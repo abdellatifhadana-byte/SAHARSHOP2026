@@ -79,11 +79,29 @@ function RouterSync() {
 }
 
 function AppShell() {
-  const { token, onboardingCompleted } = useStore();
+  const { token, onboardingCompleted, isLoading } = useStore();
+  const location = useLocation();
   const isDemoMode = token === 'demo-token-local';
   const isAuthed   = !!token || isDemoMode;
+  // الصفحات العامة (واجهة الزبون) لا تتأثر ببوابة التحميل أو الإعداد الأولي
+  const isPublicRoute = location.pathname.startsWith('/store') || location.pathname.startsWith('/landing');
 
-  if (token && !isDemoMode && !onboardingCompleted) {
+  // أثناء أول تحميل للبيانات لا نقرر شيئاً — لا نعرض Onboarding قبل وصول
+  // الإعدادات الحقيقية من الخادم، حتى لا يُعاد الإعداد الأولي على جهاز جديد
+  // فتُكتب القيم الافتراضية فوق إعدادات المتجر المحفوظة (مسح الإعدادات).
+  if (token && !isDemoMode && !isPublicRoute && isLoading) {
+    return (
+      <>
+        <ThemeManager />
+        <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14 }}>
+          <div className="spin" style={{ width: 34, height: 34, border: '3px solid var(--border2)', borderTopColor: 'var(--ember)', borderRadius: '50%' }} />
+          <div style={{ fontSize: 13, color: 'var(--ink3)', fontWeight: 600 }}>جارٍ تحميل متجرك...</div>
+        </div>
+      </>
+    );
+  }
+
+  if (token && !isDemoMode && !isPublicRoute && !onboardingCompleted) {
     return (
       <>
         <ThemeManager />

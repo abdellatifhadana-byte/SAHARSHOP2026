@@ -129,6 +129,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     currentRole: 'admin' as UserRole,
     isOnline: false,
     isLoading: !!storedToken && !isDemo, // true only for real logged-in users pending first fetch
+    hydrated: false, // true بعد أول جلب ناجح للإعدادات من الخادم
     sidebarOpen: false,
     onboardingCompleted: (() => { try { const u = localStorage.getItem('ai_commerce_user'); return u ? JSON.parse(u).onboardingCompleted === true : false; } catch { return false; } })(),
   });
@@ -190,19 +191,29 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         }
       } catch {}
 
-      const [products, orders, customers, settings, convs] = await Promise.all([
+      // allSettled بدل all: فشل طلب واحد (مهلة شبكة مثلاً) لا يجب أن يُسقط
+      // كل البيانات ويُظهر اللوحة فارغة رغم أن الخادم يحتوي كل شيء
+      const [productsR, ordersR, customersR, settingsR, convsR] = await Promise.allSettled([
         api.productsAPI.list(),
         api.ordersAPI.list(),
         api.customersAPI.list(),
         api.settingsAPI.get(),
         api.conversationsAPI.list(),
       ]);
+      const val = <T,>(r: PromiseSettledResult<T>): T | null => r.status === 'fulfilled' ? r.value : null;
+      const products = val(productsR);
+      const orders = val(ordersR);
+      const customers = val(customersR) as any;
+      const convs = val(convsR);
+      const settingsOk = settingsR.status === 'fulfilled';
+      const settings = settingsOk ? (settingsR as PromiseFulfilledResult<any>).value : null;
+
       setState(s => ({
         ...s,
         user: currentUser || s.user,
-        products: products || s.products,
-        orders: orders || s.orders,
-        customers: (customers as any)?.data ?? customers ?? s.customers,
+        products: products ?? s.products,
+        orders: orders ?? s.orders,
+        customers: customers?.data ?? customers ?? s.customers,
         settings: (settings && settings.brand) ? (() => {
             const localTheme = (() => { try { return localStorage.getItem('ai_commerce_theme'); } catch { return null; } })();
             const merged = { ...s.settings, ...settings };
@@ -213,25 +224,35 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             }
             return merged;
           })() : s.settings,
-        conversations: convs || s.conversations,
-        onboardingCompleted: (settings && settings.brand) ? (settings.onboardingDone === true) : s.onboardingCompleted,
+        conversations: convs ?? s.conversations,
+        // قرار الإعداد الأولي يُتخذ فقط عند نجاح جلب الإعدادات:
+        // إعدادات فارغة = حساب جديد فعلاً → onboarding
+        // فشل الطلب = لا نغير شيئاً (حتى لا يُعاد onboarding ويمسح الإعدادات)
+        onboardingCompleted: settingsOk
+          ? (settings ? settings.onboardingDone === true : false)
+          : s.onboardingCompleted,
+        hydrated: s.hydrated || settingsOk,
         isOnline: true,
         isLoading: false,
       }));
+      if (!settingsOk) {
+        notify('warning', '⚠️ تعذر تحميل إعدادات المتجر من الخادم — أعد تحميل الصفحة');
+      }
     } catch (e: any) {
       setState(s => ({ ...s, isOnline: false, isLoading: false }));
     }
-  }, []);
+  }, [notify]);
 
   useEffect(() => { refreshData(); }, [refreshData]);
 
-  // Persist offline state
+  // Persist state backup — فقط بعد تحميل البيانات الحقيقية من الخادم،
+  // حتى لا تُكتب القيم الافتراضية الفارغة فوق النسخة الاحتياطية الجيدة
   useEffect(() => {
-    if (!state.isOnline && state.token) {
+    if (state.token && state.hydrated) {
       if (saveTimer.current) clearTimeout(saveTimer.current);
       saveTimer.current = setTimeout(() => {
         try {
-          const { token, user, notifications, currentPage, sidebarOpen, ...toSave } = state;
+          const { token, user, notifications, currentPage, sidebarOpen, isLoading, isOnline, hydrated, ...toSave } = state as any;
           localStorage.setItem('ai_commerce_os_state', JSON.stringify(toSave));
         } catch {}
       }, 1000);
@@ -286,7 +307,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     api.setToken(token);
     api.setRefreshToken(refreshToken);
     try { localStorage.setItem('ai_commerce_user', JSON.stringify(user)); } catch {}
-    setState(s => ({ ...s, token, user, currentPage: 'dashboard' }));
+    // isLoading حتى وصول الإعدادات — يمنع وميض Onboarding على جهاز جديد
+    setState(s => ({ ...s, token, user, currentPage: 'dashboard', isLoading: true }));
     setTimeout(() => refreshData(), 100);
     // Redirect to dashboard
     if (window.location.pathname === '/' || window.location.pathname === '/login' || window.location.pathname === '/register') {

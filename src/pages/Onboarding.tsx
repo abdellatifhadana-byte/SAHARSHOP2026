@@ -1,4 +1,4 @@
-import { useState } from 'react';
+sauvgardimport { useState } from 'react';
 import { useStore } from '../store';
 import { CheckCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 
@@ -35,8 +35,21 @@ export default function Onboarding() {
   const next = () => { if (idx < ORDER.length - 1) setStep(ORDER[idx + 1]); };
   const prev = () => { if (idx > 0) setStep(ORDER[idx - 1]); };
 
+  // نرسل فقط الحقول التي أدخلها المستخدم فعلاً — الخادم يدمجها مع الإعدادات
+  // الموجودة (deep merge) فلا تُمسح القيم المحفوظة سابقاً من جهاز آخر.
+  const enteredBrand = () => {
+    const b: Record<string, string> = {};
+    if (brand.name.trim()) b.name = brand.name.trim();
+    if (brand.phone.trim()) b.phone = brand.phone.trim();
+    if (brand.city.trim()) b.city = brand.city.trim();
+    if (brand.currency) b.currency = brand.currency;
+    if (!settings.brand?.name || settings.brand.name === 'متجري') b.name = b.name || 'متجري';
+    return b;
+  };
+
   const finish = () => {
-    updateSettings('brand', { ...settings.brand, ...brand, name: brand.name || 'متجري' });
+    const b = enteredBrand();
+    if (Object.keys(b).length) updateSettings('brand', { ...settings.brand, ...b });
     updateSettings('ai', { ...settings.ai, ...ai });
     updateSettings('businessType' as any, businessType);
     updateSettings('businessCategory' as any, category);
@@ -45,7 +58,8 @@ export default function Onboarding() {
     setPage('dashboard');
   };
   const skip = () => {
-    updateSettings('brand', { ...settings.brand, name: brand.name || 'متجري' });
+    const b = enteredBrand();
+    if (Object.keys(b).length) updateSettings('brand', { ...settings.brand, ...b });
     updateSettings('onboardingDone', true as any);
     setOnboardingCompleted(true);
     setPage('dashboard');
