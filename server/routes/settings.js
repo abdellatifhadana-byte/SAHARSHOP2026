@@ -103,6 +103,8 @@ router.get('/server-config', auth, (req, res) => {
     supabase:   !!(process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY),
     openai:     !!(process.env.OPENAI_API_KEY),
     gemini:     !!(process.env.GEMINI_API_KEY),
+    claude:     !!(process.env.ANTHROPIC_API_KEY),
+    deepseek:   !!(process.env.DEEPSEEK_API_KEY),
     whatsapp:   !!(process.env.META_VERIFY_TOKEN),
   });
 });
@@ -134,6 +136,26 @@ router.post('/verify-connection', auth, async (req, res) => {
       const r = await httpsGet('generativelanguage.googleapis.com', `/v1/models?key=${apiKey}`, { 'Content-Type': 'application/json' });
       const data = JSON.parse(r.body);
       if (r.status === 200 && data.models) return res.json({ ok: true, info: `${data.models.length} models` });
+      return res.json({ ok: false, error: data.error?.message || 'Invalid key' });
+    }
+
+    if (service === 'claude') {
+      // التحقق عبر SDK الرسمي — قائمة النماذج تؤكد صلاحية المفتاح
+      try {
+        const Anthropic = require('@anthropic-ai/sdk');
+        const anthropic = new Anthropic({ apiKey });
+        const page = await anthropic.models.list();
+        const n = (page.data || []).length;
+        return res.json({ ok: true, info: `${n} نموذج متاح` });
+      } catch (e) {
+        return res.json({ ok: false, error: e.status === 401 ? 'المفتاح غير صحيح' : e.message });
+      }
+    }
+
+    if (service === 'deepseek') {
+      const r = await httpsGet('api.deepseek.com', '/models', { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' });
+      const data = JSON.parse(r.body);
+      if (r.status === 200 && data.data) return res.json({ ok: true, info: `${data.data.length} نموذج` });
       return res.json({ ok: false, error: data.error?.message || 'Invalid key' });
     }
 

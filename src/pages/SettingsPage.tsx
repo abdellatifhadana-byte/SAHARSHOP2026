@@ -310,40 +310,68 @@ export default function SettingsPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <Section title="مزوّد الذكاء الاصطناعي">
             <div className="s2col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              {(['openai','gemini'] as const).map(p => (
+              {(['openai','gemini','claude','deepseek'] as const).map(p => (
                 <button
                   key={p}
                   onClick={() => updateSettings('ai', { ...s.ai, provider: p })}
                   style={{
-                    padding: '13px', borderRadius: 12, fontWeight: 800, fontSize: 14,
+                    padding: '13px', borderRadius: 12, fontWeight: 800, fontSize: 13,
                     cursor: 'pointer', transition: 'all .18s',
                     border: `1.5px solid ${s.ai.provider === p ? 'rgba(99,102,241,0.45)' : 'var(--clr-border)'}`,
                     background: s.ai.provider === p ? 'rgba(99,102,241,0.12)' : 'rgba(255,255,255,0.04)',
                     color: s.ai.provider === p ? 'var(--clr-pri-h)' : 'var(--txt-3)',
                   }}
                 >
-                  {p === 'openai' ? '🧠 OpenAI GPT' : '🤖 Google Gemini (مجاني)'}
+                  {p === 'openai' ? '🧠 OpenAI GPT' : p === 'gemini' ? '🤖 Gemini (مجاني)' : p === 'claude' ? '🟠 Claude' : '🔮 DeepSeek (دارجة)'}
                 </button>
               ))}
             </div>
-            {s.ai.provider === 'openai' ? (
+            <p style={{ fontSize: 11, color: 'var(--txt-3)' }}>💡 المزود المختار يُجرَّب أولاً — وعند فشله ينتقل النظام تلقائياً لأي مزود آخر مربوط (Fallback)</p>
+            {s.ai.provider === 'openai' && (
               <Field label="OpenAI API Key">
                 <input className="input" type="password" placeholder="sk-proj-..." value={s.ai.apiKey} dir="ltr" style={{ fontFamily: 'monospace' }} onChange={e => updateSettings('ai', { ...s.ai, apiKey: e.target.value })} />
                 <p style={{ fontSize: 11.5, color: 'var(--txt-3)', marginTop: 5 }}>من platform.openai.com/api-keys</p>
               </Field>
-            ) : (
+            )}
+            {s.ai.provider === 'gemini' && (
               <Field label="Gemini API Key (مجاني)">
                 <input className="input" type="password" placeholder="AIzaSy..." value={s.ai.geminiKey} dir="ltr" style={{ fontFamily: 'monospace' }} onChange={e => updateSettings('ai', { ...s.ai, geminiKey: e.target.value })} />
                 <p style={{ fontSize: 11.5, color: 'var(--txt-3)', marginTop: 5 }}>من aistudio.google.com/app/apikey</p>
               </Field>
             )}
+            {s.ai.provider === 'claude' && (
+              <Field label="Claude API Key (Anthropic)">
+                <input className="input" type="password" placeholder="sk-ant-..." value={s.ai.claudeKey || ''} dir="ltr" style={{ fontFamily: 'monospace' }} onChange={e => updateSettings('ai', { ...s.ai, claudeKey: e.target.value })} />
+                <p style={{ fontSize: 11.5, color: 'var(--txt-3)', marginTop: 5 }}>من console.anthropic.com/settings/keys</p>
+              </Field>
+            )}
+            {s.ai.provider === 'deepseek' && (
+              <Field label="DeepSeek API Key">
+                <input className="input" type="password" placeholder="sk-..." value={s.ai.deepseekKey || ''} dir="ltr" style={{ fontFamily: 'monospace' }} onChange={e => updateSettings('ai', { ...s.ai, deepseekKey: e.target.value })} />
+                <p style={{ fontSize: 11.5, color: 'var(--txt-3)', marginTop: 5 }}>من platform.deepseek.com/api_keys</p>
+              </Field>
+            )}
             <Field label="النموذج">
-              <select className="select" value={s.ai.model} onChange={e => updateSettings('ai', { ...s.ai, model: e.target.value })}>
-                {s.ai.provider === 'openai'
-                  ? [['gpt-4o','GPT-4o (الأذكى)'],['gpt-4o-mini','GPT-4o Mini (سريع)'],['gpt-3.5-turbo','GPT-3.5 Turbo (اقتصادي)']].map(([v,l]) => <option key={v} value={v}>{l}</option>)
-                  : [['gemini-1.5-pro','Gemini 1.5 Pro'],['gemini-pro','Gemini Pro'],['gemini-1.5-flash','Gemini Flash (سريع)']].map(([v,l]) => <option key={v} value={v}>{l}</option>)
-                }
-              </select>
+              {s.ai.provider === 'openai' && (
+                <select className="select" value={s.ai.model} onChange={e => updateSettings('ai', { ...s.ai, model: e.target.value })}>
+                  {[['gpt-4o','GPT-4o (الأذكى)'],['gpt-4o-mini','GPT-4o Mini (سريع)'],['gpt-3.5-turbo','GPT-3.5 Turbo (اقتصادي)']].map(([v,l]) => <option key={v} value={v}>{l}</option>)}
+                </select>
+              )}
+              {s.ai.provider === 'gemini' && (
+                <select className="select" value={s.ai.model} onChange={e => updateSettings('ai', { ...s.ai, model: e.target.value })}>
+                  {[['gemini-1.5-pro','Gemini 1.5 Pro'],['gemini-pro','Gemini Pro'],['gemini-1.5-flash','Gemini Flash (سريع)']].map(([v,l]) => <option key={v} value={v}>{l}</option>)}
+                </select>
+              )}
+              {s.ai.provider === 'claude' && (
+                <select className="select" value={s.ai.claudeModel || 'claude-haiku-4-5'} onChange={e => updateSettings('ai', { ...s.ai, claudeModel: e.target.value })}>
+                  {[['claude-haiku-4-5','Claude Haiku 4.5 (الأسرع والأرخص — موصى به)'],['claude-sonnet-4-6','Claude Sonnet 4.6 (الأذكى للمهام المعقدة)']].map(([v,l]) => <option key={v} value={v}>{l}</option>)}
+                </select>
+              )}
+              {s.ai.provider === 'deepseek' && (
+                <select className="select" value="deepseek-chat" disabled>
+                  <option value="deepseek-chat">DeepSeek Chat (V3)</option>
+                </select>
+              )}
             </Field>
           </Section>
 
@@ -1111,7 +1139,25 @@ export default function SettingsPage() {
               />
               <p style={{ fontSize: 11, color: 'var(--txt-3)', marginTop: 4 }}>من aistudio.google.com/app/apikey</p>
             </Field>
-            <div style={{ display: 'flex', gap: 8 }}>
+            <Field label="Claude API Key (Anthropic)">
+              <input
+                className="input" type="password" dir="ltr"
+                placeholder="sk-ant-..."
+                value={s.ai.claudeKey || ''}
+                onChange={e => updateSettings('ai', { ...s.ai, claudeKey: e.target.value })}
+              />
+              <p style={{ fontSize: 11, color: 'var(--txt-3)', marginTop: 4 }}>من console.anthropic.com/settings/keys</p>
+            </Field>
+            <Field label="DeepSeek API Key (الأفضل للدارجة)">
+              <input
+                className="input" type="password" dir="ltr"
+                placeholder="sk-..."
+                value={s.ai.deepseekKey || ''}
+                onChange={e => updateSettings('ai', { ...s.ai, deepseekKey: e.target.value })}
+              />
+              <p style={{ fontSize: 11, color: 'var(--txt-3)', marginTop: 4 }}>من platform.deepseek.com/api_keys</p>
+            </Field>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <button
                 onClick={() => updateSettings('ai', { ...s.ai, provider: 'openai' })}
                 className={`chip ${s.ai.provider === 'openai' ? 'active' : ''}`}
@@ -1120,6 +1166,14 @@ export default function SettingsPage() {
                 onClick={() => updateSettings('ai', { ...s.ai, provider: 'gemini' })}
                 className={`chip ${s.ai.provider === 'gemini' ? 'active' : ''}`}
               >🤖 Gemini</button>
+              <button
+                onClick={() => updateSettings('ai', { ...s.ai, provider: 'claude' })}
+                className={`chip ${s.ai.provider === 'claude' ? 'active' : ''}`}
+              >🟠 Claude</button>
+              <button
+                onClick={() => updateSettings('ai', { ...s.ai, provider: 'deepseek' })}
+                className={`chip ${s.ai.provider === 'deepseek' ? 'active' : ''}`}
+              >🔮 DeepSeek</button>
             </div>
             <button onClick={() => notify('success', '✅ تم الحفظ')} className="btn btn-primary" style={{ width: 'fit-content' }}>حفظ</button>
           </Section>

@@ -204,9 +204,12 @@ export interface SocialSettings {
 
 export interface AISettings {
   apiKey: string;
-  provider: 'openai' | 'gemini';
+  provider: 'openai' | 'gemini' | 'claude' | 'deepseek';
   model: string;
   geminiKey: string;
+  claudeKey: string;     // Claude (Anthropic) — تحليل عميق وكتابة طويلة
+  deepseekKey: string;   // DeepSeek — الأفضل سعراً للعربية والدارجة
+  claudeModel?: string;  // افتراضياً claude-haiku-4-5 (الأرخص للمحادثات)
   personality: string;
   tone: string;
   language: string;
@@ -341,6 +344,7 @@ export const defaultSettings: AppSettings = {
   },
   ai: {
     apiKey: '', provider: 'openai', model: 'gpt-4o-mini', geminiKey: '',
+    claudeKey: '', deepseekKey: '', claudeModel: 'claude-haiku-4-5',
     personality: 'Moroccan Seller', tone: 'Friendly', language: 'Darija',
     replyDelay: 2, humanSimulation: true, autoDiscount: true, maxDiscount: 15,
     systemPrompt: 'أنت مساعد بيع ذكي لمتجر مغربي. تحدث بالدارجة المغربية بأسلوب ودود واحترافي.',
