@@ -290,8 +290,16 @@ export interface DesignSettings {
   compressImages: boolean;
 }
 
+// العروض الذكية: توصيل مجاني فوق عتبة، خصم الباقة، عجلة الحظ
+export interface PromotionSettings {
+  freeShippingThreshold: number;            // التوصيل مجاني فوق هذا المبلغ (افتراضي 400)
+  bundle: { enabled: boolean; minItems: number; percent: number };
+  wheel:  { enabled: boolean; minOrder: number; dailyCap?: number };
+}
+
 export interface AppSettings {
   brand: BrandSettings;
+  promotions?: PromotionSettings;
   social: SocialSettings;
   ai: AISettings;
   chatbot: ChatbotSettings;

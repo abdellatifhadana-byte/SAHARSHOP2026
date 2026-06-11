@@ -43,6 +43,17 @@ function _mapProduct(p) {
   };
 }
 
+function _mapCoupon(c) {
+  if (!c) return null;
+  return {
+    id: c.id, userId: c.user_id, code: c.code, type: c.type,
+    value: +c.value, minOrder: +c.min_order, maxUses: +c.max_uses,
+    uses: +c.uses, usedCount: +c.uses, active: !!c.active,
+    expiresAt: c.expires_at ? new Date(c.expires_at).toISOString() : null,
+    createdAt: c.created_at ? new Date(c.created_at).toISOString() : now(),
+  };
+}
+
 function _mapCustomer(c) {
   if (!c) return null;
   return {
@@ -582,13 +593,42 @@ const db = {
     const { rows } = await pool.query(
       'SELECT * FROM coupons WHERE user_id = $1 ORDER BY created_at DESC', [userId]
     );
-    return rows.map(c => ({
-      id: c.id, userId: c.user_id, code: c.code, type: c.type,
-      value: +c.value, minOrder: +c.min_order, maxUses: +c.max_uses,
-      uses: +c.uses, active: !!c.active,
-      expiresAt: c.expires_at ? new Date(c.expires_at).toISOString() : null,
-      createdAt: new Date(c.created_at).toISOString(),
-    }));
+    return rows.map(_mapCoupon);
+  },
+  async getCouponByCode(userId, code) {
+    const { rows } = await pool.query(
+      'SELECT * FROM coupons WHERE user_id = $1 AND UPPER(code) = UPPER($2) LIMIT 1',
+      [userId, String(code || '').trim()]
+    );
+    return rows[0] || null;
+  },
+  // التحقق الحقيقي من الكوبون: الوجود، التفعيل، الصلاحية، حد الاستخدام، الحد الأدنى للطلب
+  async validateCoupon(userId, code, orderTotal = 0) {
+    const c = await this.getCouponByCode(userId, code);
+    if (!c) return { valid: false, discount: 0, message: 'الكود غير صحيح' };
+    if (c.active === false) return { valid: false, discount: 0, message: 'هذا الكوبون غير مفعّل' };
+    if (c.expires_at && new Date(c.expires_at) < new Date())
+      return { valid: false, discount: 0, message: 'انتهت صلاحية الكوبون' };
+    if (+c.max_uses > 0 && +c.uses >= +c.max_uses)
+      return { valid: false, discount: 0, message: 'استُنفد عدد مرات استخدام الكوبون' };
+    if (+c.min_order > 0 && orderTotal < +c.min_order)
+      return { valid: false, discount: 0, message: `الحد الأدنى للطلب ${+c.min_order} درهم` };
+    let discount = 0;
+    if (c.type === 'fixed') discount = Math.min(+c.value, orderTotal);
+    else if (c.type === 'shipping') discount = 0; // الشحن المجاني يُطبق على التوصيل وليس على المجموع
+    else discount = Math.round(orderTotal * (+c.value / 100)); // percentage
+    return { valid: true, discount, type: c.type, value: +c.value, couponId: c.id, freeShipping: c.type === 'shipping' };
+  },
+  async incrementCouponUse(id) {
+    await pool.query('UPDATE coupons SET uses = uses + 1 WHERE id = $1', [id]);
+  },
+  async countCouponsCreatedToday(userId, codePrefix) {
+    const { rows } = await pool.query(
+      `SELECT COUNT(*)::int AS n FROM coupons
+       WHERE user_id = $1 AND code LIKE $2 AND created_at > NOW() - INTERVAL '1 day'`,
+      [userId, `${codePrefix}%`]
+    );
+    return rows[0]?.n || 0;
   },
   async createCoupon(c) {
     const id = uid();
@@ -598,7 +638,7 @@ const db = {
       [id, c.userId, c.code, c.type||'percentage', +c.value||0,
        +c.minOrder||0, +c.maxUses||0, c.expiresAt||null]
     );
-    return rows[0];
+    return _mapCoupon(rows[0]);
   },
   async updateCoupon(id, u) {
     const map = { code:'code', type:'type', value:'value', minOrder:'min_order',

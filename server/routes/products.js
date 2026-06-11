@@ -63,7 +63,21 @@ router.get('/public/catalog', async (req, res) => {
     const products = (await db.getProducts(userId)).filter(p => p.status === 'published' && (p.type === 'service' || p.type === 'digital' || p.stock > 0));
     const settings = await db.getSettings(userId) || {};
     const deliveryCosts = settings.deliveryCosts || {};
-    res.json({ products, brand: settings.brand || {}, deliveryCosts });
+    // إعدادات العروض الذكية بقيم آمنة محصورة (نفس الحدود المطبقة في مسار الطلب)
+    const p = settings.promotions || {};
+    const promotions = {
+      freeShippingThreshold: +p.freeShippingThreshold > 0 ? +p.freeShippingThreshold : 400,
+      bundle: {
+        enabled: p.bundle?.enabled !== false,
+        minItems: Math.max(2, +p.bundle?.minItems || 3),
+        percent: Math.min(Math.max(+p.bundle?.percent || 10, 0), 25),
+      },
+      wheel: {
+        enabled: p.wheel?.enabled !== false,
+        minOrder: Math.max(+p.wheel?.minOrder || 150, 0),
+      },
+    };
+    res.json({ products, brand: settings.brand || {}, deliveryCosts, promotions });
   } catch (e) { res.status(500).json({ error: 'Server error' }); }
 });
 

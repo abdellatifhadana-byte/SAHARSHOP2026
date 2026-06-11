@@ -381,10 +381,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     log('المدير', `أضاف منتج: ${np.name}`, `${np.price} ${state.settings.brand.currency}`, 'product', 'success');
   };
 
+  // رسائل حقيقية: فشل الحفظ على الخادم يظهر للمستخدم بدل تجاهله بصمت
   const updateProduct = async (id: string, u: Partial<Product>) => {
     setState(s => ({ ...s, products: s.products.map(p => p.id === id ? { ...p, ...u } : p) }));
     if (state.isOnline && api.getToken()) {
-      try { await api.productsAPI.update(id, u); } catch {}
+      try { await api.productsAPI.update(id, u); }
+      catch (e: any) { notify('error', `❌ لم يُحفظ التعديل على الخادم: ${e?.message || 'تحقق من الاتصال'}`); }
     }
   };
 
@@ -392,7 +394,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const p = state.products.find(x => x.id === id);
     setState(s => ({ ...s, products: s.products.filter(p => p.id !== id) }));
     if (state.isOnline && api.getToken()) {
-      try { await api.productsAPI.remove(id); } catch {}
+      try { await api.productsAPI.remove(id); notify('success', `✅ حُذف "${p?.name || 'المنتج'}" نهائياً من الخادم`); }
+      catch (e: any) { notify('error', `❌ لم يُحذف من الخادم: ${e?.message || 'تحقق من الاتصال'}`); }
     }
     if (p) log('المدير', `حذف منتج: ${p.name}`, '', 'product', 'warning');
   };
@@ -403,7 +406,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const newStock = Math.max(0, p.stock + delta);
     setState(s => ({ ...s, products: s.products.map(x => x.id === id ? { ...x, stock: newStock } : x) }));
     if (state.isOnline && api.getToken()) {
-      try { await api.productsAPI.update(id, { stock: newStock }); } catch {}
+      try { await api.productsAPI.update(id, { stock: newStock }); }
+      catch (e: any) { notify('error', `❌ لم يُحفظ المخزون على الخادم: ${e?.message || 'تحقق من الاتصال'}`); }
     }
   };
 
@@ -421,14 +425,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const updateCustomer = async (id: string, u: Partial<Customer>) => {
     setState(s => ({ ...s, customers: s.customers.map(c => c.id === id ? { ...c, ...u } : c) }));
     if (state.isOnline && api.getToken()) {
-      try { await api.customersAPI.update(id, u); } catch {}
+      try { await api.customersAPI.update(id, u); }
+      catch (e: any) { notify('error', `❌ لم يُحفظ تعديل الزبون على الخادم: ${e?.message || 'تحقق من الاتصال'}`); }
     }
   };
 
   const deleteCustomer = async (id: string) => {
     setState(s => ({ ...s, customers: s.customers.filter(c => c.id !== id) }));
     if (state.isOnline && api.getToken()) {
-      try { await api.customersAPI.remove(id); } catch {}
+      try { await api.customersAPI.remove(id); notify('success', '✅ حُذف الزبون من الخادم'); }
+      catch (e: any) { notify('error', `❌ لم يُحذف الزبون من الخادم: ${e?.message || 'تحقق من الاتصال'}`); }
     }
   };
 
@@ -448,7 +454,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const updateOrder = async (id: string, u: Partial<Order>) => {
     setState(s => ({ ...s, orders: s.orders.map(o => o.id === id ? { ...o, ...u } : o) }));
     if (state.isOnline && api.getToken()) {
-      try { await api.ordersAPI.update(id, u); } catch {}
+      try { await api.ordersAPI.update(id, u); }
+      catch (e: any) { notify('error', `❌ لم يُحفظ تعديل الطلب على الخادم: ${e?.message || 'تحقق من الاتصال'}`); }
     }
   };
 
@@ -468,7 +475,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const rejectOrder = async (id: string, reason?: string) => {
     setState(s => ({ ...s, orders: s.orders.map(o => o.id === id ? { ...o, status: 'cancelled' as OrderStatus } : o) }));
     if (state.isOnline && api.getToken()) {
-      try { await api.ordersAPI.reject(id); } catch {}
+      try { await api.ordersAPI.reject(id); }
+      catch (e: any) { notify('error', `⚠️ الرفض لم يُسجل على الخادم: ${e?.message || 'تحقق من الاتصال'}`); return; }
     }
     notify('info', '❌ تم رفض الطلب');
     log('المدير', `رفض طلب: ${id}`, reason||'', 'order', 'warning');
@@ -482,7 +490,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       try {
         const updated = await api.ordersAPI.ship(id, { trackingNumber: trk, provider: prov });
         setState(s => ({ ...s, orders: s.orders.map(o => o.id === id ? updated : o) }));
-      } catch {}
+      } catch (e: any) { notify('error', `⚠️ الشحن لم يُسجل على الخادم: ${e?.message || 'تحقق من الاتصال'}`); return; }
     }
     notify('success', `🚚 تم الشحن — رقم التتبع: ${trk}`);
     try { Sounds.shipped(); } catch {}
@@ -492,7 +500,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const deliverOrder = async (id: string) => {
     setState(s => ({ ...s, orders: s.orders.map(o => o.id === id ? { ...o, status: 'delivered' as OrderStatus } : o) }));
     if (state.isOnline && api.getToken()) {
-      try { await api.ordersAPI.deliver(id); } catch {}
+      try { await api.ordersAPI.deliver(id); }
+      catch (e: any) { notify('error', `⚠️ التوصيل لم يُسجل على الخادم: ${e?.message || 'تحقق من الاتصال'}`); return; }
     }
     notify('success', '📦 تم التوصيل بنجاح! 🎉');
     try { Sounds.delivered(); } catch {}

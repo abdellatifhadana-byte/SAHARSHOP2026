@@ -15,6 +15,21 @@ const ENABLES: Record<string, string[]> = {
   cloudinary: ['رفع الصور تلقائياً', 'CDN عالمي سريع', 'لا تفقد صورك عند التحديث'],
 };
 
+// شرح مبسط بلغة غير تقنية: ما هذه الخدمة؟ وما هو "المفتاح" المطلوب؟
+const WHAT_IS: Record<string, string> = {
+  whatsapp: 'المفتاح هنا هو "رمز سري" تحصل عليه مجاناً من فيسبوك (Meta) يسمح للتطبيق بإرسال رسائل واتساب من رقمك التجاري تلقائياً. تحتاج حساب فيسبوك فقط — اتبع الخطوات بالأسفل وستحصل عليه في حوالي 10 دقائق.',
+  facebook: 'رمز يسمح للتطبيق بالنشر على صفحتك في فيسبوك نيابة عنك. تحصل عليه من موقع فيسبوك للمطورين بحسابك العادي — بدون أي تكلفة.',
+  instagram: 'نفس فكرة فيسبوك: رمز يسمح بالنشر على حساب Instagram التجاري. شرطه الوحيد أن يكون حسابك Instagram مربوطاً بصفحة فيسبوك.',
+  openai: 'OpenAI هي الشركة صاحبة ChatGPT. "المفتاح" هو رمز يبدأ بـ sk- تشتريه من موقعهم (يحتاج بطاقة بنكية) ليرد الذكاء الاصطناعي على زبائنك ويكتب أوصاف منتجاتك.',
+  gemini: 'الخيار الأسهل والمجاني 100% للبدء! Gemini هو الذكاء الاصطناعي من Google. تدخل الموقع بحساب Google العادي وتضغط زراً واحداً وتنسخ المفتاح — دقيقتان فقط وبدون بطاقة بنكية.',
+  tiktok: 'رمز من منصة إعلانات TikTok يسمح بنشر الفيديوهات وإدارة الإعلانات. مخصص لمن لديه حساب TikTok Ads — يمكنك تجاهله إن لم تعلن هناك.',
+  supabase: 'قاعدة بيانات سحابية مجانية تحفظ نسخة احتياطية من بياناتك على الإنترنت. التسجيل مجاني بحساب Google أو GitHub.',
+  cloudinary: 'خدمة مجانية لتخزين صور منتجاتك على الإنترنت بسرعة عالية، حتى لا تضيع الصور عند تحديث التطبيق. التسجيل مجاني.',
+};
+
+// ترشيح للمبتدئين: ما الذي يجب البدء به؟
+const EASY_IDS = new Set(['gemini', 'cloudinary']);
+
 const SERVICES = [
   {
     id: 'whatsapp', name: 'WhatsApp Business', Icon: IconWhatsApp, grad: 'linear-gradient(135deg,#25d366,#128C7E)', desc: 'استقبال وإرسال الرسائل تلقائياً',
@@ -289,6 +304,13 @@ export default function ConnectionsPage() {
         <p className="page-sub">اربط حساباتك مرة واحدة — النظام يتكفل بالباقي</p>
       </div>
 
+      {/* دليل المبتدئين: من أين أبدأ؟ */}
+      <div style={{ padding: '14px 16px', borderRadius: 'var(--r)', background: 'rgba(0,210,179,0.07)', border: '1px solid rgba(0,210,179,0.2)', fontSize: 12.5, color: 'var(--ink2)', lineHeight: 1.8 }}>
+        <b style={{ color: 'var(--mint)' }}>🧭 جديد هنا؟ لست مضطراً لربط كل شيء!</b><br/>
+        ابدأ بخدمة واحدة فقط: <b style={{ color: 'var(--ink1)' }}>Google Gemini</b> — مجانية تماماً وتُفعّل الذكاء الاصطناعي كاملاً (الردود، الأوصاف، الهاشتاغ) في دقيقتين بحساب Google عادي.
+        كل بطاقة بالأسفل فيها شرح <b style={{ color: 'var(--ink1)' }}>«ما هذه الخدمة؟»</b> وخطوات مرقمة ورابط مباشر للموقع الرسمي. الخدمات الأخرى أضفها لاحقاً عند الحاجة.
+      </div>
+
       {/* Progress + Test All */}
       <div className="card" style={{ padding: '18px 20px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
@@ -388,10 +410,19 @@ export default function ConnectionsPage() {
                       </div>
                     </div>
                   )}
+                  {/* ما هذه الخدمة؟ — شرح بلغة بسيطة قبل الخطوات التقنية */}
+                  {!conn && WHAT_IS[svc.id] && (
+                    <div style={{ padding: '12px 14px', borderRadius: 10, background: 'rgba(0,210,179,0.06)', border: '1px solid rgba(0,210,179,0.18)' }}>
+                      <p style={{ fontSize: 12, fontWeight: 800, color: 'var(--mint)', marginBottom: 6 }}>
+                        🤔 ما هذه الخدمة؟ {EASY_IDS.has(svc.id) && <span style={{ background: 'rgba(0,210,179,0.15)', borderRadius: 99, padding: '2px 10px', fontSize: 10, marginRight: 6 }}>⭐ موصى بها للمبتدئين — مجانية</span>}
+                      </p>
+                      <p style={{ fontSize: 12, color: 'var(--ink2)', lineHeight: 1.8 }}>{WHAT_IS[svc.id]}</p>
+                    </div>
+                  )}
                   {/* Guide */}
                   <div style={{ padding: '14px 16px', borderRadius: 12, background: 'rgba(99,102,241,0.07)', border: '1px solid rgba(99,102,241,0.18)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                      <p style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--clr-pri-h)' }}>كيف تحصل على هذه المعلومات؟</p>
+                      <p style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--clr-pri-h)' }}>كيف تحصل على هذه المعلومات؟ — خطوة بخطوة</p>
                       <a href={svc.url} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--clr-pri-h)', textDecoration: 'none', fontWeight: 700 }}>
                         الدليل الرسمي <ExternalLink size={12} />
                       </a>

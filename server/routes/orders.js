@@ -209,27 +209,90 @@ router.put('/:id/deliver', auth, async (req, res) => {
 });
 
 // POST /api/orders/public — create order from storefront (no auth)
+// المجموع يُعاد حسابه بالكامل على الخادم (حماية التاجر):
+// الأسعار من قاعدة البيانات، خصم واحد أفضل (باقة أو كوبون)، توصيل مجاني
+// فوق العتبة، وحارس هامش الربح يمنع أي خصم يأكل أكثر من 80% من الهامش.
 router.post('/public', sanitizeBody, validateOrder, async (req, res) => {
-  const { userId, items, customerName, customerPhone, city, address, notes, total, source } = req.body;
+  const { userId, items, customerName, customerPhone, city, address, notes, source, couponCode, deliveryCost } = req.body;
   if (!userId || !items?.length || !customerName || !customerPhone)
     return res.status(400).json({ error: 'userId, items, name, phone required' });
   try {
+    // 1) الأسعار الحقيقية من قاعدة البيانات وليس من المتصفح
+    let subtotal = 0, totalCost = 0, giftFees = 0, itemCount = 0;
+    const safeItems = [];
+    for (const it of items) {
+      let p = null;
+      if (it.productId) { try { p = await db.getProduct(it.productId); } catch {} }
+      const price = p ? +p.price : Math.max(0, +it.price || 0);
+      const qty = Math.max(1, +it.quantity || 1);
+      subtotal += price * qty;
+      itemCount += qty;
+      if (p && +p.cost > 0) totalCost += +p.cost * qty;
+      if (it.giftWrap) giftFees += 15;
+      safeItems.push({ ...it, price });
+    }
+    subtotal += giftFees;
+
+    // 2) إعدادات العروض من المتجر (بقيم آمنة محصورة)
+    const settings = await db.getSettings(userId) || {};
+    const promo = settings.promotions || {};
+    const bundleEnabled = promo.bundle?.enabled !== false;
+    const bundleMin = Math.max(2, +promo.bundle?.minItems || 3);
+    const bundlePct = Math.min(Math.max(+promo.bundle?.percent || 10, 0), 25);
+    const freeShipThreshold = +promo.freeShippingThreshold > 0 ? +promo.freeShippingThreshold : 400;
+
+    const bundleDiscount = bundleEnabled && itemCount >= bundleMin
+      ? Math.round(subtotal * bundlePct / 100) : 0;
+
+    // 3) الكوبون يُتحقق منه على الخادم — لا ثقة بقيمة الخصم القادمة من المتصفح
+    let couponDiscount = 0, couponFreeShip = false, couponId = null;
+    if (couponCode) {
+      const v = await db.validateCoupon(userId, couponCode, subtotal);
+      if (v.valid) { couponDiscount = v.discount; couponFreeShip = !!v.freeShipping; couponId = v.couponId; }
+    }
+
+    // 4) خصم واحد فقط — الأفضل للزبون، بلا تراكم يخسّر التاجر
+    let discount = Math.max(bundleDiscount, couponDiscount);
+    const discountSource = discount === 0 ? ''
+      : bundleDiscount >= couponDiscount ? `باقة ${bundleMin}+ قطع (${bundlePct}%)` : `كوبون ${String(couponCode).toUpperCase()}`;
+
+    // 5) حارس هامش الربح: لا يتجاوز الخصم 80% من الهامش الإجمالي المعروف
+    if (totalCost > 0) {
+      const maxSafe = Math.max(0, Math.round((subtotal - giftFees - totalCost) * 0.8));
+      if (discount > maxSafe) discount = maxSafe;
+    }
+
+    // 6) التوصيل: مجاني بكوبون شحن أو فوق العتبة — وإلا قيمة المدينة (محصورة 0-100)
+    const afterDiscount = Math.max(0, subtotal - discount);
+    const freeShipping = couponFreeShip || afterDiscount >= freeShipThreshold;
+    const delivery = freeShipping ? 0 : Math.min(Math.max(+deliveryCost || 0, 0), 100);
+    const serverTotal = afterDiscount + delivery;
+
+    // استهلاك الكوبون فقط عندما يُطبق فعلاً في طلب حقيقي
+    const couponApplied = couponFreeShip || (couponDiscount > 0 && couponDiscount >= bundleDiscount);
+    if (couponId && couponApplied) { try { await db.incrementCouponUse(couponId); } catch {} }
+
+    const promoNotes = [
+      discount > 0 ? `خصم ${discount} MAD (${discountSource})` : '',
+      freeShipping ? 'توصيل مجاني 🚚' : '',
+    ].filter(Boolean).join(' · ');
+
     // crypto.randomBytes: 8 hex chars, ~40 bits entropy — brute-force resistant
     const customerCode = crypto.randomBytes(4).toString('hex').toUpperCase();
 
     // Atomic transaction: both order + customer succeed or both roll back
     const { order, customer } = await db.createOrderWithCustomer(
       { userId, customerName, customerPhone, city: city||'', address: address||'',
-        items, total: +total||0, source: source||'Storefront',
-        status: 'pending', notes: notes||'', customerCode },
+        items: safeItems, total: serverTotal, source: source||'Storefront',
+        status: 'pending', notes: [notes||'', promoNotes].filter(Boolean).join(' · '), customerCode },
       { userId, name: customerName, phone: customerPhone,
         city: city||'', address: address||'', source: source||'Storefront' }
     );
 
     await db.addNotification({ userId, type: 'info', message: `🛒 طلب جديد من ${customerName} — ${order.total} MAD` });
-    await db.addLog({ userId, user: 'Storefront', action: `New order: ${customerName}`, details: `${city} — ${total} MAD`, type: 'order', severity: 'info' });
+    await db.addLog({ userId, user: 'Storefront', action: `New order: ${customerName}`, details: `${city} — ${serverTotal} MAD${promoNotes ? ' · ' + promoNotes : ''}`, type: 'order', severity: 'info' });
 
-    res.status(201).json({ order, customerId: customer.id });
+    res.status(201).json({ order, customerId: customer.id, applied: { discount, discountSource, freeShipping, total: serverTotal } });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

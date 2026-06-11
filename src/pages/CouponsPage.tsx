@@ -70,7 +70,7 @@ function isDemo(): boolean {
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 export default function CouponsPage() {
-  const { settings } = useStore();
+  const { settings, updateSettings, notify } = useStore();
   const currency = settings.brand?.currency || 'MAD';
   const demo = isDemo();
 
@@ -262,6 +262,9 @@ export default function CouponsPage() {
           الكوبون يُعطيه التاجر للزبون عبر واتساب، الزبون يدخله في المتجر عند الطلب للحصول على خصمه تلقائياً.
         </span>
       </div>
+
+      {/* ── العروض الذكية ── */}
+      <SmartPromotions settings={settings} updateSettings={updateSettings} notify={notify} currency={currency} />
 
       {/* ── Error ── */}
       {error && (
@@ -577,6 +580,125 @@ export default function CouponsPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ═══ العروض الذكية — توصيل مجاني، خصم الباقة، عجلة الحظ ═══════════════════
+// منطق الحماية: خصم واحد فقط يصل للزبون (الأفضل له)، النسب محصورة بسقف،
+// والخادم يعيد حساب كل طلب من أسعار قاعدة البيانات مع حارس هامش الربح (80%).
+function SmartPromotions({ settings, updateSettings, notify, currency }: {
+  settings: any; updateSettings: (k: any, v: any) => Promise<void>;
+  notify: (t: any, m: string) => void; currency: string;
+}) {
+  const saved = settings.promotions || {};
+  const [freeShip, setFreeShip] = useState(String(saved.freeShippingThreshold ?? 400));
+  const [bundleOn, setBundleOn] = useState(saved.bundle?.enabled !== false);
+  const [bundleMin, setBundleMin] = useState(String(saved.bundle?.minItems ?? 3));
+  const [bundlePct, setBundlePct] = useState(String(saved.bundle?.percent ?? 10));
+  const [wheelOn, setWheelOn] = useState(saved.wheel?.enabled !== false);
+  const [wheelMin, setWheelMin] = useState(String(saved.wheel?.minOrder ?? 150));
+  const [savingPromo, setSavingPromo] = useState(false);
+  const [showTips, setShowTips] = useState(false);
+
+  // مزامنة عند وصول الإعدادات من الخادم
+  useEffect(() => {
+    const p = settings.promotions;
+    if (!p) return;
+    setFreeShip(String(p.freeShippingThreshold ?? 400));
+    setBundleOn(p.bundle?.enabled !== false);
+    setBundleMin(String(p.bundle?.minItems ?? 3));
+    setBundlePct(String(p.bundle?.percent ?? 10));
+    setWheelOn(p.wheel?.enabled !== false);
+    setWheelMin(String(p.wheel?.minOrder ?? 150));
+  }, [settings.promotions]);
+
+  const save = async () => {
+    // حصر القيم في حدود آمنة للتاجر — نفس الحدود المطبقة في الخادم
+    const pct = Math.min(Math.max(Number(bundlePct) || 10, 3), 25);
+    const payload = {
+      freeShippingThreshold: Math.max(Number(freeShip) || 400, 100),
+      bundle: { enabled: bundleOn, minItems: Math.max(Number(bundleMin) || 3, 2), percent: pct },
+      wheel: { enabled: wheelOn, minOrder: Math.max(Number(wheelMin) || 150, 0) },
+    };
+    setSavingPromo(true);
+    try {
+      await updateSettings('promotions', payload);
+      notify('success', '✅ تم حفظ إعدادات العروض الذكية على الخادم');
+    } catch (e: any) {
+      notify('error', `❌ لم يتم الحفظ: ${e?.message || 'تحقق من الاتصال'}`);
+    }
+    setSavingPromo(false);
+  };
+
+  const rowStyle: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' };
+  const numStyle: React.CSSProperties = { width: 90, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--panel2)', color: 'var(--ink1)', fontSize: 13, textAlign: 'center' };
+
+  return (
+    <div className="card" style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--ink1)' }}>⚡ العروض الذكية</div>
+          <div style={{ fontSize: 11.5, color: 'var(--ink3)', marginTop: 2 }}>تعمل تلقائياً في متجرك — الزبون يحصل على أفضل خصم واحد فقط، والخادم يحمي هامش ربحك</div>
+        </div>
+        <button onClick={() => setShowTips(s => !s)} className="btn btn-ghost btn-xs">{showTips ? 'إخفاء' : '💰 كيف أربح منها؟'}</button>
+      </div>
+
+      {showTips && (
+        <div style={{ background: 'var(--gold-soft)', border: '1px solid var(--border-gold)', borderRadius: 10, padding: '12px 14px', fontSize: 12, color: 'var(--ink2)', lineHeight: 1.9 }}>
+          <b style={{ color: 'var(--gold)' }}>لماذا هذه العروض تزيد ربحك ولا تنقصه؟</b><br/>
+          🚚 <b>التوصيل المجاني فوق {freeShip} {currency}:</b> الزبون الذي سلته 300 يضيف منتجاً آخر ليبلغ العتبة — تدفع 30 درهم توصيل وتربح هامش منتج إضافي كامل.<br/>
+          🎁 <b>خصم الباقة:</b> خصم {bundlePct}% على 3 قطع أرباحه أكبر من بيع قطعة واحدة بلا خصم — الحجم يعوّض النسبة، والنسبة محصورة بسقف 25%.<br/>
+          🎡 <b>عجلة الحظ:</b> أغلب الجوائز صغيرة (5-8%) و«حظ أوفر»، الكود صالح 48 ساعة فقط وبحد أدنى للطلب — تحفيز شراء عاجل بتكلفة محسوبة.<br/>
+          🛡️ <b>الحماية المضمونة:</b> خصم واحد فقط لا تراكم، والخادم يعيد حساب كل طلب من أسعارك الحقيقية ويمنع أي خصم يأكل أكثر من 80% من هامش الربح (حسب تكلفة المنتج المسجلة).
+        </div>
+      )}
+
+      {/* التوصيل المجاني */}
+      <div style={rowStyle}>
+        <span style={{ fontSize: 22 }}>🚚</span>
+        <div style={{ flex: 1, minWidth: 180 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink1)' }}>توصيل مجاني فوق</div>
+          <div style={{ fontSize: 11, color: 'var(--ink3)' }}>يظهر للزبون شريط تقدم يشجعه على رفع قيمة سلته</div>
+        </div>
+        <input type="number" min={100} value={freeShip} onChange={e => setFreeShip(e.target.value)} style={numStyle} />
+        <span style={{ fontSize: 12, color: 'var(--ink3)' }}>{currency}</span>
+      </div>
+
+      {/* خصم الباقة */}
+      <div style={rowStyle}>
+        <span style={{ fontSize: 22 }}>🎁</span>
+        <div style={{ flex: 1, minWidth: 180 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink1)' }}>خصم الباقة (شراء عدة قطع)</div>
+          <div style={{ fontSize: 11, color: 'var(--ink3)' }}>خصم تلقائي عند بلوغ عدد القطع — النسبة محصورة 3-25%</div>
+        </div>
+        <label className="toggle toggle-sm"><input type="checkbox" checked={bundleOn} onChange={e => setBundleOn(e.target.checked)} /><span className="toggle-track" /><span className="toggle-thumb" /></label>
+        {bundleOn && (<>
+          <input type="number" min={2} value={bundleMin} onChange={e => setBundleMin(e.target.value)} style={{ ...numStyle, width: 64 }} title="عدد القطع" />
+          <span style={{ fontSize: 12, color: 'var(--ink3)' }}>قطع ←</span>
+          <input type="number" min={3} max={25} value={bundlePct} onChange={e => setBundlePct(e.target.value)} style={{ ...numStyle, width: 64 }} title="نسبة الخصم" />
+          <span style={{ fontSize: 12, color: 'var(--ink3)' }}>%</span>
+        </>)}
+      </div>
+
+      {/* عجلة الحظ */}
+      <div style={rowStyle}>
+        <span style={{ fontSize: 22 }}>🎡</span>
+        <div style={{ flex: 1, minWidth: 180 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink1)' }}>عجلة الحظ</div>
+          <div style={{ fontSize: 11, color: 'var(--ink3)' }}>لفّة واحدة يومياً لكل زائر، كوبون حقيقي صالح 48 ساعة وبحد أدنى للطلب</div>
+        </div>
+        <label className="toggle toggle-sm"><input type="checkbox" checked={wheelOn} onChange={e => setWheelOn(e.target.checked)} /><span className="toggle-track" /><span className="toggle-thumb" /></label>
+        {wheelOn && (<>
+          <span style={{ fontSize: 12, color: 'var(--ink3)' }}>حد أدنى</span>
+          <input type="number" min={0} value={wheelMin} onChange={e => setWheelMin(e.target.value)} style={{ ...numStyle, width: 80 }} />
+          <span style={{ fontSize: 12, color: 'var(--ink3)' }}>{currency}</span>
+        </>)}
+      </div>
+
+      <button onClick={save} disabled={savingPromo} className="btn btn-primary" style={{ alignSelf: 'flex-start' }}>
+        {savingPromo ? '⟳ جارٍ الحفظ...' : '💾 حفظ العروض'}
+      </button>
     </div>
   );
 }

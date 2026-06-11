@@ -25,6 +25,11 @@ interface StoreInfo {
          instagram?:string;facebook?:string;whatsapp?:string;email?:string;
          workStart?:string;workEnd?:string;address?:string};
   deliveryCosts?:Record<string,number>;
+  promotions?:{
+    freeShippingThreshold:number;
+    bundle:{enabled:boolean;minItems:number;percent:number};
+    wheel:{enabled:boolean;minOrder:number};
+  };
 }
 interface ChatMsg { role:'user'|'ai'; content:string; product?:SProduct; }
 
@@ -113,7 +118,7 @@ function useStorefront(userId:string) {
   useEffect(()=>{
     if(!userId){setError('رابط المتجر غير صحيح');setLoading(false);return;}
     fetch(`/api/products/public/catalog?userId=${userId}`).then(r=>r.json())
-      .then(c=>{setProducts(c.products||[]);setStoreInfo({brand:c.brand||{},deliveryCosts:c.deliveryCosts});setLoading(false);})
+      .then(c=>{setProducts(c.products||[]);setStoreInfo({brand:c.brand||{},deliveryCosts:c.deliveryCosts,promotions:c.promotions});setLoading(false);})
       .catch(()=>{setError('تعذّر تحميل المتجر');setLoading(false);});
     try{const k=`sahar_visit_${userId}`;if(!sessionStorage.getItem(k)){trackStoreEvent(userId,'visit');sessionStorage.setItem(k,'1');}}catch{}
   },[userId]);
@@ -496,21 +501,23 @@ function ProductCard({p,onAdd,onView,currency}:{p:SProduct;onAdd:(p:SProduct)=>v
 }
 
 // ═══════════════════════════════════════════════════════════════ SERVICE CARD
+// أيقونة الخدمة حسب الاسم/الفئة — مشتركة بين البطاقة ومودال الخدمة
+function serviceIconFor(p:SProduct,sz=22) {
+  const icons:Record<string,JSX.Element> = {
+    'تصوير':<Camera size={sz}/>,
+    'تصميم':<svg width={sz} height={sz} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>,
+    'تنظيف':<Sparkles size={sz}/>,
+    'توصيل':<svg width={sz} height={sz} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>,
+  };
+  for(const [k,icon] of Object.entries(icons)){
+    if(p.name.includes(k)||p.category?.includes(k)) return icon;
+  }
+  return <Zap size={sz}/>;
+}
+
 function ServiceCard({p,onView,currency}:{p:SProduct;onView:(p:SProduct)=>void;currency:string}) {
   const [hover,setHover]=useState(false);
-  
-  const getIcon = () => {
-    const icons:Record<string,JSX.Element> = {
-      'تصوير':<Camera size={22}/>,
-      'تصميم':<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>,
-      'تنظيف':<Sparkles size={22}/>,
-      'توصيل':<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>,
-    };
-    for(const [k,icon] of Object.entries(icons)){
-      if(p.name.includes(k)||p.category?.includes(k)) return icon;
-    }
-    return <Zap size={22}/>;
-  };
+  const getIcon = () => serviceIconFor(p,22);
 
   return (
     <div onClick={()=>onView(p)}
@@ -981,12 +988,201 @@ function ProductModal({p,cart,onClose,currency,userId}:{p:SProduct;cart:ReturnTy
   </>);
 }
 
+// ═══════════════════════════════════════════════════════════════ SERVICE MODAL
+// مودال خاص بالخدمات — أسلوب «حجز» وليس «شراء»: بدون مقاسات/ألوان/كميات،
+// مع المدة ومنطقة العمل ومعرض الأعمال وزرّي الحجز.
+function ServiceModal({p,cart,onClose,currency,storeInfo}:{p:SProduct;cart:ReturnType<typeof useCart>;onClose:()=>void;currency:string;storeInfo:StoreInfo}) {
+  const [added,setAdded]=useState(false);
+  const [note,setNote]=useState('');
+  useBackToClose(true,onClose);
+  const gallery=[p.imageUrl,...(p.portfolio||[]),...(p.images||[])].filter((x,i,a)=>x&&a.indexOf(x)===i);
+
+  const bookWA=()=>{
+    const phone=storeInfo.brand.phone?.replace(/\D/g,'');
+    const msg=`مرحباً ${storeInfo.brand.name}! 👋\n\nأريد حجز خدمة:\n🔧 ${p.name}\n💰 ${p.price.toLocaleString()} ${currency}${p.duration?`\n⏱️ ${p.duration}`:''}${p.workArea?`\n📍 ${p.workArea}`:''}${note?`\n📝 ${note}`:''}\n\nمتى يمكن تنفيذها؟`;
+    if(phone)window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`,'_blank');
+    else navigator.clipboard?.writeText(msg);
+  };
+  const addToOrder=()=>{
+    cart.add(p,'','',false,note);
+    setAdded(true);
+    setTimeout(()=>{setAdded(false);onClose();},900);
+  };
+
+  const cfs=(p.customFields||[]).filter(f=>f.value&&!(f.type==='boolean'&&f.value!=='true'));
+
+  return (
+    <div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.75)',backdropFilter:'blur(8px)',zIndex:300,display:'flex',alignItems:'flex-end',justifyContent:'center'}}>
+      <div onClick={e=>e.stopPropagation()} style={{background:`linear-gradient(180deg, rgba(20,20,40,0.99), rgba(10,10,20,0.99))`,borderRadius:'24px 24px 0 0',width:'100%',maxWidth:540,maxHeight:'90vh',overflowY:'auto',boxShadow:'0 -16px 64px rgba(0,0,0,0.6)',color:DS.textPrimary,border:`1px solid ${DS.border}`,borderBottom:'none'}}>
+        {/* رأس الخدمة — هوية بصرية مختلفة عن المنتج */}
+        <div style={{position:'relative',padding:'28px 22px 22px',background:`linear-gradient(135deg, ${DS.purpleSoft}, transparent 70%)`,borderBottom:`1px solid ${DS.border}`}}>
+          <button onClick={onClose} style={{position:'absolute',top:14,left:14,width:36,height:36,borderRadius:'50%',background:DS.glassBg,border:DS.glassBorder,color:'#fff',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}><X size={17}/></button>
+          <div style={{display:'flex',alignItems:'center',gap:16}}>
+            <div style={{width:68,height:68,borderRadius:DS.radiusLg,background:`linear-gradient(135deg, ${DS.purple}, ${DS.purpleLight})`,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',boxShadow:`0 10px 30px ${DS.purpleGlow}`,flexShrink:0}}>
+              {serviceIconFor(p,30)}
+            </div>
+            <div style={{minWidth:0}}>
+              <div style={{fontSize:10,color:DS.purpleLight,fontWeight:700,letterSpacing:'.08em',marginBottom:4}}>🔧 خدمة{p.category?` · ${p.category}`:''}</div>
+              <h2 style={{fontSize:20,fontWeight:900,margin:0,lineHeight:1.3}}>{p.name}</h2>
+              <div style={{marginTop:6}}>
+                <span style={{fontSize:22,fontWeight:900}}>{p.price.toLocaleString()}</span>
+                <span style={{fontSize:11,color:DS.textTertiary,marginRight:5}}>{currency}</span>
+              </div>
+            </div>
+          </div>
+          <div style={{display:'flex',gap:8,marginTop:16,flexWrap:'wrap'}}>
+            {p.duration&&<span style={{display:'flex',alignItems:'center',gap:5,fontSize:11,fontWeight:600,color:DS.purpleLight,background:DS.purpleSoft,border:`1px solid ${DS.borderPurple}`,borderRadius:DS.radiusFull,padding:'6px 14px'}}><Clock size={11}/> {p.duration}</span>}
+            {p.workArea&&<span style={{display:'flex',alignItems:'center',gap:5,fontSize:11,fontWeight:600,color:DS.purpleLight,background:DS.purpleSoft,border:`1px solid ${DS.borderPurple}`,borderRadius:DS.radiusFull,padding:'6px 14px'}}><MapPin size={11}/> {p.workArea}</span>}
+            {p.sales>0&&<span style={{fontSize:11,fontWeight:600,color:DS.textSecondary,background:DS.bgGlass,border:DS.glassBorder,borderRadius:DS.radiusFull,padding:'6px 14px'}}>✅ {p.sales} خدمة منجزة</span>}
+          </div>
+        </div>
+
+        <div style={{padding:'18px 22px'}}>
+          {p.description&&<p style={{fontSize:13,color:DS.textSecondary,lineHeight:1.8,margin:'0 0 18px'}}>{p.description}</p>}
+
+          {/* تفاصيل الخدمة (الحقول المخصصة) */}
+          {cfs.length>0&&(
+            <div style={{marginBottom:18,padding:'14px 16px',background:DS.glassBg,borderRadius:DS.radiusMd,border:DS.glassBorder}}>
+              <div style={{fontSize:10,color:DS.textTertiary,fontWeight:700,letterSpacing:'.06em',marginBottom:10}}>تفاصيل الخدمة</div>
+              <div style={{display:'flex',flexDirection:'column',gap:7}}>
+                {cfs.map(f=>(
+                  <div key={f.id} style={{display:'flex',justifyContent:'space-between',gap:10,fontSize:12}}>
+                    <span style={{color:DS.textTertiary,flexShrink:0}}>{f.label}</span>
+                    <span style={{color:DS.textPrimary,fontWeight:600,textAlign:'left'}}>{f.type==='boolean'?'✓':f.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* معرض الأعمال السابقة */}
+          {gallery.length>0&&(
+            <div style={{marginBottom:18}}>
+              <div style={{fontSize:10,color:DS.textTertiary,fontWeight:700,letterSpacing:'.06em',marginBottom:10}}>📸 من أعمالنا السابقة</div>
+              <div style={{display:'flex',gap:8,overflowX:'auto',paddingBottom:4}}>
+                {gallery.map((img,i)=>(
+                  <img key={i} src={img} alt="" loading="lazy" style={{width:110,height:110,objectFit:'cover',borderRadius:DS.radiusSm,flexShrink:0,border:DS.glassBorder}}/>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* طلب الزبون */}
+          <div style={{marginBottom:6}}>
+            <div style={{fontSize:10,color:DS.textTertiary,fontWeight:700,letterSpacing:'.06em',marginBottom:8}}>📝 صف ما تحتاجه (اختياري)</div>
+            <textarea value={note} onChange={e=>setNote(e.target.value)} rows={2} placeholder="مثال: أحتاج الخدمة يوم السبت صباحاً في حي المعاريف..."
+              style={{width:'100%',padding:'12px 14px',borderRadius:DS.radiusSm,border:DS.glassBorder,background:DS.bgInput,color:DS.textPrimary,fontSize:12,outline:'none',boxSizing:'border-box',resize:'none',fontFamily:'Tajawal,sans-serif'}}/>
+          </div>
+        </div>
+
+        {/* أزرار الحجز */}
+        <div style={{padding:'14px 22px 26px',position:'sticky',bottom:0,background:'rgba(10,10,20,0.97)',backdropFilter:DS.glassBlur,borderTop:`1px solid ${DS.border}`,display:'flex',gap:10}}>
+          <button onClick={bookWA} style={{flex:1.4,height:52,borderRadius:DS.radiusFull,background:'#25D366',border:'none',color:'#fff',fontSize:14,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
+            <MessageCircle size={16}/> احجز عبر واتساب
+          </button>
+          <button onClick={addToOrder} style={{flex:1,height:52,borderRadius:DS.radiusFull,background:added?'#10B981':DS.glassBg,border:added?'none':`1px solid ${DS.borderPurple}`,color:added?'#fff':DS.purpleLight,fontSize:13,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6,transition:DS.transitionFast}}>
+            {added?<><Check size={15}/> أُضيفت ✓</>:<>+ أضف للطلب</>}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════ LUCKY WHEEL
+// عجلة الحظ: الجائزة يحددها الخادم (أوزان لصالح التاجر)، كوبون حقيقي
+// لاستخدام واحد صالح 48 ساعة، ولفة واحدة في اليوم لكل زائر.
+const WHEEL_SEGMENTS=['خصم 5%','حظ أوفر 🍀','خصم 8%','توصيل مجاني 🚚','خصم 10%','خصم 15% 🎉'];
+const WHEEL_COLORS=['#7C3AED','#1E293B','#A855F7','#0E7490','#6D28D9','#BE185D'];
+
+function LuckyWheel({userId,open,onClose}:{userId:string;open:boolean;onClose:()=>void}) {
+  const [spinning,setSpinning]=useState(false);
+  const [rotation,setRotation]=useState(0);
+  const [result,setResult]=useState<{label:string;code:string|null;minOrder?:number}|null>(null);
+  const [error,setError]=useState('');
+  const todayKey=()=>new Date().toISOString().slice(0,10);
+  const [spunToday,setSpunToday]=useState(()=>{try{return localStorage.getItem(`sahar_wheel_day_${userId}`)===todayKey();}catch{return false;}});
+  useBackToClose(open,onClose);
+
+  const spin=async()=>{
+    if(spinning||spunToday)return;
+    setError('');setSpinning(true);
+    try{
+      const r=await fetch('/api/coupons/public/spin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId})});
+      const d=await r.json();
+      if(!r.ok)throw new Error(d.error||'تعذر اللف');
+      // 5 لفات كاملة + الوقوف وسط القطاع الرابح (المؤشر أعلى العجلة)
+      const target=360*5+(360-(d.index*60+30));
+      setRotation(target);
+      setTimeout(()=>{
+        setResult({label:d.label,code:d.code,minOrder:d.minOrder});
+        if(d.code){try{localStorage.setItem('sahar_wheel_code',d.code);}catch{}}
+        try{localStorage.setItem(`sahar_wheel_day_${userId}`,todayKey());}catch{}
+        setSpunToday(true);setSpinning(false);
+      },4300);
+    }catch(e:any){setError(e.message);setSpinning(false);}
+  };
+
+  if(!open)return null;
+  return (
+    <div onClick={()=>!spinning&&onClose()} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.85)',backdropFilter:'blur(10px)',zIndex:500,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+      <div onClick={e=>e.stopPropagation()} style={{width:'100%',maxWidth:360,background:`linear-gradient(180deg, rgba(25,25,50,0.99), rgba(12,12,25,0.99))`,border:`1px solid ${DS.borderPurple}`,borderRadius:DS.radiusXl,padding:'26px 22px',textAlign:'center',color:DS.textPrimary,boxShadow:`0 24px 80px rgba(0,0,0,0.6), 0 0 60px ${DS.purpleGlow}`}}>
+        <div style={{fontSize:20,fontWeight:900,marginBottom:4}}>🎡 عجلة الحظ</div>
+        <div style={{fontSize:12,color:DS.textSecondary,marginBottom:20}}>لُف واربح خصماً حقيقياً على طلبك!</div>
+
+        {/* العجلة */}
+        <div style={{position:'relative',width:260,height:260,margin:'0 auto 22px'}}>
+          {/* المؤشر */}
+          <div style={{position:'absolute',top:-6,left:'50%',transform:'translateX(-50%)',zIndex:3,width:0,height:0,borderLeft:'12px solid transparent',borderRight:'12px solid transparent',borderTop:`20px solid ${DS.orange}`,filter:'drop-shadow(0 2px 6px rgba(0,0,0,0.5))'}}/>
+          <div style={{
+            width:'100%',height:'100%',borderRadius:'50%',position:'relative',overflow:'hidden',
+            border:`5px solid rgba(255,255,255,0.12)`,boxShadow:`inset 0 0 30px rgba(0,0,0,0.4), 0 10px 40px rgba(0,0,0,0.5)`,
+            background:`conic-gradient(${WHEEL_SEGMENTS.map((_,i)=>`${WHEEL_COLORS[i]} ${i*60}deg ${(i+1)*60}deg`).join(', ')})`,
+            transform:`rotate(${rotation}deg)`,
+            transition:spinning?'transform 4.2s cubic-bezier(0.15, 0.9, 0.18, 1)':'none',
+          }}>
+            {WHEEL_SEGMENTS.map((label,i)=>(
+              <div key={i} style={{position:'absolute',top:'50%',left:'50%',transformOrigin:'0 0',transform:`rotate(${i*60+30}deg)`,width:0,height:0}}>
+                <span style={{position:'absolute',top:-105,left:0,transform:'translateX(-50%) rotate(0deg)',fontSize:10,fontWeight:800,color:'#fff',whiteSpace:'nowrap',textShadow:'0 1px 3px rgba(0,0,0,0.6)'}}>{label}</span>
+              </div>
+            ))}
+            <div style={{position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-50%)',width:48,height:48,borderRadius:'50%',background:'rgba(10,10,20,0.95)',border:'3px solid rgba(255,255,255,0.2)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,zIndex:2}}>🎁</div>
+          </div>
+        </div>
+
+        {error&&<div style={{fontSize:12,color:'#EF4444',fontWeight:600,marginBottom:12}}>{error}</div>}
+
+        {result?(
+          <div style={{marginBottom:6}}>
+            <div style={{fontSize:17,fontWeight:900,marginBottom:8}}>{result.code?`مبروك! ربحت ${result.label} 🎉`:'حظ أوفر المرة القادمة 🍀'}</div>
+            {result.code&&(
+              <>
+                <div onClick={()=>{navigator.clipboard?.writeText(result.code!);}} style={{fontSize:18,fontWeight:900,letterSpacing:'.1em',color:DS.orangeLight,background:DS.glassBg,border:`1.5px dashed ${DS.borderOrange}`,borderRadius:DS.radiusSm,padding:'12px',marginBottom:8,cursor:'pointer',direction:'ltr'}}>{result.code}</div>
+                <div style={{fontSize:10,color:DS.textTertiary,marginBottom:12}}>صالح 48 ساعة · استخدام واحد{result.minOrder?` · لطلب فوق ${result.minOrder} درهم`:''} · أُضيف تلقائياً في السلة</div>
+              </>
+            )}
+            <button onClick={onClose} style={{width:'100%',height:46,borderRadius:DS.radiusFull,background:`linear-gradient(135deg, ${DS.purple}, ${DS.purpleLight})`,border:'none',color:'#fff',fontSize:14,fontWeight:700,cursor:'pointer',boxShadow:`0 6px 24px ${DS.purpleGlow}`}}>
+              {result.code?'تسوق واستعمل الكود 🛍️':'متابعة التسوق'}
+            </button>
+          </div>
+        ):(
+          <button onClick={spin} disabled={spinning||spunToday} style={{width:'100%',height:50,borderRadius:DS.radiusFull,background:spunToday?DS.glassBg:`linear-gradient(135deg, ${DS.orange}, ${DS.orangeLight})`,border:'none',color:spunToday?DS.textTertiary:'#fff',fontSize:15,fontWeight:800,cursor:spunToday?'default':'pointer',boxShadow:spunToday?'none':`0 8px 28px ${DS.orangeGlow}`,opacity:spinning?0.7:1}}>
+            {spinning?'🎡 جارٍ اللف...':spunToday?'لفّة اليوم انتهت — عُد غداً 🍀':'لُف العجلة! 🎡'}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ═══════════════════════════════════════════════════════════════ CART SIDEBAR
 function CartSidebar({cart,storeInfo,userId,onClose,onOrderSuccess}:{cart:ReturnType<typeof useCart>;storeInfo:StoreInfo;userId:string;onClose:()=>void;onOrderSuccess:(id:string)=>void}) {
   const [step,setStep]=useState<'cart'|'checkout'|'success'>('cart');
   const [form,setForm]=useState({name:'',phone:'',city:'',address:'',notes:'',subscribe:true,paymentMethod:'cod' as 'cod'|'virement'});
-  const [couponCode,setCouponCode]=useState('');
+  // كود عجلة الحظ المربوح يُملأ تلقائياً
+  const [couponCode,setCouponCode]=useState(()=>{try{return localStorage.getItem('sahar_wheel_code')||'';}catch{return '';}});
   const [couponDiscount,setCouponDiscount]=useState(0);
+  const [couponShipping,setCouponShipping]=useState(false);
   const [couponMsg,setCouponMsg]=useState('');
   const [citySearch,setCitySearch]=useState('');
   const [showCities,setShowCities]=useState(false);
@@ -994,17 +1190,38 @@ function CartSidebar({cart,storeInfo,userId,onClose,onOrderSuccess}:{cart:Return
   const [orderId,setOrderId]=useState('');
   const cur=storeInfo.brand.currency||'MAD';
   useBackToClose(true,onClose);
-  const deliveryCost=getDeliveryCost(form.city,storeInfo.deliveryCosts);
-  const grandTotal=Math.max(0,cart.total-couponDiscount)+deliveryCost;
+
+  // ── منطق العروض الذكية (يطابق حساب الخادم) ──
+  // خصم واحد فقط يُطبق — الأفضل للزبون (باقة أو كوبون)، والتوصيل المجاني يُضاف فوقه
+  const promo=storeInfo.promotions;
+  const bundleCfg=promo?.bundle;
+  const bundleDiscount=(bundleCfg?.enabled&&cart.count>=bundleCfg.minItems)?Math.round(cart.total*bundleCfg.percent/100):0;
+  const bestDiscount=Math.max(bundleDiscount,couponDiscount);
+  const discountLabel=bestDiscount===0?'':(bundleDiscount>=couponDiscount?`🎁 خصم باقة ${bundleCfg!.minItems}+ قطع (${bundleCfg!.percent}%)`:`🎟️ كوبون ${couponCode}`);
+  const freeShipThreshold=promo?.freeShippingThreshold??400;
+  const afterDiscount=Math.max(0,cart.total-bestDiscount);
+  const freeShipping=couponShipping||afterDiscount>=freeShipThreshold;
+  const cityCost=getDeliveryCost(form.city,storeInfo.deliveryCosts);
+  const deliveryCost=freeShipping?0:cityCost;
+  const grandTotal=afterDiscount+deliveryCost;
+  const remainingForFreeShip=Math.max(0,freeShipThreshold-afterDiscount);
+  const remainingForBundle=bundleCfg?.enabled?Math.max(0,bundleCfg.minItems-cart.count):0;
   const filteredCities=MOROCCAN_CITIES.filter(c=>c.includes(citySearch)||citySearch==='');
 
   const applyCoupon=async()=>{
     if(!couponCode.trim())return;
     try{
       const r=await fetch(`/api/coupons/validate?code=${encodeURIComponent(couponCode)}&userId=${userId}&total=${cart.total}`);
-      if(r.ok){const d=await r.json();setCouponDiscount(d.discount||0);setCouponMsg(`✅ خصم ${d.discount} ${cur}`);}
-      else{setCouponDiscount(0);setCouponMsg('❌ الكود غير صحيح');}
-    }catch{setCouponDiscount(0);setCouponMsg('❌ تعذر التحقق');}
+      const d=await r.json().catch(()=>({}));
+      if(r.ok&&d.valid){
+        setCouponDiscount(d.discount||0);
+        setCouponShipping(!!d.freeShipping);
+        setCouponMsg(d.freeShipping?'✅ توصيل مجاني مفعّل 🚚':`✅ خصم ${d.discount} ${cur}`);
+      }else{
+        setCouponDiscount(0);setCouponShipping(false);
+        setCouponMsg(`❌ ${d.message||'الكود غير صحيح'}`);
+      }
+    }catch{setCouponDiscount(0);setCouponShipping(false);setCouponMsg('❌ تعذر التحقق من الكود');}
   };
 
   const shareCart=()=>{
@@ -1018,17 +1235,21 @@ function CartSidebar({cart,storeInfo,userId,onClose,onOrderSuccess}:{cart:Return
     setLoading(true);
     try{
       const items=cart.items.map(i=>({productId:i.product.id,productName:i.product.name,price:i.product.price,quantity:i.quantity,size:i.size,color:i.color,giftWrap:i.giftWrap,giftMessage:i.giftMessage}));
-      const r=await fetch('/api/orders/public',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId,items,customerName:form.name,customerPhone:form.phone,city:form.city,address:form.address,total:grandTotal,source:'Storefront',notes:`${form.notes}${form.subscribe?' · يريد عروض':''}`})});
+      const r=await fetch('/api/orders/public',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId,items,customerName:form.name,customerPhone:form.phone,city:form.city,address:form.address,total:grandTotal,deliveryCost:cityCost,couponCode:(couponDiscount>0||couponShipping)?couponCode:'',source:'Storefront',notes:`${form.notes}${form.subscribe?' · يريد عروض':''}`})});
       const data=await r.json();
       if(!r.ok)throw new Error(data.error);
       setOrderId(data.order.id);
+      // المجموع النهائي المعتمد هو ما حسبه الخادم (حماية من أي فرق)
+      const finalTotal=data.applied?.total??grandTotal;
+      try{localStorage.removeItem('sahar_wheel_code');}catch{}
       try{
         const recent=JSON.parse(localStorage.getItem('sahar_recent_orders')||'[]');
         localStorage.setItem('sahar_recent_orders',JSON.stringify([{name:form.name,city:form.city,product:cart.items[0]?.product?.name||'منتج',time:new Date().toISOString()},...recent].slice(0,20)));
       }catch{}
       const phone=storeInfo.brand.phone?.replace(/\D/g,'');
       const itemsText=cart.items.map(i=>`• ${i.product.name} (${i.size} ${i.color}) x${i.quantity} — ${i.product.price*i.quantity} ${cur}`).join('\n');
-      const msg=`مرحباً ${storeInfo.brand.name}! 👋\n\nأريد تأكيد طلبي:\n\n${itemsText}\n\n💰 الإجمالي: ${grandTotal} ${cur}\n\n👤 ${form.name}\n📱 ${form.phone}\n📍 ${form.city}\n🏠 ${form.address||'—'}`;
+      const promoText=[data.applied?.discount>0?`🏷️ ${data.applied.discountSource}: -${data.applied.discount} ${cur}`:'',data.applied?.freeShipping?'🚚 توصيل مجاني':''].filter(Boolean).join('\n');
+      const msg=`مرحباً ${storeInfo.brand.name}! 👋\n\nأريد تأكيد طلبي:\n\n${itemsText}\n${promoText?promoText+'\n':''}\n💰 الإجمالي: ${finalTotal} ${cur}\n\n👤 ${form.name}\n📱 ${form.phone}\n📍 ${form.city}\n🏠 ${form.address||'—'}`;
       if(phone)setTimeout(()=>window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`,'_blank'),500);
       cart.clear();try{localStorage.removeItem('sahar_cart');}catch{}
       setStep('success');onOrderSuccess(data.order.id);
@@ -1079,6 +1300,26 @@ function CartSidebar({cart,storeInfo,userId,onClose,onOrderSuccess}:{cart:Return
                     <button onClick={()=>cart.remove(item.product.id,item.size,item.color)} style={{width:28,height:28,borderRadius:'50%',background:'rgba(239,68,68,0.1)',border:'none',color:'#EF4444',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><X size={12}/></button>
                   </div>
                 ))}
+                {/* رسائل تحفيز ذكية: ترفع قيمة السلة بدل أن تكلف التاجر */}
+                {(remainingForFreeShip>0||remainingForBundle>0||bestDiscount>0||freeShipping)&&(
+                  <div style={{display:'flex',flexDirection:'column',gap:8,paddingTop:14}}>
+                    {freeShipping&&<div style={{fontSize:12,fontWeight:700,color:'#10B981',background:'rgba(16,185,129,0.08)',border:'1px solid rgba(16,185,129,0.25)',borderRadius:DS.radiusSm,padding:'10px 14px'}}>🚚 مبروك! توصيلك مجاني</div>}
+                    {!freeShipping&&remainingForFreeShip>0&&remainingForFreeShip<freeShipThreshold&&(
+                      <div style={{background:DS.glassBg,border:DS.glassBorder,borderRadius:DS.radiusSm,padding:'10px 14px'}}>
+                        <div style={{fontSize:11,fontWeight:600,color:DS.textSecondary,marginBottom:6}}>🚚 أضف <b style={{color:DS.orangeLight}}>{remainingForFreeShip.toLocaleString()} {cur}</b> ليصبح التوصيل مجانياً!</div>
+                        <div style={{height:5,background:'rgba(255,255,255,0.08)',borderRadius:99,overflow:'hidden'}}>
+                          <div style={{height:'100%',width:`${Math.min(100,Math.round(afterDiscount/freeShipThreshold*100))}%`,background:`linear-gradient(90deg, ${DS.purple}, ${DS.purpleLight})`,borderRadius:99,transition:'width .4s'}}/>
+                        </div>
+                      </div>
+                    )}
+                    {bundleDiscount>0&&<div style={{fontSize:12,fontWeight:700,color:DS.purpleLight,background:DS.purpleSoft,border:`1px solid ${DS.borderPurple}`,borderRadius:DS.radiusSm,padding:'10px 14px'}}>🎁 خصم الباقة مفعّل: -{bundleDiscount.toLocaleString()} {cur} ({bundleCfg!.percent}%)</div>}
+                    {remainingForBundle>0&&bundleCfg&&(
+                      <div style={{fontSize:11,fontWeight:600,color:DS.textSecondary,background:DS.glassBg,border:DS.glassBorder,borderRadius:DS.radiusSm,padding:'10px 14px'}}>
+                        🎁 أضف <b style={{color:DS.purpleLight}}>{remainingForBundle}</b> {remainingForBundle===1?'قطعة أخرى':'قطع أخرى'} واحصل على خصم <b style={{color:DS.purpleLight}}>{bundleCfg.percent}%</b> على كل السلة!
+                      </div>
+                    )}
+                  </div>
+                )}
                 <div style={{padding:'18px 0'}}>
                   <button onClick={()=>setStep('checkout')} style={{width:'100%',height:52,borderRadius:DS.radiusFull,background:`linear-gradient(135deg, ${DS.purple}, ${DS.purpleLight})`,border:'none',color:'#fff',fontSize:15,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8,boxShadow:`0 8px 32px ${DS.purpleGlow}`}}>
                     متابعة الطلب <ArrowRight size={16}/>
@@ -1135,8 +1376,8 @@ function CartSidebar({cart,storeInfo,userId,onClose,onOrderSuccess}:{cart:Return
               ))}
               <div style={{paddingTop:10,borderTop:`1px solid ${DS.border}`,marginTop:10,display:'flex',flexDirection:'column',gap:5}}>
                 <div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:DS.textSecondary}}><span>المجموع</span><span>{cart.total.toLocaleString()} {cur}</span></div>
-                {couponDiscount>0&&<div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:'#10B981',fontWeight:600}}><span>الخصم</span><span>-{couponDiscount.toLocaleString()} {cur}</span></div>}
-                <div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:DS.textSecondary}}><span>التوصيل</span><span>{form.city?`${deliveryCost} ${cur}`:'—'}</span></div>
+                {bestDiscount>0&&<div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:'#10B981',fontWeight:600}}><span>{discountLabel}</span><span>-{bestDiscount.toLocaleString()} {cur}</span></div>}
+                <div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:freeShipping?'#10B981':DS.textSecondary,fontWeight:freeShipping?700:400}}><span>التوصيل</span><span>{freeShipping?'مجاني 🎉':form.city?`${deliveryCost} ${cur}`:'—'}</span></div>
                 <div style={{display:'flex',justifyContent:'space-between',fontSize:16,fontWeight:900,paddingTop:8,borderTop:`1px solid ${DS.border}`}}><span>الإجمالي</span><span style={{color:DS.orangeLight}}>{grandTotal.toLocaleString()} {cur}</span></div>
               </div>
             </div>
@@ -1317,6 +1558,7 @@ export default function Storefront() {
   const [viewProduct,setViewProduct]=useState<SProduct|null>(null);
   const [showCart,setShowCart]=useState(false);
   const [showTrack,setShowTrack]=useState(false);
+  const [showWheel,setShowWheel]=useState(false);
   const [tab,setTab]=useState<'all'|'products'|'services'|'digital'>('all');
   const [liveTicker,setLiveTicker]=useState<{name:string;city:string;product:string;time:string}[]>([]);
   const [successOrderId,setSuccessOrderId]=useState('');
@@ -1524,7 +1766,16 @@ export default function Storefront() {
       )}
 
       {/* Modals */}
-      {viewProduct&&<ProductModal p={viewProduct} cart={cart} onClose={()=>setViewProduct(null)} currency={cur} userId={userId}/>}
+      {/* الخدمات لها مودال حجز مخصص — والمنتجات مودال الشراء */}
+      {viewProduct&&(viewProduct.type==='service'
+        ?<ServiceModal p={viewProduct} cart={cart} onClose={()=>setViewProduct(null)} currency={cur} storeInfo={storeInfo!}/>
+        :<ProductModal p={viewProduct} cart={cart} onClose={()=>setViewProduct(null)} currency={cur} userId={userId}/>)}
+
+      {/* عجلة الحظ */}
+      {storeInfo?.promotions?.wheel?.enabled!==false&&(
+        <button onClick={()=>setShowWheel(true)} aria-label="عجلة الحظ" style={{position:'fixed',bottom:88,left:20,zIndex:150,width:50,height:50,borderRadius:'50%',background:`linear-gradient(135deg, ${DS.orange}, ${DS.orangeLight})`,border:'none',cursor:'pointer',fontSize:23,display:'flex',alignItems:'center',justifyContent:'center',boxShadow:`0 8px 28px ${DS.orangeGlow}`}}>🎡</button>
+      )}
+      <LuckyWheel userId={userId} open={showWheel} onClose={()=>setShowWheel(false)}/>
       {showCart&&<CartSidebar cart={cart} storeInfo={storeInfo!} userId={userId} onClose={()=>setShowCart(false)} onOrderSuccess={id=>{setSuccessOrderId(id);setShowCart(false);}}/>}
       {showTrack&&<TrackingModal userId={userId} storeInfo={storeInfo!} onClose={()=>setShowTrack(false)}/>}
       <FloatingChat userId={userId} storeInfo={storeInfo!}/>
