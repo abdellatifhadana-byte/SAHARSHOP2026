@@ -12,6 +12,10 @@ const ENABLES: Record<string, string[]> = {
   gemini: ['ردود AI مجانية على الزبائن', 'توليد أوصاف المنتجات', 'هاشتاق AI', 'مجاني 15 طلب/دقيقة'],
   claude: ['تحليل عميق ومحادثات راقية', 'كتابة أوصاف وسياسات المتجر', 'تلخيص المحادثات الطويلة', 'بديل تلقائي عند فشل غيره'],
   deepseek: ['الأفضل للعربية والدارجة', 'رخيص جداً (أقل من سنت للمحادثة)', 'ردود سريعة على الزبائن', 'بديل تلقائي'],
+  grok: ['ردود ذكية على الزبائن', 'تحليل مشاعر واتجاهات', 'بديل تلقائي عند فشل غيره'],
+  mistral: ['بديل احتياطي أوروبي', 'ردود سريعة', 'خطة مجانية محدودة للتجربة'],
+  brevo: ['إيميل فوري لك مع كل طلب جديد', 'إيميل تأكيد تلقائي للزبون', '300 إيميل يومياً مجاناً'],
+  hcaptcha: ['حماية نموذج الطلب من البوتات', 'تحقق إجباري قبل كل طلب', 'مليون تحقق شهرياً مجاناً'],
   tiktok: ['إعلانات TikTok', 'نشر الفيديوهات'],
   supabase: ['نسخ احتياطي تلقائي', 'مزامنة البيانات السحابية', 'حماية ضد فقدان البيانات'],
   cloudinary: ['رفع الصور تلقائياً', 'CDN عالمي سريع', 'لا تفقد صورك عند التحديث'],
@@ -26,6 +30,10 @@ const WHAT_IS: Record<string, string> = {
   gemini: 'الخيار الأسهل والمجاني 100% للبدء! Gemini هو الذكاء الاصطناعي من Google. تدخل الموقع بحساب Google العادي وتضغط زراً واحداً وتنسخ المفتاح — دقيقتان فقط وبدون بطاقة بنكية.',
   claude: 'Claude هو الذكاء الاصطناعي من شركة Anthropic — الأقوى في التحليل العميق والكتابة الراقية وفهم نوايا الزبائن. المفتاح رمز يبدأ بـ sk-ant- من موقعهم (يحتاج بطاقة بنكية، لكن نموذج Haiku رخيص جداً للمحادثات اليومية).',
   deepseek: 'DeepSeek ذكاء اصطناعي صيني ممتاز جداً في العربية والدارجة المغربية وبسعر رمزي (أرخص الجميع). سجل في موقعهم وأنشئ مفتاحاً — تكلفة 1000 محادثة أقل من دولار.',
+  grok: 'Grok هو الذكاء الاصطناعي من شركة xAI (إيلون ماسك). جيد في التحليل والمحادثة. مدفوع حسب الاستخدام — راجع أسعارهم في console.x.ai قبل الربط (لا توجد خطة مجانية دائمة).',
+  mistral: 'Mistral شركة فرنسية بنماذج سريعة وبخطة تجريبية مجانية محدودة. مفيد كبديل احتياطي يتدخل تلقائياً عند فشل مزودك الأساسي.',
+  brevo: 'Brevo منصة إيميلات مجانية (300 يومياً). بعد الربط: يصلك إيميل تلقائي مع كل طلب جديد، والزبون الذي يترك بريده يستلم تأكيداً أنيقاً بطلبه وكود التتبع — كل ذلك تلقائياً.',
+  hcaptcha: 'hCaptcha مربع "أنا لست روبوتاً" يظهر للزبون قبل تأكيد الطلب، فيمنع الطلبات الوهمية الآلية. مجاني حتى مليون تحقق شهرياً. تحتاج مفتاحين من لوحتهم: مفتاح الموقع (عام) والمفتاح السري.',
   tiktok: 'رمز من منصة إعلانات TikTok يسمح بنشر الفيديوهات وإدارة الإعلانات. مخصص لمن لديه حساب TikTok Ads — يمكنك تجاهله إن لم تعلن هناك.',
   supabase: 'قاعدة بيانات سحابية مجانية تحفظ نسخة احتياطية من بياناتك على الإنترنت. التسجيل مجاني بحساب Google أو GitHub.',
   cloudinary: 'خدمة مجانية لتخزين صور منتجاتك على الإنترنت بسرعة عالية، حتى لا تضيع الصور عند تحديث التطبيق. التسجيل مجاني.',
@@ -95,6 +103,39 @@ const SERVICES = [
     url: 'https://platform.deepseek.com/api_keys',
   },
   {
+    id: 'grok', name: 'Grok (xAI)', icon: '🚀', grad: 'linear-gradient(135deg,#1a1a1a,#444)', desc: 'تحليل ومحادثة — مدفوع حسب الاستخدام',
+    fields: [
+      { key: 'grokKey', label: 'API Key', ph: 'xai-...', help: 'من console.x.ai → API Keys', secret: true },
+    ],
+    guide: ['اذهب لـ console.x.ai', 'سجل بحساب X', 'اذهب لـ API Keys وأنشئ مفتاحاً', 'انسخه هنا'],
+    url: 'https://console.x.ai',
+  },
+  {
+    id: 'mistral', name: 'Mistral AI', icon: '🌬️', grad: 'linear-gradient(135deg,#F59E0B,#FBBF24)', desc: 'بديل احتياطي أوروبي — خطة تجريبية مجانية',
+    fields: [
+      { key: 'mistralKey', label: 'API Key', ph: '...', help: 'من console.mistral.ai/api-keys', secret: true },
+    ],
+    guide: ['اذهب لـ console.mistral.ai', 'سجل بحسابك', 'اذهب لـ API Keys وأنشئ مفتاحاً', 'انسخه هنا'],
+    url: 'https://console.mistral.ai/api-keys',
+  },
+  {
+    id: 'brevo', name: 'Brevo (إيميلات الطلبات)', icon: '📧', grad: 'linear-gradient(135deg,#0EA5E9,#38BDF8)', desc: 'إيميل لك ولزبونك مع كل طلب — 300/يوم مجاناً',
+    fields: [
+      { key: 'brevoApiKey', label: 'API Key', ph: 'xkeysib-...', help: 'من app.brevo.com → Settings → API Keys', secret: true },
+    ],
+    guide: ['سجل مجاناً على brevo.com', 'اذهب لـ Settings → SMTP & API → API Keys', 'أنشئ مفتاحاً وانسخه هنا'],
+    url: 'https://app.brevo.com/settings/keys/api',
+  },
+  {
+    id: 'hcaptcha', name: 'hCaptcha (حماية الطلبات)', icon: '🛡️', grad: 'linear-gradient(135deg,#8B5CF6,#A78BFA)', desc: 'يمنع الطلبات الوهمية الآلية — مجاني',
+    fields: [
+      { key: 'hcaptchaSiteKey', label: 'Site Key (عام)', ph: '10000000-ffff-...', help: 'من dashboard.hcaptcha.com — يظهر للزبون' },
+      { key: 'hcaptchaSecret', label: 'Secret Key (سري)', ph: '0x...', help: 'يبقى في الخادم فقط', secret: true },
+    ],
+    guide: ['سجل على hcaptcha.com', 'أضف موقعك (نطاق متجرك)', 'انسخ Site Key من صفحة الموقع', 'انسخ Secret Key من Settings'],
+    url: 'https://dashboard.hcaptcha.com',
+  },
+  {
     id: 'tiktok', name: 'TikTok for Business', Icon: IconTikTok, grad: 'linear-gradient(135deg,#000000,#25f4ee)', desc: 'نشر الفيديوهات وإدارة الإعلانات',
     fields: [
       { key: 'accessToken', label: 'Access Token', ph: 'act_xxxxx...', help: 'من TikTok Ads Manager', secret: true },
@@ -160,6 +201,10 @@ export default function ConnectionsPage() {
     if (id === 'gemini') return settings.ai.geminiKey || '';
     if (id === 'claude') return settings.ai.claudeKey || '';
     if (id === 'deepseek') return settings.ai.deepseekKey || '';
+    if (id === 'grok') return settings.ai.grokKey || '';
+    if (id === 'mistral') return settings.ai.mistralKey || '';
+    if (id === 'brevo') return (settings as any).marketing?.brevoApiKey || '';
+    if (id === 'hcaptcha') return (settings.security as any)?.[key] || '';
     if (id === 'supabase') return (settings as any)[key] || '';
     if (id === 'cloudinary') return (settings as any)[key] || '';
     const s = settings.social[id as keyof typeof settings.social];
@@ -174,6 +219,10 @@ export default function ConnectionsPage() {
     if (id === 'gemini') return !!settings.ai.geminiKey;
     if (id === 'claude') return !!settings.ai.claudeKey;
     if (id === 'deepseek') return !!settings.ai.deepseekKey;
+    if (id === 'grok') return !!settings.ai.grokKey;
+    if (id === 'mistral') return !!settings.ai.mistralKey;
+    if (id === 'brevo') return !!(settings as any).marketing?.brevoApiKey;
+    if (id === 'hcaptcha') return !!(settings.security as any)?.hcaptchaSiteKey && !!(settings.security as any)?.hcaptchaSecret;
     if (id === 'supabase') return !!(settings as any).supabaseUrl && !!(settings as any).supabaseKey;
     if (id === 'cloudinary') return !!(settings as any).cloudinaryCloudName && !!(settings as any).cloudinaryApiKey;
     if (id === 'whatsapp') return !!(settings.social?.whatsapp?.connected);
@@ -185,6 +234,8 @@ export default function ConnectionsPage() {
     if (id === 'gemini') return !!serverConfig.gemini && !settings.ai.geminiKey;
     if (id === 'claude') return !!serverConfig.claude && !settings.ai.claudeKey;
     if (id === 'deepseek') return !!serverConfig.deepseek && !settings.ai.deepseekKey;
+    if (id === 'grok') return !!serverConfig.grok && !settings.ai.grokKey;
+    if (id === 'mistral') return !!serverConfig.mistral && !settings.ai.mistralKey;
     if (id === 'supabase') return !!serverConfig.supabase && !(settings as any).supabaseUrl;
     if (id === 'cloudinary') return !!serverConfig.cloudinary && !(settings as any).cloudinaryCloudName;
     if (id === 'whatsapp') return !!serverConfig.whatsapp && !settings.social?.whatsapp?.connected;
@@ -242,6 +293,50 @@ export default function ConnectionsPage() {
         ok = d.ok;
         if (ok) { updateSettings('ai', { ...settings.ai, deepseekKey: val('deepseek', 'deepseekKey') }); notify('success', `✅ DeepSeek متصل! ${d.info || ''}`); }
         else notify('error', `❌ مفتاح DeepSeek غير صحيح: ${d.error}`);
+
+      } else if (svc.id === 'grok') {
+        const r = await fetch('/api/settings/verify-connection', {
+          method: 'POST', signal: AbortSignal.timeout(12000),
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
+          body: JSON.stringify({ service: 'grok', apiKey: val('grok', 'grokKey') }),
+        });
+        const d = await r.json();
+        ok = d.ok;
+        if (ok) { updateSettings('ai', { ...settings.ai, grokKey: val('grok', 'grokKey') }); notify('success', `✅ Grok متصل! ${d.info || ''}`); }
+        else notify('error', `❌ مفتاح Grok غير صحيح: ${d.error}`);
+
+      } else if (svc.id === 'mistral') {
+        const r = await fetch('/api/settings/verify-connection', {
+          method: 'POST', signal: AbortSignal.timeout(12000),
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
+          body: JSON.stringify({ service: 'mistral', apiKey: val('mistral', 'mistralKey') }),
+        });
+        const d = await r.json();
+        ok = d.ok;
+        if (ok) { updateSettings('ai', { ...settings.ai, mistralKey: val('mistral', 'mistralKey') }); notify('success', `✅ Mistral متصل! ${d.info || ''}`); }
+        else notify('error', `❌ مفتاح Mistral غير صحيح: ${d.error}`);
+
+      } else if (svc.id === 'brevo') {
+        const r = await fetch('/api/settings/verify-connection', {
+          method: 'POST', signal: AbortSignal.timeout(12000),
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
+          body: JSON.stringify({ service: 'brevo', apiKey: val('brevo', 'brevoApiKey') }),
+        });
+        const d = await r.json();
+        ok = d.ok;
+        if (ok) { updateSettings('marketing' as any, { brevoApiKey: val('brevo', 'brevoApiKey') }); notify('success', `✅ Brevo متصل! ${d.info || ''} — ستصلك إيميلات الطلبات تلقائياً`); }
+        else notify('error', `❌ مفتاح Brevo غير صحيح: ${d.error}`);
+
+      } else if (svc.id === 'hcaptcha') {
+        const r = await fetch('/api/settings/verify-connection', {
+          method: 'POST', signal: AbortSignal.timeout(12000),
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
+          body: JSON.stringify({ service: 'hcaptcha', secretKey: val('hcaptcha', 'hcaptchaSecret') }),
+        });
+        const d = await r.json();
+        ok = d.ok;
+        if (ok) { updateSettings('security', { ...settings.security, hcaptchaSiteKey: val('hcaptcha', 'hcaptchaSiteKey'), hcaptchaSecret: val('hcaptcha', 'hcaptchaSecret') } as any); notify('success', '✅ hCaptcha مفعّل! سيظهر التحقق للزبائن في صفحة الدفع'); }
+        else notify('error', `❌ ${d.error || 'المفتاح السري غير صحيح'}`);
 
       } else if (svc.id === 'supabase') {
         const url = val('supabase', 'supabaseUrl');
@@ -304,6 +399,10 @@ export default function ConnectionsPage() {
     else if (svc.id === 'gemini') updateSettings('ai', { ...settings.ai, geminiKey: '' });
     else if (svc.id === 'claude') updateSettings('ai', { ...settings.ai, claudeKey: '' });
     else if (svc.id === 'deepseek') updateSettings('ai', { ...settings.ai, deepseekKey: '' });
+    else if (svc.id === 'grok') updateSettings('ai', { ...settings.ai, grokKey: '' });
+    else if (svc.id === 'mistral') updateSettings('ai', { ...settings.ai, mistralKey: '' });
+    else if (svc.id === 'brevo') updateSettings('marketing' as any, { brevoApiKey: '' });
+    else if (svc.id === 'hcaptcha') updateSettings('security', { ...settings.security, hcaptchaSiteKey: '', hcaptchaSecret: '' } as any);
     else if (svc.id === 'supabase') { updateSettings('supabaseUrl' as any, ''); updateSettings('supabaseKey' as any, ''); }
     else if (svc.id === 'cloudinary') { updateSettings('cloudinaryCloudName' as any, ''); updateSettings('cloudinaryApiKey' as any, ''); updateSettings('cloudinaryApiSecret' as any, ''); }
     else updateSettings('social', { ...settings.social, [svc.id]: { ...settings.social[svc.id as keyof typeof settings.social], connected: false, pageId: '', accessToken: '' } });

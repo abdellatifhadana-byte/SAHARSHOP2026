@@ -204,12 +204,16 @@ export interface SocialSettings {
 
 export interface AISettings {
   apiKey: string;
-  provider: 'openai' | 'gemini' | 'claude' | 'deepseek';
+  provider: 'openai' | 'gemini' | 'claude' | 'deepseek' | 'grok' | 'mistral';
   model: string;
   geminiKey: string;
   claudeKey: string;     // Claude (Anthropic) — تحليل عميق وكتابة طويلة
   deepseekKey: string;   // DeepSeek — الأفضل سعراً للعربية والدارجة
+  grokKey: string;       // Grok (xAI) — تحليل المشاعر والاتجاهات
+  mistralKey: string;    // Mistral — بديل احتياطي أوروبي
   claudeModel?: string;  // افتراضياً claude-haiku-4-5 (الأرخص للمحادثات)
+  grokModel?: string;    // افتراضياً grok-3-mini
+  mistralModel?: string; // افتراضياً mistral-small-latest
   personality: string;
   tone: string;
   language: string;
@@ -272,6 +276,8 @@ export interface ChatbotSettings {
 
 export interface SecuritySettings {
   twoFactorEnabled: boolean;
+  hcaptchaSiteKey?: string;   // hCaptcha — مفتاح الموقع (عام، يظهر للزبون)
+  hcaptchaSecret?: string;    // hCaptcha — المفتاح السري (خادم فقط)
   autoLogoutMinutes: number;
   loginNotification: boolean;
 }
@@ -309,6 +315,7 @@ export interface AppSettings {
   delivery: DeliverySettings;
   products: ProductSettings;
   security: SecuritySettings;
+  marketing?: { brevoApiKey?: string };  // Brevo — إيميلات الطلبات
   notifs: NotifSettings;
   design: DesignSettings;
   templates: Template[];
@@ -344,7 +351,8 @@ export const defaultSettings: AppSettings = {
   },
   ai: {
     apiKey: '', provider: 'openai', model: 'gpt-4o-mini', geminiKey: '',
-    claudeKey: '', deepseekKey: '', claudeModel: 'claude-haiku-4-5',
+    claudeKey: '', deepseekKey: '', grokKey: '', mistralKey: '',
+    claudeModel: 'claude-haiku-4-5',
     personality: 'Moroccan Seller', tone: 'Friendly', language: 'Darija',
     replyDelay: 2, humanSimulation: true, autoDiscount: true, maxDiscount: 15,
     systemPrompt: 'أنت مساعد بيع ذكي لمتجر مغربي. تحدث بالدارجة المغربية بأسلوب ودود واحترافي.',

@@ -77,7 +77,7 @@ router.get('/public/catalog', async (req, res) => {
         minOrder: Math.max(+p.wheel?.minOrder || 150, 0),
       },
     };
-    res.json({ products, brand: settings.brand || {}, deliveryCosts, promotions });
+    res.json({ products, brand: settings.brand || {}, deliveryCosts, promotions, hcaptchaSiteKey: settings.security?.hcaptchaSiteKey || '' });
   } catch (e) { res.status(500).json({ error: 'Server error' }); }
 });
 

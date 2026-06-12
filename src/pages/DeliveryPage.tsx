@@ -1,10 +1,66 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useStore } from '../store';
 import {
   Truck, Plus, Trash2, Eye, EyeOff, CheckCircle, AlertTriangle,
   Zap, ChevronDown, ChevronUp, Globe, Key, Copy, ExternalLink, X,
 } from 'lucide-react';
 import type { DeliveryProviderConfig } from '../types';
+import { settingsAPI } from '../services/api';
+
+// ─── سجل الشحنات: الحقيقة الكاملة لكل عملية شحن ──────────────────────────────
+// يقرأ سجلات النظام (type=delivery) ويبين لكل طلب: هل أُنشئت شحنة حقيقية
+// لدى الشركة (API/Webhook) أم كانت محاكاة برقم داخلي يتطلب إدخالاً يدوياً.
+function ShipmentsLog() {
+  const [logs, setLogs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const load = () => {
+    setLoading(true);
+    settingsAPI.getLogs()
+      .then(all => setLogs((all || []).filter((l: any) => l.type === 'delivery').slice(0, 20)))
+      .catch(() => setLogs([]))
+      .finally(() => setLoading(false));
+  };
+  useEffect(load, []);
+
+  const kind = (l: any): { label: string; color: string; bg: string } => {
+    const t = `${l.action || ''} ${l.details || ''}`;
+    if (/محاكاة|simulated|SIMULATED/i.test(t)) return { label: '⚠️ محاكاة — أدخل يدوياً', color: '#fbbf24', bg: 'rgba(245,158,11,0.1)' };
+    if (/حقيقية|Amana|Jibli|Webhook|automation/i.test(t)) return { label: '✅ شحنة حقيقية', color: '#34d399', bg: 'rgba(16,185,129,0.1)' };
+    return { label: 'ℹ️ حدث توصيل', color: 'var(--txt-3)', bg: 'rgba(255,255,255,0.05)' };
+  };
+
+  return (
+    <div className="card" style={{ padding: '16px 18px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <p style={{ fontSize: 14, fontWeight: 900, color: 'var(--txt-1)' }}>📦 سجل الشحنات — ماذا حدث فعلاً؟</p>
+        <button onClick={load} className="btn btn-ghost btn-xs">↻ تحديث</button>
+      </div>
+      {loading ? (
+        <p style={{ fontSize: 12, color: 'var(--txt-3)', textAlign: 'center', padding: '14px 0' }}>جارٍ التحميل...</p>
+      ) : logs.length === 0 ? (
+        <p style={{ fontSize: 12, color: 'var(--txt-3)', textAlign: 'center', padding: '14px 0' }}>
+          لا شحنات بعد — عند شحن أول طلب من صفحة الطلبات سيظهر هنا ما حدث بالضبط (حقيقي أم محاكاة)
+        </p>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {logs.map((l: any) => {
+            const k = kind(l);
+            return (
+              <div key={l.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px', borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid var(--clr-border)' }}>
+                <span style={{ fontSize: 10.5, fontWeight: 800, padding: '3px 9px', borderRadius: 99, background: k.bg, color: k.color, whiteSpace: 'nowrap', flexShrink: 0 }}>{k.label}</span>
+                <div style={{ minWidth: 0 }}>
+                  <p style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--txt-1)' }}>{l.action}</p>
+                  {l.details && <p style={{ fontSize: 11.5, color: 'var(--txt-3)', marginTop: 2 }}>{l.details}</p>}
+                  <p style={{ fontSize: 10.5, color: 'var(--txt-3)', marginTop: 2, opacity: 0.7 }}>{l.timestamp}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ─── Templates ───────────────────────────────────────────────────────────────
 const TEMPLATES = [
@@ -675,6 +731,20 @@ export default function DeliveryPage() {
           <p style={{ fontSize: 12, color: 'rgba(251,191,36,0.75)', lineHeight: 1.5 }}>الأتمتة الكاملة تحتاج Backend Server مع Puppeteer. بدونه، يُفعَّل وضع المساعدة اليدوية.</p>
         </div>
       </div>
+
+      {/* الحقيقة: متى تكون الشحنة حقيقية ومتى محاكاة؟ */}
+      <div className="card" style={{ padding: '16px 18px', borderColor: 'rgba(0,210,179,0.25)' }}>
+        <p style={{ fontSize: 14, fontWeight: 900, color: 'var(--mint)', marginBottom: 10 }}>🔍 كيف أعرف أن طلب الشحن أُنشئ فعلاً لدى الشركة؟</p>
+        <div style={{ fontSize: 12.5, color: 'var(--ink2)', lineHeight: 1.9 }}>
+          <b style={{ color: 'var(--ink1)' }}>إضافة الشركة هنا تحفظ بياناتها فقط — لا تُنشئ أي شحنة.</b> الشحنة تُنشأ عند ضغط «شحن» على طلب في صفحة الطلبات، وحينها يخبرك النظام بصدق بإحدى حالتين:<br/>
+          <span style={{ color: '#34d399', fontWeight: 700 }}>✅ شحنة حقيقية</span> — فقط إذا هيأتَ للشركة: مفتاح API (أمانة/جيبلي) أو رابط Webhook أو وصفة أتمتة URL. عندها يُرسل الطلب فعلياً لنظام الشركة ويعود رقم تتبع حقيقي منها.<br/>
+          <span style={{ color: '#fbbf24', fontWeight: 700 }}>⚠️ محاكاة</span> — إذا أضفت الشركة بالاسم والرابط فقط (بدون API). يُولَّد رقم تتبع داخلي للتنظيم، <b>وعليك إدخال الطلب يدوياً في موقع الشركة</b>. ستصلك رسالة تحذير صريحة بذلك مع سبب عدم الإرسال.<br/>
+          والسجل أدناه يعرض تاريخ كل شحنة وما حدث فيها بالضبط.
+        </div>
+      </div>
+
+      {/* سجل الشحنات */}
+      <ShipmentsLog />
 
       {/* Auto settings */}
       <div className="card" style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 10 }}>

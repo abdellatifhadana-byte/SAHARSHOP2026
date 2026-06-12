@@ -1004,3 +1004,32 @@ body::after {
   border-color: var(--ember); background: var(--ember-soft);
   box-shadow: 0 0 0 1px var(--ember), var(--depth-md);
 }
+/* ═══════════════════════════════════════════════════════════════
+   99. COMPAT ALIASES — أسماء قديمة تستعملها صفحات اللوحة
+   (SettingsPage, ConnectionsPage, DeliveryPage, Coupons, Guide...)
+   إعادة تسمية فقط نحو رموز NEO GLASS — لا تغيير بصري جديد
+   ═══════════════════════════════════════════════════════════════ */
+:root {
+  --txt-1: var(--ink1);
+  --txt-2: var(--ink2);
+  --txt-3: var(--ink3);
+  --ink:   var(--ink1);
+  --clr-bg:     var(--void);
+  --clr-deep:   var(--void2);
+  --clr-card:   var(--panel);
+  --clr-border: var(--border);
+  --clr-pri:    var(--ember);
+  --clr-pri-h:  var(--ember2);
+  --clr-sec:    var(--gold);
+  --clr-ok:     var(--mint);
+  --clr-warn:   var(--gold);
+  --clr-err:    #EF4444;
+  --clr-accent: var(--aurora);
+  --r: var(--r-md);
+  --radius-xs: var(--r-xs);
+  --radius-sm: var(--r-sm);
+  --radius-md: var(--r-md);
+  --radius-lg: var(--r-lg);
+  --radius-xl: var(--r-xl);
+  --radius-full: var(--r-full);
+}

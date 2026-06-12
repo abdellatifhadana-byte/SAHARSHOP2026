@@ -42,6 +42,72 @@ router.put('/:id', auth, async (req, res) => {
   } catch (e) { console.error('[orders]', e.message); res.status(500).json({ error: 'Server error' }); }
 });
 
+
+// إشعار الزبون تلقائياً عبر WhatsApp API عند تغيّر حالة طلبه —
+// وإن لم يكن API مربوطاً: إشعار للتاجر برابط wa.me جاهز للإرسال اليدوي
+// إرسال إيميل حقيقي عبر Brevo (إن كان مفتاحه مربوطاً)
+function _sendBrevoEmail(apiKey, toEmail, toName, subject, html) {
+  return new Promise(resolve => {
+    if (!apiKey || !toEmail) return resolve(false);
+    const httpsB = require('https');
+    const body = JSON.stringify({
+      sender: { name: 'SAHAR Shop', email: 'noreply@saharshop.store' },
+      to: [{ email: toEmail, name: toName || toEmail }],
+      subject, htmlContent: html,
+    });
+    const r = httpsB.request({ hostname: 'api.brevo.com', path: '/v3/smtp/email', method: 'POST',
+      headers: { 'api-key': apiKey, 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) } },
+      rs => { rs.resume(); resolve(rs.statusCode < 300); });
+    r.on('error', () => resolve(false)); r.setTimeout(8000, () => { r.destroy(); resolve(false); });
+    r.write(body); r.end();
+  });
+}
+
+// تحقق hCaptcha على الخادم — لا تُقبل الطلبات الآلية إن كانت الحماية مفعلة
+function _verifyHCaptcha(secret, token) {
+  return new Promise(resolve => {
+    const httpsH = require('https');
+    const form = `secret=${encodeURIComponent(secret)}&response=${encodeURIComponent(token || '')}`;
+    const r = httpsH.request({ hostname: 'api.hcaptcha.com', path: '/siteverify', method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(form) } },
+      rs => { let d = ''; rs.on('data', c => d += c); rs.on('end', () => { try { resolve(!!JSON.parse(d).success); } catch { resolve(false); } }); });
+    r.on('error', () => resolve(false)); r.setTimeout(8000, () => { r.destroy(); resolve(false); });
+    r.write(form); r.end();
+  });
+}
+
+async function _notifyCustomer(userId, order, stage) {
+  try {
+    if (!order?.customerPhone) return;
+    const st = await db.getSettings(userId) || {};
+    if (st.delivery?.notifyCustomerOnShip === false) return;
+    const cur = st.brand?.currency || 'MAD';
+    const store = st.brand?.name || 'متجرنا';
+    const texts = {
+      approved:  `مرحباً ${order.customerName}! ✅\nتم تأكيد طلبك ${order.id} (${order.total} ${cur}) وجارٍ تجهيزه.\nسنبلغك فور الشحن 🚚\n— ${store}`,
+      delivered: `${order.customerName}، وصل طلبك ${order.id}! 🎉\nنتمنى أن ينال إعجابك. شكراً لثقتك بـ${store} 🙏`,
+    };
+    const msg = texts[stage];
+    if (!msg) return;
+    const token = st.social?.whatsapp?.accessToken, phoneId = st.social?.whatsapp?.pageId;
+    const to = order.customerPhone.replace(/\D/g, '');
+    if (token && phoneId) {
+      const body = JSON.stringify({ messaging_product: 'whatsapp', to, type: 'text', text: { body: msg } });
+      const httpsN = require('https');
+      await new Promise(resolve => {
+        const r = httpsN.request({ hostname: 'graph.facebook.com', path: `/v19.0/${phoneId}/messages`, method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, 'Content-Length': Buffer.byteLength(body) } },
+          res => { res.resume(); resolve(res.statusCode < 300); });
+        r.on('error', () => resolve(false)); r.setTimeout(8000, () => { r.destroy(); resolve(false); });
+        r.write(body); r.end();
+      });
+      await db.addLog({ userId, user: 'System', action: `📣 إشعار واتساب تلقائي للزبون (${stage === 'approved' ? 'تأكيد' : 'توصيل'}): ${order.id}`, details: to, type: 'notification', severity: 'success' });
+    } else {
+      await db.addNotification({ userId, type: 'info', message: `📣 أشعر ${order.customerName} ${stage === 'approved' ? 'بالتأكيد' : 'بالوصول'} يدوياً: https://wa.me/${to} — (اربط واتساب API للإرسال التلقائي)` });
+    }
+  } catch (e) { console.warn('[notifyCustomer]', e.message); }
+}
+
 router.put('/:id/approve', auth, async (req, res) => {
   try {
     const order = await db.getOrder(req.params.id);
@@ -68,6 +134,8 @@ router.put('/:id/approve', auth, async (req, res) => {
         sales: (p.sales || 0) + (item.quantity || 1),
       });
     }
+
+    _notifyCustomer(req.user.id, { ...order, status: 'approved' }, 'approved');
 
     // Auto-delivery
     const settings = await db.getSettings(req.user.id) || {};
@@ -176,6 +244,8 @@ router.put('/:id/ship', auth, async (req, res) => {
         const r3 = https3.request({ hostname:'graph.facebook.com', path:`/v19.0/${shipWaPhoneId}/messages`, method:'POST', headers:{ 'Content-Type':'application/json', 'Authorization':`Bearer ${shipWaToken}`, 'Content-Length':Buffer.byteLength(shipBody) } }, res=>res.resume());
         r3.on('error',()=>{}); r3.write(shipBody); r3.end();
       } catch {}
+    } else if (shippedOrder?.customerPhone) {
+      await db.addNotification({ userId: req.user.id, type: 'info', message: `📣 أشعر ${shippedOrder.customerName} بالشحن يدوياً: https://wa.me/${shippedOrder.customerPhone.replace(/\D/g, '')} — تتبع ${tracking} (اربط واتساب API للإرسال التلقائي)` });
     }
     req.app.get('broadcast')?.(req.user.id, { event: 'order_updated', data: shippedOrder });
     res.json(shippedOrder);
@@ -196,6 +266,7 @@ router.put('/:id/deliver', auth, async (req, res) => {
     }
 
     const deliveredOrder = await db.getOrder(o.id);
+    _notifyCustomer(req.user.id, deliveredOrder, 'delivered');
     req.app.get('broadcast')?.(req.user.id, { event: 'order_updated', data: deliveredOrder });
 
     const brand = ((await db.getSettings(req.user.id))||{}).brand || {};
@@ -213,10 +284,17 @@ router.put('/:id/deliver', auth, async (req, res) => {
 // الأسعار من قاعدة البيانات، خصم واحد أفضل (باقة أو كوبون)، توصيل مجاني
 // فوق العتبة، وحارس هامش الربح يمنع أي خصم يأكل أكثر من 80% من الهامش.
 router.post('/public', sanitizeBody, validateOrder, async (req, res) => {
-  const { userId, items, customerName, customerPhone, city, address, notes, source, couponCode, deliveryCost } = req.body;
+  const { userId, items, customerName, customerPhone, city, address, notes, source, couponCode, deliveryCost, captchaToken, customerEmail } = req.body;
   if (!userId || !items?.length || !customerName || !customerPhone)
     return res.status(400).json({ error: 'userId, items, name, phone required' });
   try {
+    // 0) حماية البوتات: إن فعّل التاجر hCaptcha يجب أن يمر كل طلب بالتحقق
+    const preSettings = await db.getSettings(userId) || {};
+    if (preSettings.security?.hcaptchaSecret) {
+      const human = await _verifyHCaptcha(preSettings.security.hcaptchaSecret, captchaToken);
+      if (!human) return res.status(400).json({ error: 'فشل التحقق الأمني — حدّث الصفحة وأعد المحاولة' });
+    }
+
     // 1) الأسعار الحقيقية من قاعدة البيانات وليس من المتصفح
     let subtotal = 0, totalCost = 0, giftFees = 0, itemCount = 0;
     const safeItems = [];
@@ -290,6 +368,22 @@ router.post('/public', sanitizeBody, validateOrder, async (req, res) => {
     );
 
     await db.addNotification({ userId, type: 'info', message: `🛒 طلب جديد من ${customerName} — ${order.total} MAD` });
+
+    // إيميلات Brevo الحقيقية: نسخة للتاجر + تأكيد للزبون إن ترك بريده
+    const brevoKey = settings.marketing?.brevoApiKey;
+    if (brevoKey) {
+      const itemsHtml = (safeItems || []).map(i => `<li>${i.productName} × ${i.quantity || 1} — ${i.price} MAD</li>`).join('');
+      const orderHtml = `<h2>طلب جديد ${order.id}</h2><p>👤 ${customerName} — 📱 ${customerPhone}</p><p>📍 ${city} ${address || ''}</p><ul>${itemsHtml}</ul><p><b>الإجمالي: ${serverTotal} MAD</b></p>`;
+      if (settings.brand?.email) {
+        _sendBrevoEmail(brevoKey, settings.brand.email, settings.brand?.name, `🛒 طلب جديد ${order.id} — ${customerName}`, orderHtml)
+          .then(ok => db.addLog({ userId, user: 'System', action: ok ? `📧 إيميل Brevo للتاجر: ${order.id}` : `⚠️ فشل إيميل Brevo للتاجر: ${order.id}`, details: settings.brand.email, type: 'notification', severity: ok ? 'success' : 'warning' }).catch(() => {}));
+      }
+      if (customerEmail && /.+@.+\..+/.test(customerEmail)) {
+        const custHtml = `<h2>شكراً ${customerName}! 🎉</h2><p>استلمنا طلبك <b>${order.id}</b> وسنتواصل معك للتأكيد.</p><ul>${itemsHtml}</ul><p><b>الإجمالي: ${serverTotal} MAD</b></p><p>كود التتبع: <b>${customerCode}</b></p><p>— ${settings.brand?.name || 'المتجر'}</p>`;
+        _sendBrevoEmail(brevoKey, customerEmail, customerName, `✅ تأكيد استلام طلبك ${order.id}`, custHtml)
+          .then(ok => db.addLog({ userId, user: 'System', action: ok ? `📧 إيميل تأكيد Brevo للزبون: ${order.id}` : `⚠️ فشل إيميل الزبون: ${order.id}`, details: customerEmail, type: 'notification', severity: ok ? 'success' : 'warning' }).catch(() => {}));
+      }
+    }
     await db.addLog({ userId, user: 'Storefront', action: `New order: ${customerName}`, details: `${city} — ${serverTotal} MAD${promoNotes ? ' · ' + promoNotes : ''}`, type: 'order', severity: 'info' });
 
     res.status(201).json({ order, customerId: customer.id, applied: { discount, discountSource, freeShipping, total: serverTotal } });

@@ -30,6 +30,7 @@ interface StoreInfo {
     bundle:{enabled:boolean;minItems:number;percent:number};
     wheel:{enabled:boolean;minOrder:number};
   };
+  hcaptchaSiteKey?:string; // حماية البوتات — يظهر الودجت في الدفع إن وُجد
 }
 interface ChatMsg { role:'user'|'ai'; content:string; product?:SProduct; }
 
@@ -118,7 +119,7 @@ function useStorefront(userId:string) {
   useEffect(()=>{
     if(!userId){setError('رابط المتجر غير صحيح');setLoading(false);return;}
     fetch(`/api/products/public/catalog?userId=${userId}`).then(r=>r.json())
-      .then(c=>{setProducts(c.products||[]);setStoreInfo({brand:c.brand||{},deliveryCosts:c.deliveryCosts,promotions:c.promotions});setLoading(false);})
+      .then(c=>{setProducts(c.products||[]);setStoreInfo({brand:c.brand||{},deliveryCosts:c.deliveryCosts,promotions:c.promotions,hcaptchaSiteKey:c.hcaptchaSiteKey});setLoading(false);})
       .catch(()=>{setError('تعذّر تحميل المتجر');setLoading(false);});
     try{const k=`sahar_visit_${userId}`;if(!sessionStorage.getItem(k)){trackStoreEvent(userId,'visit');sessionStorage.setItem(k,'1');}}catch{}
   },[userId]);
@@ -327,6 +328,8 @@ function serviceIconFor(p:SProduct,sz=22) {
   return <Zap size={sz}/>;
 }
 
+const cfv=(p:SProduct,id:string)=>p.customFields?.find(f=>f.id===id)?.value||'';
+
 function ServiceCard({p,onView,currency}:{p:SProduct;onView:(p:SProduct)=>void;currency:string}) {
   const [hover,setHover]=useState(false);
   return (
@@ -340,6 +343,7 @@ function ServiceCard({p,onView,currency}:{p:SProduct;onView:(p:SProduct)=>void;c
       <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:14,flexWrap:'wrap'}}>
         {p.duration&&<span style={{fontSize:10,color:DS.textSecondary,background:DS.bgGlass,border:DS.glassBorder,borderRadius:DS.radiusFull,padding:'4px 10px',display:'flex',alignItems:'center',gap:4}}><Clock size={9}/> {p.duration}</span>}
         {p.workArea&&<span style={{fontSize:10,color:DS.textSecondary,background:DS.bgGlass,border:DS.glassBorder,borderRadius:DS.radiusFull,padding:'4px 10px',display:'flex',alignItems:'center',gap:4}}><MapPin size={9}/> {p.workArea}</span>}
+        {(()=>{const m=cfv(p,'serviceMode');if(!m)return null;const u=m.includes('استعجال');return <span style={{fontSize:10,fontWeight:700,color:u?'#FCD34D':DS.purpleLight,background:u?'rgba(245,158,11,0.12)':DS.purpleSoft,border:`1px solid ${u?'rgba(245,158,11,0.3)':DS.borderPurple}`,borderRadius:DS.radiusFull,padding:'4px 10px'}}>{u?'⚡ استعجالية':'📅 بموعد'}</span>;})()}
       </div>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
         <div><span style={{fontSize:18,fontWeight:900,color:DS.textPrimary}}>{p.price.toLocaleString()}</span><span style={{fontSize:10,color:DS.textTertiary,marginRight:4}}>{currency}</span></div>
@@ -472,13 +476,29 @@ function ProductModal({p,cart,onClose,currency,userId}:{p:SProduct;cart:ReturnTy
 function ServiceModal({p,cart,onClose,currency,storeInfo}:{p:SProduct;cart:ReturnType<typeof useCart>;onClose:()=>void;currency:string;storeInfo:StoreInfo}) {
   const [added,setAdded]=useState(false);
   const [note,setNote]=useState('');
+  // حجز الزبون: الزمان والمكان والشخص — كل التفاصيل تصل للتاجر
+  const [bkDate,setBkDate]=useState('');
+  const [bkTime,setBkTime]=useState('');
+  const [bkPlace,setBkPlace]=useState('');
+  const [bkPerson,setBkPerson]=useState('');
   useBackToClose(true,onClose);
   const gallery=[p.imageUrl,...(p.portfolio||[]),...(p.images||[])].filter((x,i,a)=>x&&a.indexOf(x)===i);
+  const mode=cfv(p,'serviceMode');
+  const isUrgent=mode.includes('استعجال');
+  const hasAppt=mode.includes('موعد')||!mode;
+  const svcPhone=(cfv(p,'servicePhone')||storeInfo.brand.phone||'').replace(/[^\d+]/g,'');
+  const bookingText=[
+    isUrgent&&!bkDate?'⚡ طلب استعجالي — في أقرب وقت ممكن':'',
+    bkDate?`📅 الموعد: ${bkDate}${bkTime?` ⏰ ${bkTime}`:''}`:'',
+    bkPlace?`📍 المكان: ${bkPlace}`:'',
+    bkPerson?`👤 تفضيلات: ${bkPerson}`:'',
+    note?`📝 ${note}`:'',
+  ].filter(Boolean).join('\n');
 
-  const bookWA=()=>{const phone=storeInfo.brand.phone?.replace(/\D/g,'');const msg=`مرحباً ${storeInfo.brand.name}! 👋\n\nأريد حجز خدمة:\n🔧 ${p.name}\n💰 ${p.price.toLocaleString()} ${currency}${p.duration?`\n⏱️ ${p.duration}`:''}${p.workArea?`\n📍 ${p.workArea}`:''}${note?`\n📝 ${note}`:''}\n\nمتى يمكن تنفيذها؟`;if(phone)window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`,'_blank');else navigator.clipboard?.writeText(msg);};
-  const addToOrder=()=>{cart.add(p,'','',false,note);setAdded(true);setTimeout(()=>{setAdded(false);onClose();},900);};
+  const bookWA=()=>{const phone=svcPhone.replace(/\D/g,'');const msg=`مرحباً ${storeInfo.brand.name}! 👋\n\nأريد حجز خدمة:\n🔧 ${p.name}\n💰 ${p.price.toLocaleString()} ${currency}${p.duration?`\n⏱️ ${p.duration}`:''}${p.workArea?`\n📍 ${p.workArea}`:''}${bookingText?`\n\n${bookingText}`:''}\n\nأرجو التأكيد 🙏`;if(phone)window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`,'_blank');else navigator.clipboard?.writeText(msg);};
+  const addToOrder=()=>{cart.add(p,'','',false,bookingText||note);setAdded(true);setTimeout(()=>{setAdded(false);onClose();},900);};
 
-  const cfs=(p.customFields||[]).filter(f=>f.value&&!(f.type==='boolean'&&f.value!=='true'));
+  const cfs=(p.customFields||[]).filter(f=>f.id!=='serviceMode'&&f.id!=='servicePhone'&&f.value&&!(f.type==='boolean'&&f.value!=='true'));
 
   return (
     <div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.75)',backdropFilter:'blur(8px)',zIndex:300,display:'flex',alignItems:'flex-end',justifyContent:'center'}}>
@@ -503,7 +523,27 @@ function ServiceModal({p,cart,onClose,currency,storeInfo}:{p:SProduct;cart:Retur
           {p.description&&<p style={{fontSize:13,color:DS.textSecondary,lineHeight:1.8,margin:'0 0 18px'}}>{p.description}</p>}
           {cfs.length>0&&<div style={{marginBottom:18,padding:'14px 16px',background:DS.glassBg,borderRadius:DS.radiusMd,border:DS.glassBorder}}><div style={{fontSize:10,color:DS.textTertiary,fontWeight:700,letterSpacing:'.06em',marginBottom:10}}>تفاصيل الخدمة</div><div style={{display:'flex',flexDirection:'column',gap:7}}>{cfs.map(f=><div key={f.id} style={{display:'flex',justifyContent:'space-between',gap:10,fontSize:12}}><span style={{color:DS.textTertiary,flexShrink:0}}>{f.label}</span><span style={{color:DS.textPrimary,fontWeight:600,textAlign:'left'}}>{f.type==='boolean'?'✓':f.value}</span></div>)}</div></div>}
           {gallery.length>0&&<div style={{marginBottom:18}}><div style={{fontSize:10,color:DS.textTertiary,fontWeight:700,letterSpacing:'.06em',marginBottom:10}}>📸 من أعمالنا السابقة</div><div style={{display:'flex',gap:8,overflowX:'auto',paddingBottom:4}}>{gallery.map((img,i)=><img key={i} src={img} alt="" loading="lazy" style={{width:110,height:110,objectFit:'cover',borderRadius:DS.radiusSm,flexShrink:0,border:DS.glassBorder}}/>)}</div></div>}
-          <div style={{marginBottom:6}}><div style={{fontSize:10,color:DS.textTertiary,fontWeight:700,letterSpacing:'.06em',marginBottom:8}}>📝 صف ما تحتاجه (اختياري)</div><textarea value={note} onChange={e=>setNote(e.target.value)} rows={2} placeholder="مثال: أحتاج الخدمة يوم السبت صباحاً في حي المعاريف..." style={{width:'100%',padding:'12px 14px',borderRadius:DS.radiusSm,border:DS.glassBorder,background:DS.bgInput,color:DS.textPrimary,fontSize:12,outline:'none',boxSizing:'border-box',resize:'none',fontFamily:'Tajawal,sans-serif'}}/></div>
+          {/* نموذج الحجز — الزبون يحدد الزمان والمكان والشخص */}
+          <div style={{marginBottom:6,padding:'14px 16px',background:DS.purpleSoft,borderRadius:DS.radiusMd,border:`1px solid ${DS.borderPurple}`}}>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12,flexWrap:'wrap',gap:8}}>
+              <span style={{fontSize:12,fontWeight:800,color:DS.purpleLight}}>{isUrgent&&hasAppt?'⚡ استعجالية أو 📅 بموعد — اختر':isUrgent?'⚡ خدمة استعجالية — متاحة فوراً':'📅 خدمة بموعد مسبق'}</span>
+              {svcPhone&&(
+                <span style={{display:'flex',gap:6}}>
+                  <a href={`tel:${svcPhone}`} style={{fontSize:11,fontWeight:700,color:'#fff',background:DS.glassBg,border:DS.glassBorder,borderRadius:DS.radiusFull,padding:'5px 12px',textDecoration:'none'}}>📞 اتصال</a>
+                  <a href={`https://wa.me/${svcPhone.replace(/\D/g,'')}`} target="_blank" rel="noreferrer" style={{fontSize:11,fontWeight:700,color:'#fff',background:'#25D366',borderRadius:DS.radiusFull,padding:'5px 12px',textDecoration:'none'}}>واتساب</a>
+                </span>
+              )}
+            </div>
+            {hasAppt&&(
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:8}}>
+                <div><div style={{fontSize:10,color:DS.textTertiary,fontWeight:700,marginBottom:4}}>📅 اليوم{isUrgent?' (اختياري)':''}</div><input type="date" value={bkDate} onChange={e=>setBkDate(e.target.value)} style={{width:'100%',padding:'11px 13px',borderRadius:DS.radiusSm,border:DS.glassBorder,background:DS.bgInput,color:DS.textPrimary,fontSize:12,outline:'none',boxSizing:'border-box',fontFamily:'Tajawal,sans-serif'}}/></div>
+                <div><div style={{fontSize:10,color:DS.textTertiary,fontWeight:700,marginBottom:4}}>⏰ الساعة</div><input type="time" value={bkTime} onChange={e=>setBkTime(e.target.value)} style={{width:'100%',padding:'11px 13px',borderRadius:DS.radiusSm,border:DS.glassBorder,background:DS.bgInput,color:DS.textPrimary,fontSize:12,outline:'none',boxSizing:'border-box',fontFamily:'Tajawal,sans-serif'}}/></div>
+              </div>
+            )}
+            <div style={{marginBottom:8}}><div style={{fontSize:10,color:DS.textTertiary,fontWeight:700,marginBottom:4}}>📍 المكان / العنوان</div><input value={bkPlace} onChange={e=>setBkPlace(e.target.value)} placeholder="مثال: حي المعاريف، الدار البيضاء" style={{width:'100%',padding:'11px 13px',borderRadius:DS.radiusSm,border:DS.glassBorder,background:DS.bgInput,color:DS.textPrimary,fontSize:12,outline:'none',boxSizing:'border-box',fontFamily:'Tajawal,sans-serif'}}/></div>
+            <div style={{marginBottom:8}}><div style={{fontSize:10,color:DS.textTertiary,fontWeight:700,marginBottom:4}}>👤 الشخص المطلوب / تفضيلات</div><input value={bkPerson} onChange={e=>setBkPerson(e.target.value)} placeholder="مثال: نفس الفني السابق، امرأة، يتكلم الأمازيغية..." style={{width:'100%',padding:'11px 13px',borderRadius:DS.radiusSm,border:DS.glassBorder,background:DS.bgInput,color:DS.textPrimary,fontSize:12,outline:'none',boxSizing:'border-box',fontFamily:'Tajawal,sans-serif'}}/></div>
+            <div><div style={{fontSize:10,color:DS.textTertiary,fontWeight:700,marginBottom:4}}>📝 وصف إضافي</div><textarea value={note} onChange={e=>setNote(e.target.value)} rows={2} placeholder="صف ما تحتاجه بالتفصيل..." style={{...{width:'100%',padding:'11px 13px',borderRadius:DS.radiusSm,border:DS.glassBorder,background:DS.bgInput,color:DS.textPrimary,fontSize:12,outline:'none',boxSizing:'border-box',fontFamily:'Tajawal,sans-serif'},resize:'none'} as any}/></div>
+          </div>
         </div>
         <div style={{padding:'14px 22px 26px',position:'sticky',bottom:0,background:'rgba(10,10,20,0.97)',backdropFilter:DS.glassBlur,borderTop:`1px solid ${DS.border}`,display:'flex',gap:10}}>
           <button onClick={bookWA} style={{flex:1.4,height:52,borderRadius:DS.radiusFull,background:'#25D366',border:'none',color:'#fff',fontSize:14,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}><MessageCircle size={16}/> احجز عبر واتساب</button>
@@ -562,7 +602,7 @@ function LuckyWheel({userId,open,onClose}:{userId:string;open:boolean;onClose:()
 // ═══════════════════════════════════════════════════════════════ CART SIDEBAR
 function CartSidebar({cart,storeInfo,userId,onClose,onOrderSuccess}:{cart:ReturnType<typeof useCart>;storeInfo:StoreInfo;userId:string;onClose:()=>void;onOrderSuccess:(id:string)=>void}) {
   const [step,setStep]=useState<'cart'|'checkout'|'success'>('cart');
-  const [form,setForm]=useState({name:'',phone:'',city:'',address:'',notes:'',subscribe:true,paymentMethod:'cod' as 'cod'|'virement'});
+  const [form,setForm]=useState({name:'',phone:'',city:'',address:'',email:'',notes:'',subscribe:true,paymentMethod:'cod' as 'cod'|'virement'});
   const [couponCode,setCouponCode]=useState(()=>{try{return localStorage.getItem('sahar_wheel_code')||'';}catch{return '';}});
   const [couponDiscount,setCouponDiscount]=useState(0);
   const [couponShipping,setCouponShipping]=useState(false);
@@ -573,6 +613,12 @@ function CartSidebar({cart,storeInfo,userId,onClose,onOrderSuccess}:{cart:Return
   const [orderId,setOrderId]=useState('');
   const cur=storeInfo.brand.currency||'MAD';
   useBackToClose(true,onClose);
+  const hcapKey=storeInfo.hcaptchaSiteKey||'';
+  useEffect(()=>{
+    if(step!=='checkout'||!hcapKey)return;
+    if(document.getElementById('hcap-script'))return;
+    const sc=document.createElement('script');sc.id='hcap-script';sc.src='https://js.hcaptcha.com/1/api.js';sc.async=true;document.head.appendChild(sc);
+  },[step,hcapKey]);
 
   const promo=storeInfo.promotions;
   const bundleCfg=promo?.bundle;
@@ -592,7 +638,10 @@ function CartSidebar({cart,storeInfo,userId,onClose,onOrderSuccess}:{cart:Return
   const applyCoupon=async()=>{if(!couponCode.trim())return;try{const r=await fetch(`/api/coupons/validate?code=${encodeURIComponent(couponCode)}&userId=${userId}&total=${cart.total}`);const d=await r.json().catch(()=>({}));if(r.ok&&d.valid){setCouponDiscount(d.discount||0);setCouponShipping(!!d.freeShipping);setCouponMsg(d.freeShipping?'✅ توصيل مجاني مفعّل 🚚':`✅ خصم ${d.discount} ${cur}`);}else{setCouponDiscount(0);setCouponShipping(false);setCouponMsg(`❌ ${d.message||'الكود غير صحيح'}`);}}catch{setCouponDiscount(0);setCouponShipping(false);setCouponMsg('❌ تعذر التحقق من الكود');}};
   const shareCart=()=>{const itemsText=cart.items.map(i=>`• ${i.product.name} (${i.size} ${i.color}) x${i.quantity} — ${i.product.price*i.quantity} ${cur}`).join('\n');const msg=`🛒 سلتي من ${storeInfo.brand.name}:\n\n${itemsText}\n\n💰 المجموع: ${cart.total} ${cur}`;navigator.share?.({title:`سلتي من ${storeInfo.brand.name}`,text:msg}).catch(()=>{})||navigator.clipboard?.writeText(msg);};
 
-  const handleOrder=async()=>{if(!form.name||!form.phone||!form.city){alert('الاسم، الهاتف والمدينة مطلوبون');return;}setLoading(true);try{const items=cart.items.map(i=>({productId:i.product.id,productName:i.product.name,price:i.product.price,quantity:i.quantity,size:i.size,color:i.color,giftWrap:i.giftWrap,giftMessage:i.giftMessage}));const r=await fetch('/api/orders/public',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId,items,customerName:form.name,customerPhone:form.phone,city:form.city,address:form.address,total:grandTotal,deliveryCost:cityCost,couponCode:(couponDiscount>0||couponShipping)?couponCode:'',source:'Storefront',notes:`${form.notes}${form.subscribe?' · يريد عروض':''}`})});const data=await r.json();if(!r.ok)throw new Error(data.error);setOrderId(data.order.id);const finalTotal=data.applied?.total??grandTotal;try{localStorage.removeItem('sahar_wheel_code');}catch{}try{const recent=JSON.parse(localStorage.getItem('sahar_recent_orders')||'[]');localStorage.setItem('sahar_recent_orders',JSON.stringify([{name:form.name,city:form.city,product:cart.items[0]?.product?.name||'منتج',time:new Date().toISOString()},...recent].slice(0,20)));}catch{}const phone=storeInfo.brand.phone?.replace(/\D/g,'');const itemsText=cart.items.map(i=>`• ${i.product.name} (${i.size} ${i.color}) x${i.quantity} — ${i.product.price*i.quantity} ${cur}`).join('\n');const promoText=[data.applied?.discount>0?`🏷️ ${data.applied.discountSource}: -${data.applied.discount} ${cur}`:'',data.applied?.freeShipping?'🚚 توصيل مجاني':''].filter(Boolean).join('\n');const msg=`مرحباً ${storeInfo.brand.name}! 👋\n\nأريد تأكيد طلبي:\n\n${itemsText}\n${promoText?promoText+'\n':''}\n💰 الإجمالي: ${finalTotal} ${cur}\n\n👤 ${form.name}\n📱 ${form.phone}\n📍 ${form.city}\n🏠 ${form.address||'—'}`;if(phone)setTimeout(()=>window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`,'_blank'),500);cart.clear();try{localStorage.removeItem('sahar_cart');}catch{}setStep('success');onOrderSuccess(data.order.id);}catch(e:any){alert(`حدث خطأ: ${e.message}`);}setLoading(false);};
+  const handleOrder=async()=>{if(!form.name||!form.phone||!form.city){alert('الاسم، الهاتف والمدينة مطلوبون');return;}
+    const captchaToken=hcapKey?(((window as any).hcaptcha?.getResponse?.())||''):'';
+    if(hcapKey&&!captchaToken){alert('✅ أكمل مربع التحقق الأمني أولاً');return;}
+    setLoading(true);try{const items=cart.items.map(i=>({productId:i.product.id,productName:i.product.name,price:i.product.price,quantity:i.quantity,size:i.size,color:i.color,giftWrap:i.giftWrap,giftMessage:i.giftMessage}));const r=await fetch('/api/orders/public',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId,items,customerName:form.name,customerPhone:form.phone,city:form.city,address:form.address,total:grandTotal,deliveryCost:cityCost,couponCode:(couponDiscount>0||couponShipping)?couponCode:'',captchaToken,customerEmail:form.email.trim(),source:'Storefront',notes:`${form.notes}${form.subscribe?' · يريد عروض':''}`})});const data=await r.json();if(!r.ok)throw new Error(data.error);setOrderId(data.order.id);const finalTotal=data.applied?.total??grandTotal;try{localStorage.removeItem('sahar_wheel_code');}catch{}try{const recent=JSON.parse(localStorage.getItem('sahar_recent_orders')||'[]');localStorage.setItem('sahar_recent_orders',JSON.stringify([{name:form.name,city:form.city,product:cart.items[0]?.product?.name||'منتج',time:new Date().toISOString()},...recent].slice(0,20)));}catch{}const phone=storeInfo.brand.phone?.replace(/\D/g,'');const itemsText=cart.items.map(i=>`• ${i.product.name} (${i.size} ${i.color}) x${i.quantity} — ${i.product.price*i.quantity} ${cur}`).join('\n');const promoText=[data.applied?.discount>0?`🏷️ ${data.applied.discountSource}: -${data.applied.discount} ${cur}`:'',data.applied?.freeShipping?'🚚 توصيل مجاني':''].filter(Boolean).join('\n');const msg=`مرحباً ${storeInfo.brand.name}! 👋\n\nأريد تأكيد طلبي:\n\n${itemsText}\n${promoText?promoText+'\n':''}\n💰 الإجمالي: ${finalTotal} ${cur}\n\n👤 ${form.name}\n📱 ${form.phone}\n📍 ${form.city}\n🏠 ${form.address||'—'}`;if(phone)setTimeout(()=>window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`,'_blank'),500);cart.clear();try{localStorage.removeItem('sahar_cart');}catch{}setStep('success');onOrderSuccess(data.order.id);}catch(e:any){alert(`حدث خطأ: ${e.message}`);}setLoading(false);};
 
   const inpStyle:React.CSSProperties={width:'100%',padding:'12px 15px',borderRadius:DS.radiusSm,border:DS.glassBorder,background:DS.bgInput,color:DS.textPrimary,fontSize:13,outline:'none',boxSizing:'border-box',fontFamily:'Tajawal,sans-serif'};
 
@@ -624,6 +673,7 @@ function CartSidebar({cart,storeInfo,userId,onClose,onOrderSuccess}:{cart:Return
           <div style={{flex:1,overflow:'auto',padding:'18px 20px',display:'flex',flexDirection:'column',gap:12}}>
             <input style={inpStyle} placeholder="الاسم الكامل *" value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))}/>
             <input style={inpStyle} placeholder="رقم الهاتف *" value={form.phone} onChange={e=>setForm(f=>({...f,phone:e.target.value}))} dir="ltr" type="tel"/>
+            <input style={inpStyle} placeholder="البريد الإلكتروني (اختياري — يصلك تأكيد الطلب)" value={form.email} onChange={e=>setForm(f=>({...f,email:e.target.value}))} dir="ltr" type="email"/>
             <div style={{position:'relative'}}><input style={inpStyle} placeholder="المدينة *" value={citySearch||form.city} onChange={e=>{setCitySearch(e.target.value);setShowCities(true);setForm(f=>({...f,city:e.target.value}));}} onFocus={()=>setShowCities(true)} onBlur={()=>setTimeout(()=>setShowCities(false),200)}/>{showCities&&filteredCities.length>0&&<div style={{position:'absolute',top:'100%',right:0,left:0,background:'rgba(20,20,40,0.98)',backdropFilter:DS.glassBlur,border:`1px solid ${DS.border}`,borderRadius:DS.radiusSm,maxHeight:180,overflowY:'auto',zIndex:10,marginTop:4,boxShadow:DS.glassShadow}}>{filteredCities.map(city=><div key={city} onClick={()=>{setForm(f=>({...f,city}));setCitySearch(city);setShowCities(false);}} style={{padding:'10px 15px',fontSize:13,cursor:'pointer',borderBottom:`1px solid ${DS.border}`,color:DS.textSecondary}} onMouseOver={e=>{(e.currentTarget as HTMLElement).style.background=DS.bgGlass}} onMouseOut={e=>{(e.currentTarget as HTMLElement).style.background=''}}>{city}</div>)}</div>}</div>
             <textarea style={{...inpStyle,resize:'none'} as any} placeholder="العنوان بالتفصيل" rows={2} value={form.address} onChange={e=>setForm(f=>({...f,address:e.target.value}))}/>
             <textarea style={{...inpStyle,resize:'none'} as any} placeholder="ملاحظة (اختياري)" rows={1} value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))}/>
@@ -631,6 +681,7 @@ function CartSidebar({cart,storeInfo,userId,onClose,onOrderSuccess}:{cart:Return
             <div><div style={{fontSize:12,fontWeight:700,color:DS.textTertiary,marginBottom:8}}>كود الخصم</div><div style={{display:'flex',gap:8}}><input style={{...inpStyle,flex:1,textTransform:'uppercase'}} placeholder="أدخل الكود" value={couponCode} onChange={e=>{setCouponCode(e.target.value.toUpperCase());setCouponMsg('');}} dir="ltr"/><button onClick={applyCoupon} style={{padding:'0 16px',borderRadius:DS.radiusSm,background:DS.glassBg,border:DS.glassBorder,color:DS.textSecondary,fontSize:12,fontWeight:600,cursor:'pointer'}}>تطبيق</button></div>{couponMsg&&<div style={{fontSize:11,marginTop:6,color:couponDiscount>0?'#10B981':'#EF4444',fontWeight:600}}>{couponMsg}</div>}</div>
             <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:12,color:DS.textSecondary}}><input type="checkbox" checked={form.subscribe} onChange={e=>setForm(f=>({...f,subscribe:e.target.checked}))} style={{accentColor:DS.purple,width:14,height:14}}/>أريد العروض عبر واتساب</label>
             <div style={{background:DS.glassBg,borderRadius:DS.radiusMd,padding:'16px',border:DS.glassBorder}}><div style={{fontSize:12,fontWeight:700,color:DS.textTertiary,marginBottom:10}}>ملخص الطلب</div>{cart.items.map((item,i)=><div key={i} style={{display:'flex',justifyContent:'space-between',fontSize:12,color:DS.textSecondary,marginBottom:5}}><span>{item.product.name} ×{item.quantity}</span><span>{(item.product.price*item.quantity+(item.giftWrap?15:0)).toLocaleString()} {cur}</span></div>)}<div style={{paddingTop:10,borderTop:`1px solid ${DS.border}`,marginTop:10,display:'flex',flexDirection:'column',gap:5}}><div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:DS.textSecondary}}><span>المجموع</span><span>{cart.total.toLocaleString()} {cur}</span></div>{bestDiscount>0&&<div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:'#10B981',fontWeight:600}}><span>{discountLabel}</span><span>-{bestDiscount.toLocaleString()} {cur}</span></div>}<div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:freeShipping?'#10B981':DS.textSecondary,fontWeight:freeShipping?700:400}}><span>التوصيل</span><span>{freeShipping?'مجاني 🎉':form.city?`${deliveryCost} ${cur}`:'—'}</span></div><div style={{display:'flex',justifyContent:'space-between',fontSize:16,fontWeight:900,paddingTop:8,borderTop:`1px solid ${DS.border}`}}><span>الإجمالي</span><span style={{color:DS.orangeLight}}>{grandTotal.toLocaleString()} {cur}</span></div></div></div>
+            {hcapKey&&<div style={{display:'flex',justifyContent:'center'}}><div className="h-captcha" data-sitekey={hcapKey} data-theme="dark"/></div>}
             <button onClick={handleOrder} disabled={loading} style={{width:'100%',height:52,borderRadius:DS.radiusFull,background:'#25D366',border:'none',color:'#fff',fontSize:15,fontWeight:700,cursor:'pointer',opacity:loading?0.7:1,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>{loading?'⟳ جارٍ الإرسال...':<><MessageCircle size={16}/> تأكيد عبر واتساب</>}</button>
             <button onClick={()=>setStep('cart')} style={{background:'none',border:'none',color:DS.textTertiary,cursor:'pointer',fontSize:12,padding:6}}>← رجوع</button>
           </div>

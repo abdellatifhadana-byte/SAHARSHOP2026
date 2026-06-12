@@ -310,7 +310,7 @@ export default function SettingsPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <Section title="مزوّد الذكاء الاصطناعي">
             <div className="s2col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              {(['openai','gemini','claude','deepseek'] as const).map(p => (
+              {(['openai','gemini','claude','deepseek','grok','mistral'] as const).map(p => (
                 <button
                   key={p}
                   onClick={() => updateSettings('ai', { ...s.ai, provider: p })}
@@ -322,7 +322,7 @@ export default function SettingsPage() {
                     color: s.ai.provider === p ? 'var(--clr-pri-h)' : 'var(--txt-3)',
                   }}
                 >
-                  {p === 'openai' ? '🧠 OpenAI GPT' : p === 'gemini' ? '🤖 Gemini (مجاني)' : p === 'claude' ? '🟠 Claude' : '🔮 DeepSeek (دارجة)'}
+                  {p === 'openai' ? '🧠 OpenAI GPT' : p === 'gemini' ? '🤖 Gemini (مجاني)' : p === 'claude' ? '🟠 Claude' : p === 'deepseek' ? '🔮 DeepSeek (دارجة)' : p === 'grok' ? '🚀 Grok (xAI)' : '🌬️ Mistral'}
                 </button>
               ))}
             </div>
@@ -351,6 +351,18 @@ export default function SettingsPage() {
                 <p style={{ fontSize: 11.5, color: 'var(--txt-3)', marginTop: 5 }}>من platform.deepseek.com/api_keys</p>
               </Field>
             )}
+            {s.ai.provider === 'grok' && (
+              <Field label="Grok API Key (xAI)">
+                <input className="input" type="password" placeholder="xai-..." value={s.ai.grokKey || ''} dir="ltr" style={{ fontFamily: 'monospace' }} onChange={e => updateSettings('ai', { ...s.ai, grokKey: e.target.value })} />
+                <p style={{ fontSize: 11.5, color: 'var(--txt-3)', marginTop: 5 }}>من console.x.ai — مدفوع حسب الاستخدام</p>
+              </Field>
+            )}
+            {s.ai.provider === 'mistral' && (
+              <Field label="Mistral API Key">
+                <input className="input" type="password" placeholder="..." value={s.ai.mistralKey || ''} dir="ltr" style={{ fontFamily: 'monospace' }} onChange={e => updateSettings('ai', { ...s.ai, mistralKey: e.target.value })} />
+                <p style={{ fontSize: 11.5, color: 'var(--txt-3)', marginTop: 5 }}>من console.mistral.ai/api-keys</p>
+              </Field>
+            )}
             <Field label="النموذج">
               {s.ai.provider === 'openai' && (
                 <select className="select" value={s.ai.model} onChange={e => updateSettings('ai', { ...s.ai, model: e.target.value })}>
@@ -370,6 +382,16 @@ export default function SettingsPage() {
               {s.ai.provider === 'deepseek' && (
                 <select className="select" value="deepseek-chat" disabled>
                   <option value="deepseek-chat">DeepSeek Chat (V3)</option>
+                </select>
+              )}
+              {s.ai.provider === 'grok' && (
+                <select className="select" value={s.ai.grokModel || 'grok-3-mini'} onChange={e => updateSettings('ai', { ...s.ai, grokModel: e.target.value })}>
+                  {[['grok-3-mini','Grok 3 Mini (اقتصادي)'],['grok-3','Grok 3'],['grok-4','Grok 4 (الأذكى)']].map(([v,l]) => <option key={v} value={v}>{l}</option>)}
+                </select>
+              )}
+              {s.ai.provider === 'mistral' && (
+                <select className="select" value={s.ai.mistralModel || 'mistral-small-latest'} onChange={e => updateSettings('ai', { ...s.ai, mistralModel: e.target.value })}>
+                  {[['mistral-small-latest','Mistral Small (سريع)'],['mistral-large-latest','Mistral Large (الأذكى)']].map(([v,l]) => <option key={v} value={v}>{l}</option>)}
                 </select>
               )}
             </Field>
@@ -1174,6 +1196,14 @@ export default function SettingsPage() {
                 onClick={() => updateSettings('ai', { ...s.ai, provider: 'deepseek' })}
                 className={`chip ${s.ai.provider === 'deepseek' ? 'active' : ''}`}
               >🔮 DeepSeek</button>
+              <button
+                onClick={() => updateSettings('ai', { ...s.ai, provider: 'grok' })}
+                className={`chip ${s.ai.provider === 'grok' ? 'active' : ''}`}
+              >🚀 Grok</button>
+              <button
+                onClick={() => updateSettings('ai', { ...s.ai, provider: 'mistral' })}
+                className={`chip ${s.ai.provider === 'mistral' ? 'active' : ''}`}
+              >🌬️ Mistral</button>
             </div>
             <button onClick={() => notify('success', '✅ تم الحفظ')} className="btn btn-primary" style={{ width: 'fit-content' }}>حفظ</button>
           </Section>

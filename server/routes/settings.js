@@ -105,6 +105,8 @@ router.get('/server-config', auth, (req, res) => {
     gemini:     !!(process.env.GEMINI_API_KEY),
     claude:     !!(process.env.ANTHROPIC_API_KEY),
     deepseek:   !!(process.env.DEEPSEEK_API_KEY),
+    grok:       !!(process.env.XAI_API_KEY || process.env.GROK_API_KEY),
+    mistral:    !!(process.env.MISTRAL_API_KEY),
     whatsapp:   !!(process.env.META_VERIFY_TOKEN),
   });
 });
@@ -159,6 +161,20 @@ router.post('/verify-connection', auth, async (req, res) => {
       return res.json({ ok: false, error: data.error?.message || 'Invalid key' });
     }
 
+    if (service === 'grok') {
+      const r = await httpsGet('api.x.ai', '/v1/models', { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' });
+      const data = JSON.parse(r.body);
+      if (r.status === 200 && data.data) return res.json({ ok: true, info: `${data.data.length} نموذج` });
+      return res.json({ ok: false, error: data.error?.message || data.error || 'Invalid key' });
+    }
+
+    if (service === 'mistral') {
+      const r = await httpsGet('api.mistral.ai', '/v1/models', { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' });
+      const data = JSON.parse(r.body);
+      if (r.status === 200 && data.data) return res.json({ ok: true, info: `${data.data.length} نموذج` });
+      return res.json({ ok: false, error: data.error?.message || 'Invalid key' });
+    }
+
     if (['facebook', 'instagram', 'whatsapp', 'messenger'].includes(service)) {
       const r = await httpsGet('graph.facebook.com', `/v19.0/me?access_token=${token}`, { 'Content-Type': 'application/json' });
       const data = JSON.parse(r.body);
@@ -181,6 +197,32 @@ router.post('/verify-connection', auth, async (req, res) => {
       const data = JSON.parse(r.body);
       if (r.status === 200 && !data.error) return res.json({ ok: true, info: data.credits ? `${data.credits.usage} credits` : 'متصل' });
       return res.json({ ok: false, error: data.error?.message || 'Invalid credentials' });
+    }
+
+    if (service === 'brevo') {
+      const r = await httpsGet('api.brevo.com', '/v3/account', { 'api-key': apiKey, 'Content-Type': 'application/json' });
+      const data = JSON.parse(r.body);
+      if (r.status === 200 && data.email) return res.json({ ok: true, info: `حساب: ${data.email}` });
+      return res.json({ ok: false, error: data.message || 'مفتاح غير صحيح' });
+    }
+
+    if (service === 'hcaptcha') {
+      // التحقق الحقيقي من المفتاح السري: siteverify برمز وهمي —
+      // مفتاح خاطئ يرجع invalid-input-secret، الصحيح يرجع invalid-input-response
+      const { secretKey } = req.body;
+      const form = `secret=${encodeURIComponent(secretKey || apiKey || '')}&response=test`;
+      const body = await new Promise((resolve, reject) => {
+        const rq = https.request({ hostname: 'api.hcaptcha.com', path: '/siteverify', method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(form) } },
+          rs => { let d=''; rs.on('data',c=>d+=c); rs.on('end',()=>resolve(d)); });
+        rq.on('error', reject); rq.setTimeout(8000, () => { rq.destroy(); reject(new Error('Timeout')); });
+        rq.write(form); rq.end();
+      });
+      const data = JSON.parse(body);
+      const codes = data['error-codes'] || [];
+      if (codes.includes('invalid-input-secret') || codes.includes('missing-input-secret'))
+        return res.json({ ok: false, error: 'المفتاح السري غير صحيح' });
+      return res.json({ ok: true, info: 'المفتاح السري سليم' });
     }
 
     res.json({ ok: false, error: 'Unknown service' });

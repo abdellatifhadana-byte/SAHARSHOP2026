@@ -25,6 +25,15 @@ async function issueRefreshToken(userId) {
 }
 
 // POST /api/auth/register
+
+// كوكيز HttpOnly — لا يصلها JavaScript (حماية من XSS)
+function _setAuthCookies(res, token, refreshToken) {
+  const prod = process.env.NODE_ENV === 'production';
+  const base = { httpOnly: true, secure: prod, sameSite: 'lax', path: '/' };
+  res.cookie('token', token, { ...base, maxAge: 1000 * 60 * 60 * 24 });
+  if (refreshToken) res.cookie('refreshToken', refreshToken, { ...base, maxAge: 1000 * 60 * 60 * 24 * 30 });
+}
+
 router.post('/register', sanitizeBody, validateAuth, async (req, res) => {
   try {
     const { name, email, password, storeName } = req.body;
@@ -49,6 +58,7 @@ router.post('/register', sanitizeBody, validateAuth, async (req, res) => {
 
     const token        = sign(user);
     const refreshToken = await issueRefreshToken(user.id);
+    _setAuthCookies(res, token, refreshToken);
     res.status(201).json({ token, refreshToken, user: safe(user) });
   } catch (e) { console.error('[Auth register]', e); res.status(500).json({ error: 'Server error' }); }
 });
@@ -65,6 +75,7 @@ router.post('/login', sanitizeBody, validateAuth, async (req, res) => {
     await db.addLog({ userId: user.id, user: user.name, action: 'Login', details: '', type: 'auth', severity: 'info' });
     const token        = sign(user);
     const refreshToken = await issueRefreshToken(user.id);
+    _setAuthCookies(res, token, refreshToken);
     res.json({ token, refreshToken, user: safe(user) });
   } catch (e) { res.status(500).json({ error: 'Server error' }); }
 });
@@ -131,6 +142,7 @@ router.post('/social', sanitizeBody, async (req, res) => {
 
     const token        = sign(user);
     const refreshToken = await issueRefreshToken(user.id);
+    _setAuthCookies(res, token, refreshToken);
     res.json({ token, refreshToken, user: safe(user), isNew });
   } catch (e) { console.error('[Auth social]', e.message); res.status(500).json({ error: 'Server error' }); }
 });
@@ -176,7 +188,8 @@ router.post('/logout', async (req, res) => {
       await db.revokeRefreshToken(hash);
     } catch {}
   }
-  res.json({ ok: true });
+  res.clearCookie('token', { path: '/' }); res.clearCookie('refreshToken', { path: '/' });
+    res.json({ ok: true });
 });
 
 // POST /api/auth/request-otp — send OTP for 2FA (DB-backed + email delivery)

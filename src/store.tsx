@@ -483,16 +483,38 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   };
 
   const shipOrder = async (id: string, provider?: string, tracking?: string) => {
-    const trk = tracking || 'TRK-' + Math.random().toString(36).slice(2,8).toUpperCase();
-    const prov = provider || state.settings.delivery?.defaultProvider || 'Amana';
-    setState(s => ({ ...s, orders: s.orders.map(o => o.id === id ? { ...o, status: 'shipped' as OrderStatus, trackingNumber: trk, deliveryProvider: prov } : o) }));
+    let trk = tracking || 'TRK-' + Math.random().toString(36).slice(2,8).toUpperCase();
+    let prov = provider || state.settings.delivery?.defaultProvider || 'Amana';
+    // shipMsg: الرسالة الصادقة الوحيدة التي يراها التاجر عن مصير الشحنة
+    let shipMsg: { type: NotifType; text: string } = { type: 'success', text: '' };
+
     if (state.isOnline && api.getToken()) {
+      // الخطوة 1: محاولة إنشاء شحنة فعلية لدى شركة التوصيل (API/Webhook)
+      try {
+        const d = await api.deliveryAPI.create(id);
+        if (d?.tracking) trk = d.tracking;
+        if (d?.provider) prov = d.provider;
+        if (d?.real) {
+          shipMsg = { type: 'success', text: `🚚 شُحن الطلب — ✅ شحنة حقيقية لدى ${prov} (تتبع: ${trk})` };
+        } else {
+          shipMsg = { type: 'warning', text: `🚚 شُحن الطلب لكن ⚠️ بوضع المحاكاة — لم يُرسل فعلياً لـ${prov}. أدخله يدوياً في موقع الشركة. تتبع داخلي: ${trk}${d?.apiError ? ` · السبب: ${d.apiError}` : ''}` };
+        }
+      } catch (e: any) {
+        // لا شركة مهيأة أو فشل المسار — نكمل الشحن برقم داخلي مع توضيح
+        shipMsg = { type: 'info', text: `🚚 شُحن الطلب برقم تتبع داخلي ${trk} — ${/provider/i.test(e?.message || '') ? 'لا توجد شركة توصيل مفعّلة (أضف واحدة من صفحة التوصيل)' : `تعذر إنشاء الشحنة لدى الشركة: ${e?.message || ''}`}` };
+      }
+      // الخطوة 2: تسجيل الطلب كمشحون بالتتبع النهائي
+      setState(s => ({ ...s, orders: s.orders.map(o => o.id === id ? { ...o, status: 'shipped' as OrderStatus, trackingNumber: trk, deliveryProvider: prov } : o) }));
       try {
         const updated = await api.ordersAPI.ship(id, { trackingNumber: trk, provider: prov });
         setState(s => ({ ...s, orders: s.orders.map(o => o.id === id ? updated : o) }));
       } catch (e: any) { notify('error', `⚠️ الشحن لم يُسجل على الخادم: ${e?.message || 'تحقق من الاتصال'}`); return; }
+    } else {
+      setState(s => ({ ...s, orders: s.orders.map(o => o.id === id ? { ...o, status: 'shipped' as OrderStatus, trackingNumber: trk, deliveryProvider: prov } : o) }));
+      shipMsg = { type: 'info', text: `🚚 شُحن محلياً (بدون اتصال) — تتبع: ${trk}` };
     }
-    notify('success', `🚚 تم الشحن — رقم التتبع: ${trk}`);
+
+    notify(shipMsg.type, shipMsg.text || `🚚 تم الشحن — رقم التتبع: ${trk}`);
     try { Sounds.shipped(); } catch {}
     log('النظام', `شحن طلب: ${id}`, trk, 'delivery', 'success');
   };

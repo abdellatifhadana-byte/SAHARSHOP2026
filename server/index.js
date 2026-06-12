@@ -94,6 +94,13 @@ if (process.env.NODE_ENV !== 'test') app.use(morgan('dev'));
 app.use('/api/', rateLimit({ windowMs: 15 * 60 * 1000, max: 100, standardHeaders: true, legacyHeaders: false }));
 app.use('/api/auth/', rateLimit({ windowMs: 60 * 1000, max: 10, message: { error: 'Too many requests, try again later' } }));
 
+// محددات أدق للمسارات العامة (بدون auth) — حماية التاجر من البوتات والإغراق:
+// عجلة الحظ، إنشاء الطلبات، المجيب الآلي، والتحقق من الكوبونات
+app.use('/api/coupons/public/spin', rateLimit({ windowMs: 60 * 60 * 1000, max: 10, message: { error: 'محاولات كثيرة — عُد لاحقاً 🍀' } }));
+app.use('/api/orders/public',       rateLimit({ windowMs: 60 * 60 * 1000, max: 15, message: { error: 'طلبات كثيرة من هذا الجهاز — حاول بعد قليل' } }));
+app.use('/api/ai/public-reply',     rateLimit({ windowMs: 10 * 60 * 1000, max: 30, message: { error: 'رسائل كثيرة — انتظر قليلاً ثم أعد المحاولة' } }));
+app.use('/api/coupons/validate',    rateLimit({ windowMs: 10 * 60 * 1000, max: 40, message: { error: 'محاولات تحقق كثيرة — انتظر قليلاً' } }));
+
 // ── Routes ───────────────────────────────────────────────────
 app.use('/api/auth',          require('./routes/auth'));
 app.use('/api/products',      require('./routes/products'));

@@ -187,7 +187,7 @@ ${allProds||'لا منتجات منشورة'}
     const keys = _resolveAIKeys(reqSettings?.ai, dbSettings.ai);
     const out = await aiChat({
       keys, provider,
-      models: { openai: model, claude: dbSettings.ai?.claudeModel },
+      models: { openai: model, claude: dbSettings.ai?.claudeModel, grok: dbSettings.ai?.grokModel, mistral: dbSettings.ai?.mistralModel },
       sysPrompt, history, message, maxTokens: 400, temperature,
     });
     if (out) return res.json({ reply: out.text, model: out.provider });
@@ -217,7 +217,7 @@ router.post('/generate-description', auth, async (req, res) => {
 
     const keys = _resolveAIKeys(req.body, dbSettings.ai);
     const out = await aiChat({
-      keys, provider, models: { openai: aiModel, claude: dbSettings.ai?.claudeModel },
+      keys, provider, models: { openai: aiModel, claude: dbSettings.ai?.claudeModel, grok: dbSettings.ai?.grokModel, mistral: dbSettings.ai?.mistralModel },
       sysPrompt, history: [], message: prompt, maxTokens: 200, temperature: 0.8,
     });
     if (out) return res.json({ description: out.text, model: out.provider });
@@ -245,7 +245,7 @@ Include: Arabic hashtags for Morocco (#تسوق_المغرب etc.), English hash
 
     const keys = _resolveAIKeys(req.body, dbSettings.ai);
     const out = await aiChat({
-      keys, provider, models: { openai: dbSettings.ai?.model, claude: dbSettings.ai?.claudeModel },
+      keys, provider, models: { openai: dbSettings.ai?.model, claude: dbSettings.ai?.claudeModel, grok: dbSettings.ai?.grokModel, mistral: dbSettings.ai?.mistralModel },
       sysPrompt: 'You generate social media hashtags. Reply ONLY with the JSON object requested.',
       history: [], message: prompt, maxTokens: 250, temperature: 0.7, jsonMode: true,
     });
@@ -371,9 +371,12 @@ router.post('/public-reply', async (req, res) => {
 معلومات متجرك:
 • اسم المتجر: ${settings?.brand?.name||'متجر'}
 • الهاتف: ${settings?.brand?.phone||''}
+• العنوان: ${settings?.brand?.address||'—'}
+• ساعات العمل: ${settings?.brand?.workStart||'9:00'} إلى ${settings?.brand?.workEnd||'21:00'}
 • التوصيل: ${settings?.delivery?.defaultCost||'20-40'} ${cur} لجميع مدن المغرب خلال 24-48 ساعة
 • الدفع: عند الاستلام (COD)
 • الوصف: ${settings?.brand?.description||''}
+• العروض الحالية: توصيل مجاني للطلبات فوق ${settings?.promotions?.freeShippingThreshold??400} ${cur}${settings?.promotions?.bundle?.enabled!==false?`، وخصم ${settings?.promotions?.bundle?.percent??10}% تلقائي عند شراء ${settings?.promotions?.bundle?.minItems??3} قطع أو أكثر`:''}${settings?.promotions?.wheel?.enabled!==false?'، وعجلة حظ يومية في المتجر تمنح أكواد خصم':''}
 
 منتجاتك المتوفرة:
 ${allProds || 'لا منتجات متوفرة حالياً'}
@@ -388,7 +391,7 @@ ${allProds || 'لا منتجات متوفرة حالياً'}
       const out = await aiChat({
         keys,
         provider: settings?.ai?.provider || 'openai',
-        models: { openai: settings?.ai?.model, claude: settings?.ai?.claudeModel },
+        models: { openai: settings?.ai?.model, claude: settings?.ai?.claudeModel, grok: settings?.ai?.grokModel, mistral: settings?.ai?.mistralModel },
         sysPrompt, history: (history || []).slice(-6), message,
         maxTokens: 300, temperature: 0.8,
       });
@@ -515,7 +518,7 @@ router.get('/comments/:platform', auth, async (req, res) => {
    (Fallback تلقائي)، وأخيراً الرد المحلي الذكي.
    ══════════════════════════════════════════════ */
 
-const AI_PROVIDERS = ['openai', 'gemini', 'claude', 'deepseek'];
+const AI_PROVIDERS = ['openai', 'gemini', 'claude', 'deepseek', 'grok', 'mistral'];
 
 // جمع المفاتيح: الطلب ← قاعدة البيانات ← متغيرات البيئة
 function _resolveAIKeys(reqAi, dbAi) {
@@ -524,6 +527,8 @@ function _resolveAIKeys(reqAi, dbAi) {
     gemini:   reqAi?.geminiKey   || dbAi?.geminiKey   || process.env.GEMINI_API_KEY    || '',
     claude:   reqAi?.claudeKey   || dbAi?.claudeKey   || process.env.ANTHROPIC_API_KEY || '',
     deepseek: reqAi?.deepseekKey || dbAi?.deepseekKey || process.env.DEEPSEEK_API_KEY  || '',
+    grok:     reqAi?.grokKey     || dbAi?.grokKey     || process.env.XAI_API_KEY || process.env.GROK_API_KEY || '',
+    mistral:  reqAi?.mistralKey  || dbAi?.mistralKey  || process.env.MISTRAL_API_KEY   || '',
   };
 }
 
@@ -532,9 +537,11 @@ function _providerOrder(preferred, keys) {
   return order.filter(p => keys[p]);
 }
 
-async function _openaiChat(key, model, sysPrompt, history, message, maxTokens, temperature, jsonMode) {
+// فرع موحد لكل المزودين المتوافقين مع واجهة OpenAI
+// (OpenAI نفسها، DeepSeek، Grok/xAI، Mistral)
+async function _oaiCompatChat(hostname, key, model, sysPrompt, history, message, maxTokens, temperature, jsonMode) {
   const body = JSON.stringify({
-    model: model || 'gpt-4o-mini',
+    model,
     messages: [
       { role: 'system', content: sysPrompt },
       ...(history || []).slice(-10).filter(m => m.content).map(m => ({ role: m.role === 'ai' ? 'assistant' : 'user', content: m.content })),
@@ -543,23 +550,10 @@ async function _openaiChat(key, model, sysPrompt, history, message, maxTokens, t
     max_tokens: maxTokens, temperature,
     ...(jsonMode ? { response_format: { type: 'json_object' } } : {}),
   });
-  const r = await _https('api.openai.com', '/v1/chat/completions', { 'Authorization': `Bearer ${key}` }, body);
-  return JSON.parse(r).choices?.[0]?.message?.content?.trim() || null;
-}
-
-// DeepSeek — واجهة متوافقة مع OpenAI، الأفضل سعراً للعربية والدارجة
-async function _deepseekChat(key, sysPrompt, history, message, maxTokens, temperature) {
-  const body = JSON.stringify({
-    model: 'deepseek-chat',
-    messages: [
-      { role: 'system', content: sysPrompt },
-      ...(history || []).slice(-10).filter(m => m.content).map(m => ({ role: m.role === 'ai' ? 'assistant' : 'user', content: m.content })),
-      { role: 'user', content: message },
-    ],
-    max_tokens: maxTokens, temperature,
-  });
-  const r = await _https('api.deepseek.com', '/chat/completions', { 'Authorization': `Bearer ${key}` }, body);
-  return JSON.parse(r).choices?.[0]?.message?.content?.trim() || null;
+  const r = await _https(hostname, '/v1/chat/completions', { 'Authorization': `Bearer ${key}` }, body);
+  const parsed = JSON.parse(r);
+  if (parsed.error) throw new Error(parsed.error.message || 'API error');
+  return parsed.choices?.[0]?.message?.content?.trim() || null;
 }
 
 async function _geminiChat(key, sysPrompt, history, message, maxTokens, temperature) {
@@ -614,10 +608,12 @@ async function aiChat({ keys, provider, models = {}, sysPrompt, history, message
   for (const p of _providerOrder(provider, keys)) {
     try {
       let text = null;
-      if (p === 'openai')   text = await _openaiChat(keys.openai, models.openai, sysPrompt, history, message, maxTokens, temperature, jsonMode);
+      if (p === 'openai')   text = await _oaiCompatChat('api.openai.com',   keys.openai,   models.openai  || 'gpt-4o-mini',          sysPrompt, history, message, maxTokens, temperature, jsonMode);
+      if (p === 'deepseek') text = await _oaiCompatChat('api.deepseek.com', keys.deepseek, models.deepseek || 'deepseek-chat',        sysPrompt, history, message, maxTokens, temperature, false);
+      if (p === 'grok')     text = await _oaiCompatChat('api.x.ai',         keys.grok,     models.grok    || 'grok-3-mini',          sysPrompt, history, message, maxTokens, temperature, false);
+      if (p === 'mistral')  text = await _oaiCompatChat('api.mistral.ai',   keys.mistral,  models.mistral || 'mistral-small-latest', sysPrompt, history, message, maxTokens, temperature, false);
       if (p === 'gemini')   text = await _geminiChat(keys.gemini, sysPrompt, history, message, maxTokens, temperature);
       if (p === 'claude')   text = await _claudeChat(keys.claude, models.claude, sysPrompt, history, message, maxTokens);
-      if (p === 'deepseek') text = await _deepseekChat(keys.deepseek, sysPrompt, history, message, maxTokens, temperature);
       if (text) return { text, provider: p };
     } catch (e) { console.warn(`[AI] ${p}:`, e.message); }
   }
