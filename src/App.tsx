@@ -49,6 +49,22 @@ const LOADING_MSGS: Record<string, [string, string]> = {
   settings:      ['جاري تحميل الإعدادات...', 'نجلب إعدادات متجرك المحفوظة'],
 };
 
+// شعار SAHAR الرسمي (sahar-logo-text.png) داخل بلاطة متوهجة — مع تراجع
+// تلقائي لأيقونة التطبيق ثم لحرف S إن تعذر تحميل الصورة
+function BrandLogo({ size = 46, radius = 14, style }: { size?: number; radius?: number; style?: React.CSSProperties }) {
+  return (
+    <div style={{ width: size, height: size, borderRadius: radius, overflow: 'hidden', background: 'rgba(255,106,0,0.08)', border: '1.5px solid rgba(255,106,0,0.32)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 24px rgba(255,106,0,0.2)', flexShrink: 0, ...style }}>
+      <img src="/sahar-logo-text.png" alt="SAHAR"
+        style={{ width: '82%', height: '82%', objectFit: 'contain' }}
+        onError={e => {
+          const img = e.currentTarget as HTMLImageElement;
+          if (!img.dataset.fb) { img.dataset.fb = '1'; img.src = '/icon-512.png'; }
+          else { img.style.display = 'none'; (img.parentElement as HTMLElement).innerHTML = `<span style="font-size:${Math.round(size * 0.42)}px;font-weight:900;color:#FF6A00">S</span>`; }
+        }} />
+    </div>
+  );
+}
+
 // سبلاش الشعار — يظهر مرة واحدة في الجلسة ثم يختفي ويكشف التطبيق
 function SplashScreen() {
   const [phase, setPhase] = useState<'show' | 'fade' | 'done'>(() => {
@@ -56,21 +72,18 @@ function SplashScreen() {
   });
   useEffect(() => {
     if (phase !== 'show') return;
-    const t1 = setTimeout(() => setPhase('fade'), 1500);
-    const t2 = setTimeout(() => { try { sessionStorage.setItem('sahar_splash', '1'); } catch {} setPhase('done'); }, 2100);
+    const t1 = setTimeout(() => setPhase('fade'), 2400);
+    const t2 = setTimeout(() => { try { sessionStorage.setItem('sahar_splash', '1'); } catch {} setPhase('done'); }, 3100);
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [phase]);
   if (phase === 'done') return null;
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 99999, background: '#0A0A0F', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 18, opacity: phase === 'fade' ? 0 : 1, transition: 'opacity 0.6s ease', pointerEvents: phase === 'fade' ? 'none' : 'auto' }}>
-      <style>{`@keyframes splashLogo{0%{transform:scale(.6);opacity:0}60%{transform:scale(1.06);opacity:1}100%{transform:scale(1)}}@keyframes splashGlow{0%,100%{box-shadow:0 0 30px rgba(255,106,0,.25)}50%{box-shadow:0 0 70px rgba(255,106,0,.5)}}@keyframes splashText{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}`}</style>
-      <div style={{ width: 92, height: 92, borderRadius: 26, overflow: 'hidden', background: 'rgba(255,106,0,0.08)', border: '2px solid rgba(255,106,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'splashLogo .9s cubic-bezier(.16,1,.3,1) both, splashGlow 2s ease infinite' }}>
-        <img src="/icon-512.png" alt="SAHAR" style={{ width: '78%', height: '78%', objectFit: 'contain' }}
-          onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; (e.currentTarget.parentElement as HTMLElement).innerHTML = '<span style="font-size:40px;font-weight:900;color:#FF6A00">S</span>'; }} />
-      </div>
-      <div style={{ textAlign: 'center', animation: 'splashText .7s .35s ease both' }}>
-        <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: '-0.02em', color: '#FAFAFA', fontFamily: 'Tajawal, system-ui, sans-serif' }}><span style={{ color: '#FF6A00' }}>SAHAR</span> shop</div>
-        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', marginTop: 6, fontWeight: 600, fontFamily: 'Tajawal, system-ui, sans-serif' }}>منصة المغرب الذكية للبيع والخدمات والحجوزات</div>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 99999, background: '#0A0A0F', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 20, opacity: phase === 'fade' ? 0 : 1, transition: 'opacity 0.7s ease', pointerEvents: phase === 'fade' ? 'none' : 'auto' }}>
+      <style>{`@keyframes splashLogo{0%{transform:scale(.55);opacity:0}55%{transform:scale(1.07);opacity:1}100%{transform:scale(1)}}@keyframes splashGlow{0%,100%{box-shadow:0 0 36px rgba(255,106,0,.25)}50%{box-shadow:0 0 90px rgba(255,106,0,.55)}}@keyframes splashText{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}`}</style>
+      <BrandLogo size={108} radius={28} style={{ border: '2px solid rgba(255,106,0,0.4)', animation: 'splashLogo 1.1s cubic-bezier(.16,1,.3,1) both, splashGlow 2.2s ease infinite' }} />
+      <div style={{ textAlign: 'center', animation: 'splashText .8s .45s ease both' }}>
+        <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.02em', color: '#FAFAFA', fontFamily: 'Tajawal, system-ui, sans-serif' }}><span style={{ color: '#FF6A00' }}>SAHAR</span> shop</div>
+        <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.5)', marginTop: 7, fontWeight: 600, fontFamily: 'Tajawal, system-ui, sans-serif' }}>منصة المغرب الذكية للبيع والخدمات والحجوزات</div>
       </div>
     </div>
   );
@@ -139,7 +152,9 @@ function AppShell() {
       <>
         <ThemeManager />
         <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, padding: 24, textAlign: 'center' }}>
-          <div className="spin" style={{ width: 34, height: 34, border: '3px solid var(--border2)', borderTopColor: 'var(--ember)', borderRadius: '50%' }} />
+          <style>{`@keyframes logoPulse{0%,100%{transform:scale(1);box-shadow:0 0 18px rgba(255,106,0,.18)}50%{transform:scale(1.06);box-shadow:0 0 34px rgba(255,106,0,.4)}}`}</style>
+          <BrandLogo size={48} radius={15} style={{ animation: 'logoPulse 1.8s ease infinite' }} />
+          <div className="spin" style={{ width: 26, height: 26, border: '3px solid var(--border2)', borderTopColor: 'var(--ember)', borderRadius: '50%' }} />
           <div style={{ fontSize: 15, color: 'var(--ink1)', fontWeight: 800 }}>{msgTitle}</div>
           <div style={{ fontSize: 12, color: 'var(--ink3)', fontWeight: 600, marginTop: -6 }}>{msgSub}</div>
         </div>
