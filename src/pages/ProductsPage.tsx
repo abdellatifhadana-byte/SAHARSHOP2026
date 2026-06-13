@@ -334,8 +334,100 @@ const uid = () => Math.random().toString(36).slice(2, 9);
 //  MAIN COMPONENT
 // ─────────────────────────────────────────────────────────────
 
+
+// ═══ تقويم الحجوزات — يقرأ مواعيد الخدمات من الطلبات الحقيقية ═══
+// التاريخ/الوقت يُستخرجان من تفاصيل الحجز المحزومة في الطلب (📅/⏰/⚡)
+function BookingsCalendar({ orders, products }: { orders: any[]; products: Product[] }) {
+  const today = new Date();
+  const [vm, setVm] = useState({ y: today.getFullYear(), m: today.getMonth() });
+  const [selDay, setSelDay] = useState<string | null>(null);
+  const svcIds = new Set(products.filter(p => (p as any).type === 'service').map(p => p.id));
+  type Bk = { orderId: string; customer: string; phone: string; service: string; date: string; time: string; urgent: boolean; status: string };
+  const bookings: Bk[] = [];
+  for (const o of orders || []) {
+    for (const it of (o.items || [])) {
+      if (!svcIds.has(it.productId)) continue;
+      const gm = (it as any).giftMessage || '';
+      const dm = gm.match(/(\d{4}-\d{2}-\d{2})/);
+      const tm = gm.match(/(\d{1,2}:\d{2})/);
+      bookings.push({ orderId: o.id, customer: o.customerName, phone: o.customerPhone, service: it.productName, date: dm ? dm[1] : '', time: tm ? tm[1] : '', urgent: gm.includes('استعجالي'), status: o.status });
+    }
+  }
+  const STATUS_C: Record<string, string> = { pending: '#fbbf24', approved: '#34d399', processing: '#fbbf24', shipped: '#34d399', delivered: '#a78bfa', cancelled: '#f87171' };
+  const urgentList = bookings.filter(b => b.urgent && !['delivered', 'cancelled'].includes(b.status));
+  const byDate: Record<string, Bk[]> = {};
+  bookings.forEach(b => { if (b.date) (byDate[b.date] = byDate[b.date] || []).push(b); });
+  const daysIn = new Date(vm.y, vm.m + 1, 0).getDate();
+  const pad = new Date(vm.y, vm.m, 1).getDay();
+  const dstr = (d: number) => `${vm.y}-${String(vm.m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const monthName = new Date(vm.y, vm.m, 1).toLocaleDateString('ar-MA', { month: 'long', year: 'numeric' });
+  const nav = (d: number) => { setSelDay(null); setVm(v => { const m = v.m + d; return { y: v.y + Math.floor(m / 12), m: ((m % 12) + 12) % 12 }; }); };
+
+  return (
+    <div className="card" style={{ padding: '16px 18px', marginBottom: 4 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+        <span style={{ fontSize: 14.5, fontWeight: 900, color: 'var(--ink1)' }}>📅 تقويم الحجوزات</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button onClick={() => nav(-1)} className="btn btn-ghost btn-xs">‹ السابق</button>
+          <span style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--ember)', minWidth: 110, textAlign: 'center' }}>{monthName}</span>
+          <button onClick={() => nav(1)} className="btn btn-ghost btn-xs">التالي ›</button>
+        </div>
+      </div>
+      {urgentList.length > 0 && (
+        <div style={{ marginBottom: 12, padding: '10px 13px', borderRadius: 10, background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)' }}>
+          <div style={{ fontSize: 12, fontWeight: 800, color: '#fbbf24', marginBottom: 6 }}>⚡ استعجالية بانتظار التنفيذ ({urgentList.length})</div>
+          {urgentList.slice(0, 5).map((b, i) => (
+            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 11.5, color: 'var(--ink2)', padding: '3px 0', flexWrap: 'wrap' }}>
+              <span><b style={{ color: 'var(--ink1)' }}>{b.service}</b> — {b.customer}</span>
+              <a href={`tel:${b.phone}`} style={{ color: '#34d399', textDecoration: 'none', fontWeight: 700 }} dir="ltr">📞 {b.phone}</a>
+            </div>
+          ))}
+        </div>
+      )}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 4, marginBottom: 4 }}>
+        {['أحد', 'إثن', 'ثلا', 'أرب', 'خمي', 'جمع', 'سبت'].map(d => (
+          <div key={d} style={{ textAlign: 'center', fontSize: 10, fontWeight: 800, color: 'var(--ink3)', padding: '4px 0' }}>{d}</div>
+        ))}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 4 }}>
+        {Array.from({ length: pad }).map((_, i) => <div key={`p${i}`} />)}
+        {Array.from({ length: daysIn }).map((_, i) => {
+          const d = i + 1; const ds = dstr(d); const n = (byDate[ds] || []).length;
+          const isToday = ds === todayStr; const isSel = ds === selDay;
+          return (
+            <button key={d} onClick={() => setSelDay(isSel ? null : ds)} style={{
+              minHeight: 44, borderRadius: 9, cursor: n ? 'pointer' : 'default', fontFamily: 'inherit',
+              border: `1.5px solid ${isSel ? 'var(--ember)' : isToday ? 'rgba(255,106,0,0.4)' : 'var(--border)'}`,
+              background: isSel ? 'rgba(255,106,0,0.12)' : n ? 'rgba(0,210,179,0.07)' : 'rgba(255,255,255,0.02)',
+              color: 'var(--ink1)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2,
+            }}>
+              <span style={{ fontSize: 11.5, fontWeight: isToday ? 900 : 600, color: isToday ? 'var(--ember)' : 'var(--ink2)' }}>{d}</span>
+              {n > 0 && <span style={{ fontSize: 9, fontWeight: 900, background: 'var(--mint)', color: '#06281f', borderRadius: 99, padding: '0 5px' }}>{n}</span>}
+            </button>
+          );
+        })}
+      </div>
+      {selDay && (byDate[selDay] || []).length > 0 && (
+        <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--ink2)' }}>حجوزات {selDay}:</div>
+          {(byDate[selDay] || []).sort((a, b) => a.time.localeCompare(b.time)).map((b, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 9, background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 11, fontWeight: 900, color: 'var(--ember)', minWidth: 42 }}>{b.time || '—'}</span>
+              <span style={{ flex: 1, fontSize: 12, fontWeight: 700, color: 'var(--ink1)', minWidth: 120 }}>{b.service} <span style={{ color: 'var(--ink3)', fontWeight: 500 }}>· {b.customer}</span></span>
+              <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 99, background: 'rgba(255,255,255,0.05)', color: STATUS_C[b.status] || 'var(--ink3)' }}>{b.status}</span>
+              <a href={`tel:${b.phone}`} style={{ fontSize: 11, color: '#34d399', fontWeight: 700, textDecoration: 'none' }} dir="ltr">📞</a>
+            </div>
+          ))}
+        </div>
+      )}
+      {bookings.length === 0 && <p style={{ fontSize: 11.5, color: 'var(--ink3)', textAlign: 'center', marginTop: 8 }}>لا حجوزات بعد — حجوزات الزبائن بمواعيدها ستظهر هنا تلقائياً</p>}
+    </div>
+  );
+}
+
 export default function ProductsPage() {
-  const { products, addProduct, updateProduct, deleteProduct, adjustStock, settings, token, notify, currentPage } = useStore();
+  const { products, orders, addProduct, updateProduct, deleteProduct, adjustStock, settings, token, notify, currentPage } = useStore();
 
   const isServicesMode = currentPage === 'services';
 
@@ -520,11 +612,19 @@ export default function ProductsPage() {
   });
 
   // ── AI description ───────────────────────────────────────────
+  // أسماء المزودين للعرض — الشفافية: المستخدم يرى من ولّد ماذا
+  const AI_LABELS: Record<string, string> = {
+    openai: 'OpenAI GPT', gemini: 'Google Gemini', claude: 'Claude (Anthropic)',
+    deepseek: 'DeepSeek', grok: 'Grok (xAI)', mistral: 'Mistral',
+    local: 'المولّد المحلي (بدون AI)', 'dall-e-3': 'DALL-E 3 (OpenAI)',
+  };
+
   const generateAI = async () => {
     if (!data.name) return;
     const creds = aiCreds();
-    if (!creds.apiKey && !creds.geminiKey) {
-      notify('warning', '⚠️ لم يتم ربط الذكاء الاصطناعي — أضف مفتاح OpenAI أو Gemini من الإعدادات. سيُستخدم وصف تلقائي مؤقت.');
+    const anyKey = creds.apiKey || creds.geminiKey || (settings.ai as any)?.claudeKey || (settings.ai as any)?.deepseekKey || (settings.ai as any)?.grokKey || (settings.ai as any)?.mistralKey;
+    if (!anyKey) {
+      notify('warning', '⚠️ لا مفتاح ذكاء اصطناعي مربوط — اربط واحداً من صفحة الاتصالات (Gemini مجاني). سيُستخدم وصف محلي مؤقت.');
     }
     setAiLoading(true);
     try {
@@ -545,10 +645,12 @@ export default function ProductsPage() {
       const j = await r.json();
       if (j.description) {
         setData(d => ({ ...d, description: j.description }));
-        if (j.model === 'local') notify('info', 'ℹ️ تم توليد وصف تلقائي (الذكاء الاصطناعي غير مربوط). اربط OpenAI لوصف أذكى.');
-        else notify('success', `✅ تم توليد الوصف بـ ${j.model === 'openai' ? 'OpenAI' : 'Gemini'}`);
+        if (j.model === 'local') notify('info', 'ℹ️ وصف محلي مؤقت — لم يرد أي مزود AI (تحقق من المفاتيح في صفحة الاتصالات)');
+        else notify('success', `✅ الوصف وُلّد عبر ${AI_LABELS[j.model] || j.model}`);
+      } else if (j.error) {
+        notify('error', `❌ توقف توليد الوصف: ${j.error}`);
       }
-    } catch { notify('error', '❌ تعذّر توليد الوصف'); }
+    } catch (e: any) { notify('error', `❌ تعذّر توليد الوصف — ${e?.message || 'تحقق من الاتصال'}`); }
     setAiLoading(false);
   };
 
@@ -569,8 +671,14 @@ export default function ProductsPage() {
         }),
       });
       const j = await r.json();
-      if (j.hashtags) setHashtags(j.hashtags);
-    } catch { }
+      if (j.hashtags) {
+        setHashtags(j.hashtags);
+        if (j.model === 'local') notify('info', `ℹ️ ${j.hashtags.length} هاشتاغ من القوالب المحلية — اربط مزود AI لهاشتاغات مخصصة`);
+        else notify('success', `✅ ${j.hashtags.length} هاشتاغ وُلّد عبر ${AI_LABELS[j.model] || j.model}`);
+      } else if (j.error) {
+        notify('error', `❌ توقف توليد الهاشتاغ: ${j.error}`);
+      }
+    } catch (e: any) { notify('error', `❌ تعذّر توليد الهاشتاغ — ${e?.message || 'تحقق من الاتصال'}`); }
     setAiHashLoading(false);
   };
 
@@ -600,7 +708,7 @@ export default function ProductsPage() {
       const j = await r.json();
       if (j.url) {
         setAiDesignUrl(j.url);
-        notify('success', '✅ تم توليد صورة المنتج بالذكاء الاصطناعي!');
+        notify('success', `✅ الصورة صُممت عبر ${AI_LABELS[j.model] || 'DALL-E 3 (OpenAI)'} — راجعها واعتمدها`);
       } else if (j.needsKey) {
         notify('error', '⚠️ يجب ربط OpenAI أولاً من صفحة الاتصالات');
       } else if (j.error) {
@@ -926,6 +1034,8 @@ export default function ProductsPage() {
       </div>
 
       {/* ── PRODUCT GRID ────────────────────────────────────────── */}
+      {isServicesMode && <BookingsCalendar orders={orders as any[]} products={products} />}
+
       {filtered.length === 0 ? (
         <div className="card">
           <div className="empty-state">
@@ -944,6 +1054,36 @@ export default function ProductsPage() {
           {filtered.map(p => {
             const thumb = (p.images && p.images[0]) || p.imageUrl || '';
             const variantColors: ColorVariant[] = (p as any).variants || [];
+            // وضع الخدمات: عرض مختلف كلياً عن المنتجات — صفوف حجز لا بطاقات مخزون
+            if (isServicesMode) {
+              const scf = (id: string) => (p as any).customFields?.find((f: any) => f.id === id)?.value || '';
+              const sMode = scf('serviceMode'); const sPhone = scf('servicePhone');
+              const urgent = sMode.includes('استعجال');
+              return (
+                <div key={p.id} className="card" style={{ gridColumn: '1/-1', padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+                  <div style={{ width: 48, height: 48, borderRadius: 13, background: 'rgba(124,111,250,0.12)', border: '1px solid rgba(124,111,250,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>{p.emoji || '🔧'}</div>
+                  <div style={{ flex: 1, minWidth: 170 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 14.5, fontWeight: 800, color: 'var(--ink1)' }}>{p.name}</span>
+                      <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 99, background: p.status === 'published' ? 'rgba(0,210,179,0.1)' : 'rgba(255,255,255,0.06)', color: p.status === 'published' ? 'var(--mint)' : 'var(--ink3)', border: '1px solid var(--border)' }}>{p.status === 'published' ? 'منشورة' : 'مسودة'}</span>
+                      {sMode && <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 99, background: urgent ? 'rgba(245,158,11,0.12)' : 'rgba(124,111,250,0.12)', color: urgent ? '#fbbf24' : '#a78bfa' }}>{urgent ? '⚡ استعجالية' : '📅 بموعد'}</span>}
+                    </div>
+                    <div style={{ display: 'flex', gap: 12, marginTop: 5, fontSize: 11, color: 'var(--ink3)', flexWrap: 'wrap' }}>
+                      {(p as any).duration && <span>⏱ {(p as any).duration}</span>}
+                      {(p as any).workArea && <span>📍 {(p as any).workArea}</span>}
+                      {sPhone && <span dir="ltr">📞 {sPhone}</span>}
+                      <span>✅ {p.sales || 0} حجز</span>
+                    </div>
+                  </div>
+                  <div style={{ fontWeight: 900, fontSize: 16, color: 'var(--ember)' }}>{p.price} <span style={{ fontSize: 10, color: 'var(--ink3)' }}>{settings.brand.currency}</span></div>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button onClick={() => openEdit(p)} className="btn btn-ghost btn-xs">تعديل</button>
+                    <button onClick={() => shareWA(p)} className="btn btn-ghost btn-xs">مشاركة</button>
+                    <button onClick={() => { if (window.confirm(`حذف "${p.name}"؟`)) { deleteProduct(p.id); notify('warning', `🗑️ حُذفت "${p.name}"`); } }} className="btn btn-ghost btn-xs" style={{ color: '#f87171' }}>حذف</button>
+                  </div>
+                </div>
+              );
+            }
             return (
               <div key={p.id} className="product-card">
                 {/* Image */}

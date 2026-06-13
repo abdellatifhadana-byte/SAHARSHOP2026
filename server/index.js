@@ -86,6 +86,7 @@ app.use(cors({
   credentials: true,
   methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
 }));
+app.use(require('cookie-parser')());
 app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 if (process.env.NODE_ENV !== 'test') app.use(morgan('dev'));
