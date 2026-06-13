@@ -9,6 +9,18 @@ import {
 import * as api from './services/api';
 import { validateImport } from './utils/importSchema';
 
+// نتيجة الشحن الصادقة — كل خطوة فيها تقابل حدثاً وقع فعلاً على الخادم
+export interface ShipResult {
+  real: boolean;
+  tracking: string;
+  provider: string;
+  via?: string;
+  apiError?: string;
+  openUrl?: string;
+  steps?: { label: string; ok: boolean; detail?: string; error?: string }[];
+  manualCopy?: string;
+}
+
 interface StoreValue {
   token: string | null;
   user: any;
@@ -51,7 +63,7 @@ interface StoreValue {
   updateOrder: (id: string, u: Partial<Order>) => Promise<void>;
   approveOrder: (id: string) => Promise<void>;
   rejectOrder: (id: string, reason?: string) => Promise<void>;
-  shipOrder: (id: string, provider?: string, tracking?: string) => Promise<void>;
+  shipOrder: (id: string, provider?: string, tracking?: string) => Promise<ShipResult | void>;
   deliverOrder: (id: string) => Promise<void>;
 
   // Conversations
@@ -482,26 +494,43 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     log('المدير', `رفض طلب: ${id}`, reason||'', 'order', 'warning');
   };
 
-  const shipOrder = async (id: string, provider?: string, tracking?: string) => {
+  const shipOrder = async (id: string, provider?: string, tracking?: string): Promise<ShipResult | void> => {
     let trk = tracking || 'TRK-' + Math.random().toString(36).slice(2,8).toUpperCase();
     let prov = provider || state.settings.delivery?.defaultProvider || 'Amana';
     // shipMsg: الرسالة الصادقة الوحيدة التي يراها التاجر عن مصير الشحنة
     let shipMsg: { type: NotifType; text: string } = { type: 'success', text: '' };
+    // النتيجة الصادقة تُعاد لواجهة الطلبات لعرض الخطوات الحقيقية
+    let result: ShipResult = { real: false, tracking: trk, provider: prov };
 
     if (state.isOnline && api.getToken()) {
-      // الخطوة 1: محاولة إنشاء شحنة فعلية لدى شركة التوصيل (API/Webhook)
-      try {
-        const d = await api.deliveryAPI.create(id);
-        if (d?.tracking) trk = d.tracking;
-        if (d?.provider) prov = d.provider;
-        if (d?.real) {
-          shipMsg = { type: 'success', text: `🚚 شُحن الطلب — ✅ شحنة حقيقية لدى ${prov} (تتبع: ${trk})` };
-        } else {
-          shipMsg = { type: 'warning', text: `🚚 شُحن الطلب لكن ⚠️ بوضع المحاكاة — لم يُرسل فعلياً لـ${prov}. أدخله يدوياً في موقع الشركة. تتبع داخلي: ${trk}${d?.apiError ? ` · السبب: ${d.apiError}` : ''}` };
+      if (tracking) {
+        // التاجر أدخل رقم تتبع حقيقياً بنفسه (أنشأ الشحنة يدوياً في موقع الشركة)
+        // — لا نستدعي قناة الربط، الرقم حقيقي من مصدره
+        result = { real: true, tracking: trk, provider: prov, via: 'manual',
+          steps: [{ label: 'رقم تتبع حقيقي أُدخل يدوياً (أنشأت الشحنة بنفسك لدى الشركة)', ok: true, detail: trk }] };
+        shipMsg = { type: 'success', text: `🚚 شُحن الطلب — ✅ برقم التتبع الحقيقي الذي أدخلته: ${trk}` };
+      } else {
+        // الخطوة 1: محاولة إنشاء شحنة فعلية لدى شركة التوصيل (API/Webhook)
+        try {
+          const d = await api.deliveryAPI.create(id);
+          if (d?.tracking) trk = d.tracking;
+          if (d?.provider) prov = d.provider;
+          result = { real: !!d?.real, tracking: trk, provider: prov, via: d?.via,
+            apiError: d?.apiError, openUrl: d?.openUrl || d?.manual?.openUrl,
+            steps: d?.steps, manualCopy: d?.manual?.copyText };
+          if (d?.real) {
+            shipMsg = { type: 'success', text: `🚚 شُحن الطلب — ✅ شحنة حقيقية لدى ${prov} (تتبع: ${trk})` };
+          } else {
+            shipMsg = { type: 'warning', text: `🚚 شُحن الطلب لكن ⚠️ بوضع المحاكاة — لم يُرسل فعلياً لـ${prov}. أدخله يدوياً في موقع الشركة. تتبع داخلي: ${trk}${d?.apiError ? ` · السبب: ${d.apiError}` : ''}` };
+          }
+        } catch (e: any) {
+          // لا شركة مهيأة أو فشل المسار — نكمل الشحن برقم داخلي مع توضيح
+          const noProv = /provider/i.test(e?.message || '');
+          result = { real: false, tracking: trk, provider: prov,
+            apiError: noProv ? 'لا توجد شركة توصيل مفعّلة' : (e?.message || 'تعذر الاتصال'),
+            steps: [{ label: 'إنشاء شحنة لدى شركة التوصيل', ok: false, error: noProv ? 'لا توجد شركة توصيل مفعّلة — أضف واحدة من صفحة التوصيل' : (e?.message || '') }] };
+          shipMsg = { type: 'info', text: `🚚 شُحن الطلب برقم تتبع داخلي ${trk} — ${noProv ? 'لا توجد شركة توصيل مفعّلة (أضف واحدة من صفحة التوصيل)' : `تعذر إنشاء الشحنة لدى الشركة: ${e?.message || ''}`}` };
         }
-      } catch (e: any) {
-        // لا شركة مهيأة أو فشل المسار — نكمل الشحن برقم داخلي مع توضيح
-        shipMsg = { type: 'info', text: `🚚 شُحن الطلب برقم تتبع داخلي ${trk} — ${/provider/i.test(e?.message || '') ? 'لا توجد شركة توصيل مفعّلة (أضف واحدة من صفحة التوصيل)' : `تعذر إنشاء الشحنة لدى الشركة: ${e?.message || ''}`}` };
       }
       // الخطوة 2: تسجيل الطلب كمشحون بالتتبع النهائي
       setState(s => ({ ...s, orders: s.orders.map(o => o.id === id ? { ...o, status: 'shipped' as OrderStatus, trackingNumber: trk, deliveryProvider: prov } : o) }));
@@ -512,11 +541,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     } else {
       setState(s => ({ ...s, orders: s.orders.map(o => o.id === id ? { ...o, status: 'shipped' as OrderStatus, trackingNumber: trk, deliveryProvider: prov } : o) }));
       shipMsg = { type: 'info', text: `🚚 شُحن محلياً (بدون اتصال) — تتبع: ${trk}` };
+      result = { real: false, tracking: trk, provider: prov, apiError: 'بدون اتصال' };
     }
 
     notify(shipMsg.type, shipMsg.text || `🚚 تم الشحن — رقم التتبع: ${trk}`);
     try { Sounds.shipped(); } catch {}
     log('النظام', `شحن طلب: ${id}`, trk, 'delivery', 'success');
+    result.tracking = trk; result.provider = prov;
+    return result;
   };
 
   const deliverOrder = async (id: string) => {

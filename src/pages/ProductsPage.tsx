@@ -446,6 +446,7 @@ export default function ProductsPage() {
   const [aiDesignLoading, setAiDesignLoading] = useState(false);
   const [aiDesignUrl, setAiDesignUrl] = useState('');
   const [aiDesignPrompt, setAiDesignPrompt] = useState('');
+  const [imgProvider, setImgProvider] = useState<'auto' | 'openai' | 'gemini' | 'grok'>('auto');
   const [videoUploading, setVideoUploading] = useState(false);
   const [saving,     setSaving]     = useState(false);
   const [designing,  setDesigning]  = useState(false);
@@ -617,6 +618,7 @@ export default function ProductsPage() {
     openai: 'OpenAI GPT', gemini: 'Google Gemini', claude: 'Claude (Anthropic)',
     deepseek: 'DeepSeek', grok: 'Grok (xAI)', mistral: 'Mistral',
     local: 'المولّد المحلي (بدون AI)', 'dall-e-3': 'DALL-E 3 (OpenAI)',
+    'gemini-2.5-flash-image': 'Gemini Image (Google)', 'grok-2-image': 'Grok Image (xAI)',
   };
 
   const generateAI = async () => {
@@ -639,6 +641,7 @@ export default function ProductsPage() {
           price: data.price,
           sizes: data.variants.flatMap(v => v.sizes.map(s => s.name)),
           colors: data.variants.map(v => v.color),
+          imageUrl: data.images[0] || '',
           ...creds,
         }),
       });
@@ -646,7 +649,8 @@ export default function ProductsPage() {
       if (j.description) {
         setData(d => ({ ...d, description: j.description }));
         if (j.model === 'local') notify('info', 'ℹ️ وصف محلي مؤقت — لم يرد أي مزود AI (تحقق من المفاتيح في صفحة الاتصالات)');
-        else notify('success', `✅ الوصف وُلّد عبر ${AI_LABELS[j.model] || j.model}`);
+        else if (j.usedImage) notify('success', `✅ الوصف وُلّد عبر ${AI_LABELS[j.model] || j.model} 👁️ بقراءة صورة المنتج فعلياً`);
+        else notify('success', `✅ الوصف وُلّد عبر ${AI_LABELS[j.model] || j.model}${data.images[0] ? ' (المزود الذي رد لا يقرأ الصور)' : ''}`);
       } else if (j.error) {
         notify('error', `❌ توقف توليد الوصف: ${j.error}`);
       }
@@ -685,7 +689,8 @@ export default function ProductsPage() {
   const designWithAI = async () => {
     if (!data.name) return notify('warning', 'أدخل اسم المنتج أولاً');
     const creds = aiCreds();
-    if (!creds.apiKey) { notify('error', '⚠️ توليد الصور يتطلب مفتاح OpenAI — أضفه من الإعدادات'); return; }
+    const hasImgKey = creds.apiKey || creds.geminiKey || (settings.ai as any)?.grokKey;
+    if (!hasImgKey) { notify('error', '⚠️ توليد الصور يتطلب مفتاح OpenAI أو Gemini أو Grok — اربط واحداً من صفحة الاتصالات'); return; }
     setAiDesignLoading(true);
     try {
       const cat = CATS.find(c => c.id === data.category);
@@ -703,14 +708,16 @@ export default function ProductsPage() {
           customPrompt: aiDesignPrompt.trim(),
           baseImage: data.images[0] || '',
           ...creds,
+          // اختيار مزود الصور يتجاوز مزود النصوص الافتراضي — يجب أن يأتي بعد creds
+          provider: imgProvider,
         }),
       });
       const j = await r.json();
       if (j.url) {
         setAiDesignUrl(j.url);
-        notify('success', `✅ الصورة صُممت عبر ${AI_LABELS[j.model] || 'DALL-E 3 (OpenAI)'} — راجعها واعتمدها`);
+        notify('success', `✅ الصورة صُممت عبر ${AI_LABELS[j.model] || j.model || 'مزود الصور'} — راجعها واعتمدها`);
       } else if (j.needsKey) {
-        notify('error', '⚠️ يجب ربط OpenAI أولاً من صفحة الاتصالات');
+        notify('error', `⚠️ ${j.error || 'اربط مزود صور (OpenAI / Gemini / Grok) من صفحة الاتصالات'}`);
       } else if (j.error) {
         notify('error', `❌ ${j.error}`);
       }
@@ -1602,7 +1609,7 @@ export default function ProductsPage() {
                     <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom: 12 }}>
                       <div>
                         <p style={{ fontSize:13, fontWeight:800, color:'var(--ember)', marginBottom:2 }}>🎨 استوديو تصميم الصور بالذكاء الاصطناعي</p>
-                        <p style={{ fontSize:11, color:'var(--ink3)' }}>اكتب ما تريد أو اختر اقتراحاً ثم اضغط تصميم — يتطلب OpenAI</p>
+                        <p style={{ fontSize:11, color:'var(--ink3)' }}>اكتب ما تريد أو اختر اقتراحاً ثم اضغط تصميم — OpenAI أو Gemini أو Grok</p>
                       </div>
                       <button
                         onClick={designWithAI}
@@ -1613,6 +1620,27 @@ export default function ProductsPage() {
                         <Sparkles size={14}/>
                         {aiDesignLoading ? '⏳ جارٍ التصميم...' : 'تصميم AI'}
                       </button>
+                    </div>
+
+                    {/* اختيار مزود الصور — Auto يجرب المربوط بالترتيب ويخبرك من صمّم فعلاً */}
+                    <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap', marginBottom:10 }}>
+                      <span style={{ fontSize:11, color:'var(--ink3)', fontWeight:700 }}>المصمم:</span>
+                      {([
+                        { id:'auto',   label:'🤖 تلقائي' },
+                        { id:'openai', label:'DALL-E 3' },
+                        { id:'gemini', label:'Gemini' },
+                        { id:'grok',   label:'Grok' },
+                      ] as const).map(p => (
+                        <button key={p.id} type="button" onClick={() => setImgProvider(p.id)}
+                          style={{
+                            padding:'4px 11px', borderRadius:99, fontSize:11, fontWeight:700, cursor:'pointer', fontFamily:'inherit',
+                            background: imgProvider === p.id ? 'rgba(255,106,0,.15)' : 'var(--bg2, rgba(255,255,255,.04))',
+                            border: `1px solid ${imgProvider === p.id ? 'var(--ember)' : 'var(--border)'}`,
+                            color: imgProvider === p.id ? 'var(--ember)' : 'var(--ink3)',
+                          }}>
+                          {p.label}
+                        </button>
+                      ))}
                     </div>
 
                     {/* Prompt box */}

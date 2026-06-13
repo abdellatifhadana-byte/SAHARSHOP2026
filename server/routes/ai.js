@@ -201,26 +201,27 @@ ${allProds||'لا منتجات منشورة'}
 // POST /api/ai/generate-description — dedicated product description generator
 router.post('/generate-description', auth, async (req, res) => {
   try {
-    const { name, category, price, sizes, colors, type } = req.body;
+    const { name, category, price, sizes, colors, type, imageUrl } = req.body;
     if (!name) return res.status(400).json({ error: 'name required' });
 
     const dbSettings = await db.getSettings(req.user.id) || {};
-    // Accept key from request body (frontend store) → DB → env, like /reply
-    const openaiKey  = req.body.apiKey    || dbSettings.ai?.apiKey   || process.env.OPENAI_API_KEY;
-    const geminiKey  = req.body.geminiKey || dbSettings.ai?.geminiKey || process.env.GEMINI_API_KEY;
     const provider   = req.body.provider  || dbSettings.ai?.provider  || 'openai';
     const aiModel    = req.body.model     || dbSettings.ai?.model     || 'gpt-4o-mini';
 
+    // صورة المنتج تُمرَّر للمزودين القادرين على الرؤية — بحد أقصى ~2MB base64
+    const okImage = (typeof imageUrl === 'string' && imageUrl.length > 50 && imageUrl.length < 2_800_000) ? imageUrl : '';
+
     const kind = type === 'service' ? 'خدمة' : type === 'digital' ? 'منتج رقمي' : 'منتج';
-    const prompt = `اكتب وصفاً تسويقياً قصيراً (جملتين إلى ثلاث جمل) بالدارجة المغربية ل${kind}: "${name}" من فئة "${category || 'عام'}".${price ? ` السعر: ${price} درهم.` : ''}${sizes?.length ? ` المقاسات: ${sizes.join('، ')}.` : ''}${colors?.length ? ` الألوان: ${colors.join('، ')}.` : ''} الوصف يكون جذاباً، يبرز الجودة ويشجع على الشراء. أعطِ الوصف مباشرة بدون مقدمات.`;
+    const prompt = `اكتب وصفاً تسويقياً قصيراً (جملتين إلى ثلاث جمل) بالدارجة المغربية ل${kind}: "${name}" من فئة "${category || 'عام'}".${price ? ` السعر: ${price} درهم.` : ''}${sizes?.length ? ` المقاسات: ${sizes.join('، ')}.` : ''}${colors?.length ? ` الألوان: ${colors.join('، ')}.` : ''}${okImage ? ' انظر جيداً إلى صورة المنتج المرفقة وصِف ما تراه فعلاً (الخامة، التصميم، التفاصيل المرئية الحقيقية).' : ''} الوصف يكون جذاباً، يبرز الجودة ويشجع على الشراء. أعطِ الوصف مباشرة بدون مقدمات.`;
     const sysPrompt = 'أنت خبير كتابة إعلانية لمتجر مغربي. اكتب وصفاً جذاباً مباشراً فقط.';
 
     const keys = _resolveAIKeys(req.body, dbSettings.ai);
     const out = await aiChat({
       keys, provider, models: { openai: aiModel, claude: dbSettings.ai?.claudeModel, grok: dbSettings.ai?.grokModel, mistral: dbSettings.ai?.mistralModel },
-      sysPrompt, history: [], message: prompt, maxTokens: 200, temperature: 0.8,
+      sysPrompt, history: [], message: prompt, maxTokens: 260, temperature: 0.8,
+      imageUrl: okImage,
     });
-    if (out) return res.json({ description: out.text, model: out.provider });
+    if (out) return res.json({ description: out.text, model: out.provider, usedImage: !!out.usedImage });
 
     const desc = `${name} — منتج مميز من فئة ${category || 'الملابس'} بجودة عالية. ${sizes?.length ? `متوفر بمقاسات ${sizes.join('، ')}.` : ''} سارع بالطلب قبل نفاد الكمية! 🛒`;
     res.json({ description: desc, model: 'local' });
@@ -272,18 +273,26 @@ Include: Arabic hashtags for Morocco (#تسوق_المغرب etc.), English hash
   } catch (e) { console.error('[ai/generate-hashtags]', e.message); res.status(500).json({ error: 'Server error' }); }
 });
 
-// POST /api/ai/design-product-image — AI product image via DALL-E 3
+// POST /api/ai/design-product-image — توليد صورة المنتج
+// المزودون المدعومون فعلياً: OpenAI (DALL-E 3) · Gemini (توليد صور) · Grok (xAI)
+// provider: 'auto' يجرب المتاح بالترتيب، أو حدد مزوداً بعينه
 router.post('/design-product-image', auth, async (req, res) => {
   try {
-    const { productName, price, storeName, description, category, colors, sizes, customPrompt, baseImage } = req.body;
+    const { productName, price, storeName, description, category, colors, sizes, customPrompt, baseImage, provider = 'auto' } = req.body;
     if (!productName) return res.status(400).json({ error: 'productName required' });
 
     const dbSettings = await db.getSettings(req.user.id) || {};
-    const openaiKey  = req.body.apiKey || dbSettings.ai?.apiKey || process.env.OPENAI_API_KEY;
+    const keys = _resolveAIKeys(req.body, dbSettings.ai);
 
-    if (!openaiKey) {
+    // مزودو الصور المتاحون حسب المفاتيح المربوطة فعلاً
+    const IMG_PROVIDERS = ['openai', 'gemini', 'grok'];
+    const order = (provider === 'auto' ? IMG_PROVIDERS : [provider])
+      .filter(p => IMG_PROVIDERS.includes(p) && keys[p]);
+    if (!order.length) {
       return res.status(400).json({
-        error: 'يجب ربط OpenAI أولاً من صفحة الاتصالات لاستخدام توليد الصور',
+        error: provider === 'auto'
+          ? 'توليد الصور يتطلب مفتاح OpenAI أو Gemini أو Grok — اربط واحداً من صفحة الاتصالات'
+          : `المزود المختار (${provider}) غير مربوط — أضف مفتاحه من صفحة الاتصالات أو اختر Auto`,
         needsKey: true,
       });
     }
@@ -313,13 +322,45 @@ router.post('/design-product-image', auth, async (req, res) => {
       `- No busy backgrounds, no clutter`,
     ].filter(Boolean).join('\n');
 
-    const body = JSON.stringify({ model: 'dall-e-3', prompt, n: 1, size: '1024x1024', quality: 'standard', style: 'natural' });
-    const r    = await _https('api.openai.com', '/v1/images/generations', { 'Authorization': `Bearer ${openaiKey}` }, body);
-    const data = JSON.parse(r);
-    if (data.error) return res.status(400).json({ error: data.error.message });
-    const url = data.data?.[0]?.url;
-    if (url) return res.json({ url, model: 'dall-e-3' });
-    return res.status(500).json({ error: 'لم يتم توليد الصورة' });
+    // جرّب المزودين بالترتيب — كل فشل يُسجَّل بسببه الحقيقي ويُعرض للمستخدم
+    const failures = [];
+    for (const p of order) {
+      try {
+        if (p === 'openai') {
+          const body = JSON.stringify({ model: 'dall-e-3', prompt, n: 1, size: '1024x1024', quality: 'standard', style: 'natural' });
+          const data = JSON.parse(await _https('api.openai.com', '/v1/images/generations', { 'Authorization': `Bearer ${keys.openai}` }, body, 'POST', 60000));
+          if (data.error) throw new Error(data.error.message);
+          const url = data.data?.[0]?.url;
+          if (url) return res.json({ url, model: 'dall-e-3', provider: 'openai' });
+          throw new Error('رد بدون صورة');
+        }
+        if (p === 'gemini') {
+          const body = JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }] }] });
+          const data = JSON.parse(await _https('generativelanguage.googleapis.com',
+            `/v1beta/models/gemini-2.5-flash-image:generateContent?key=${keys.gemini}`, {}, body, 'POST', 60000));
+          if (data.error) throw new Error(data.error.message);
+          const parts = data.candidates?.[0]?.content?.parts || [];
+          const imgPart = parts.find(pt => pt.inlineData?.data || pt.inline_data?.data);
+          const b64  = imgPart?.inlineData?.data || imgPart?.inline_data?.data;
+          const mime = imgPart?.inlineData?.mimeType || imgPart?.inline_data?.mime_type || 'image/png';
+          if (b64) return res.json({ url: `data:${mime};base64,${b64}`, model: 'gemini-2.5-flash-image', provider: 'gemini' });
+          throw new Error('رد بدون صورة');
+        }
+        if (p === 'grok') {
+          const body = JSON.stringify({ model: 'grok-2-image', prompt, n: 1 });
+          const data = JSON.parse(await _https('api.x.ai', '/v1/images/generations', { 'Authorization': `Bearer ${keys.grok}` }, body, 'POST', 60000));
+          if (data.error) throw new Error(data.error.message || data.error);
+          const item = data.data?.[0];
+          if (item?.url) return res.json({ url: item.url, model: 'grok-2-image', provider: 'grok' });
+          if (item?.b64_json) return res.json({ url: `data:image/png;base64,${item.b64_json}`, model: 'grok-2-image', provider: 'grok' });
+          throw new Error('رد بدون صورة');
+        }
+      } catch (e) {
+        console.warn(`[design-image] ${p}:`, e.message);
+        failures.push(`${p}: ${e.message}`);
+      }
+    }
+    return res.status(502).json({ error: `فشل توليد الصورة لدى ${failures.length > 1 ? 'كل المزودين' : 'المزود'} — ${failures.join(' · ')}` });
   } catch (e) {
     console.warn('[design-image]', e.message);
     return res.status(500).json({ error: e.message || 'خطأ في توليد الصورة' });
@@ -342,7 +383,9 @@ router.post('/extract-order', async (req, res) => {
   res.json(extractOrderData(req.body.history));
 });
 
-// POST /api/ai/public-reply — for storefront (no auth)
+// POST /api/ai/public-reply — مساعد المتجر للزبون (no auth)
+// يعرف المنتجات والخدمات وأنماط حجزها، يتتبع الطلبات الحقيقية من قاعدة
+// البيانات، ويرشّح منتجات تظهر للزبون كبطاقات «أضف للسلة» بضغطة واحدة.
 router.post('/public-reply', async (req, res) => {
   try {
     const { message, history, userId } = req.body;
@@ -352,21 +395,69 @@ router.post('/public-reply', async (req, res) => {
     // المجيب الآلي للزبون يقرأ المفاتيح من قاعدة البيانات فقط (لا auth هنا)
     const keys = _resolveAIKeys(null, settings?.ai);
     const hasAnyKey = Object.values(keys).some(Boolean);
+    const cur = settings?.brand?.currency || 'MAD';
+    const pub = products.filter(p => p.status === 'published');
+    const goods = pub.filter(p => p.type !== 'service');
+    const services = pub.filter(p => p.type === 'service');
+    const cfv = (p, id) => (Array.isArray(p.customFields) ? p.customFields.find(f => f && f.id === id)?.value : '') || '';
+    const slim = p => ({ id: p.id, name: p.name, price: p.price, emoji: p.emoji || '', imageUrl: p.imageUrl || (p.images || [])[0] || '', type: p.type });
+    const STATUS_AR = { pending: '⏳ بانتظار التأكيد', approved: '✅ مؤكد', processing: '⚙️ قيد التحضير', shipped: '🚚 في الطريق', delivered: '📦 تم التوصيل', cancelled: '❌ ملغي', rejected: '❌ مرفوض' };
+
+    // ── تتبع حقيقي من قاعدة البيانات: نلتقط هاتفاً أو كوداً من الرسالة ──
+    const msgStr = String(message || '');
+    const phoneM = msgStr.match(/(?:\+?212|0)[\s.-]?[67](?:[\s.-]?\d){8}/);
+    const tokens = (msgStr.toUpperCase().match(/\b[A-Z0-9][A-Z0-9-]{5,19}\b/g) || []);
+    const trackIntent = /(طلبي|طلباتي|تتبع|فين وصل|وصل الطلب|حالة الطلب|كود التتبع|tracking)/i.test(msgStr);
+    let orderContext = '';
+    if (phoneM || tokens.length) {
+      const norm = s => String(s || '').replace(/\D/g, '').slice(-9);
+      const all = await db.getOrders(userId);
+      let mine = [];
+      if (phoneM) {
+        const tail = norm(phoneM[0]);
+        if (tail.length === 9) mine = all.filter(o => norm(o.customerPhone) === tail);
+      }
+      if (!mine.length && tokens.length) {
+        mine = all.filter(o =>
+          tokens.includes(String(o.customerCode || '').toUpperCase()) ||
+          tokens.includes(String(o.trackingNumber || '').toUpperCase()) ||
+          tokens.includes(String(o.id || '').toUpperCase()));
+      }
+      if (mine.length) {
+        mine = mine.slice(-3); // أحدث 3 طلبات
+        const lines = mine.map(o => `• طلب ${o.customerCode || o.id}: ${STATUS_AR[o.status] || o.status} — المجموع ${o.total} ${cur}${o.trackingNumber ? `\n  رقم التتبع: ${o.trackingNumber}` : ''}${o.deliveryProvider ? ` (${o.deliveryProvider})` : ''}`).join('\n');
+        const direct = `لقيت ${mine.length > 1 ? 'الطلبات ديالك' : 'الطلب ديالك'} ✅\n\n${lines}\n\n${mine.some(o => o.status === 'shipped') ? 'الطلب في الطريق ليك 🚚' : 'إلا حتاجيتي شي حاجة أخرى أنا هنا 😊'}`;
+        // سؤال تتبع صريح → رد مباشر ببيانات حقيقية بدون توليد
+        if (trackIntent || !hasAnyKey) return res.json({ reply: direct, model: 'order-tracking' });
+        orderContext = `\n\nطلبات هذا الزبون الحقيقية (من قاعدة البيانات الآن):\n${lines}\nإذا سأل عن طلبه أعطه هذه الحالة الحقيقية حرفياً ولا تخترع غيرها.`;
+      } else if (trackIntent) {
+        return res.json({ reply: 'ما لقيتش طلب بهاد المعلومات 😕\nتأكد من رقم الهاتف اللي درتي به الطلب (مثال: 06XXXXXXXX) أو كود التتبع اللي وصلك، وعاود صيفطو ليا.', model: 'order-tracking' });
+      }
+    } else if (trackIntent) {
+      return res.json({ reply: 'باش نتبع ليك الطلب 🚚\nصيفط ليا رقم الهاتف اللي درتي به الطلب (06... أو 07...) أو كود التتبع، ونجيب ليك الحالة الحقيقية دابا.', model: 'order-tracking' });
+    }
 
     // Product search first
-    const found = searchProducts(message, products);
+    const found = searchProducts(message, pub.length ? pub : products);
     if (found.length > 0 && /(عندكم|كاين|منتج|بغيت|سعر|ثمن|بكام|هاد)/i.test(message)) {
       const p = found[0];
-      const reply = `وجدت المنتج! 🎉\n\n${p.emoji||'📦'} **${p.name}**\n💰 السعر: ${p.price} ${settings?.brand?.currency||'MAD'}\n📏 المقاسات: ${(p.sizes||[]).join(' · ')||'S M L XL'}\n🎨 الألوان: ${(p.colors||[]).join(' · ')||'—'}\n📦 المخزون: ${p.stock} قطعة\n\nواش بغيت هاد المنتج؟`;
-      return res.json({ reply, model: 'product-search', product: p });
+      const isSvc = p.type === 'service';
+      const reply = isSvc
+        ? `عندنا هاد الخدمة! 🛠️\n\n${p.emoji||'🛠️'} **${p.name}**\n💰 السعر: ${p.price} ${cur}${p.duration?`\n⏱️ المدة: ${p.duration}`:''}${p.workArea?`\n📍 منطقة العمل: ${p.workArea}`:''}${cfv(p,'serviceMode')?`\n📅 الحجز: ${cfv(p,'serviceMode')}`:''}\n\nتقدر تحجز من بطاقة الخدمة فالمتجر 👇`
+        : `وجدت المنتج! 🎉\n\n${p.emoji||'📦'} **${p.name}**\n💰 السعر: ${p.price} ${cur}\n📏 المقاسات: ${(p.sizes||[]).join(' · ')||'S M L XL'}\n🎨 الألوان: ${(p.colors||[]).join(' · ')||'—'}\n📦 المخزون: ${p.stock} قطعة\n\nواش بغيت هاد المنتج؟`;
+      return res.json({ reply, model: 'product-search', product: p, products: [slim(p)] });
     }
 
     if (hasAnyKey) {
-      const cur = settings?.brand?.currency || 'MAD';
-      const allProds = products.slice(0, 40).map(p =>
+      const prodLines = goods.slice(0, 35).map(p =>
         `- ${p.emoji||'📦'} ${p.name}: ${p.price} ${cur}${p.description ? ' — ' + p.description.slice(0, 80) : ''}${(p.sizes||[]).length ? ' (مقاسات: ' + p.sizes.join('/') + ')' : ''}${(p.colors||[]).length ? ' (ألوان: ' + p.colors.join('/') + ')' : ''} [مخزون: ${p.stock}]`
       ).join('\n');
-      const sysPrompt = settings?.ai?.systemPrompt || `أنت ${settings?.brand?.name||'صاحب المتجر'} تبيع مباشرة للزبائن بالدارجة المغربية. أنت الشخص المسؤول عن المتجر وتتكلم معهم كأنك أنت صاحب المتجر.
+      const svcLines = services.slice(0, 20).map(s => {
+        const mode = cfv(s, 'serviceMode');
+        const sPhone = cfv(s, 'servicePhone') || settings?.brand?.phone || '';
+        return `- 🛠️ ${s.name}: ${s.price} ${cur}${s.duration ? ` (المدة: ${s.duration})` : ''}${s.workArea ? ` [منطقة العمل: ${s.workArea}]` : ''}${mode ? ` [نمط الحجز: ${mode}]` : ''}${sPhone ? ` [هاتف مباشر: ${sPhone}]` : ''}${s.description ? ' — ' + s.description.slice(0, 60) : ''}`;
+      }).join('\n');
+      const sysPrompt = settings?.ai?.systemPrompt || `أنت ${settings?.brand?.name||'صاحب المتجر'} تبيع مباشرة للزبائن بالدارجة المغربية. أنت الشخص المسؤول عن المتجر وتتكلم معهم كأنك أنت صاحب المتجر — شخصية مغربية ودودة وراقية.
 
 معلومات متجرك:
 • اسم المتجر: ${settings?.brand?.name||'متجر'}
@@ -379,23 +470,33 @@ router.post('/public-reply', async (req, res) => {
 • العروض الحالية: توصيل مجاني للطلبات فوق ${settings?.promotions?.freeShippingThreshold??400} ${cur}${settings?.promotions?.bundle?.enabled!==false?`، وخصم ${settings?.promotions?.bundle?.percent??10}% تلقائي عند شراء ${settings?.promotions?.bundle?.minItems??3} قطع أو أكثر`:''}${settings?.promotions?.wheel?.enabled!==false?'، وعجلة حظ يومية في المتجر تمنح أكواد خصم':''}
 
 منتجاتك المتوفرة:
-${allProds || 'لا منتجات متوفرة حالياً'}
+${prodLines || 'لا منتجات متوفرة حالياً'}
+
+خدماتك المتاحة (تُحجز ولا تُشترى كسلعة):
+${svcLines || 'لا خدمات حالياً'}
 
 تعليمات مهمة:
 - أجب دائماً بالدارجة المغربية
 - أنت صاحب المتجر — تكلم كأنك شخصياً تبيع للزبون
 - أعطِ السعر والتفاصيل مباشرة عند السؤال عن منتج
-- إذا أراد الطلب: اطلب الاسم الكامل، رقم الهاتف، المدينة، العنوان
+- للخدمات: اشرح نمط الحجز — «استعجالية» يعني اتصال فوري بالهاتف المباشر، و«بموعد» يعني الحجز من بطاقة الخدمة في المتجر (اختيار اليوم والساعة والمكان)
+- إذا سأل الزبون عن حالة طلبه: اطلب منه رقم الهاتف الذي طلب به أو كود التتبع
+- عند اقتراح منتج أو خدمة اذكر اسمه الدقيق حرفياً كما هو في القائمة
+- إذا أراد الطلب: اطلب الاسم الكامل، رقم الهاتف، المدينة، العنوان — أو وجّهه يضيف المنتج للسلة ويكمل من المتجر
 - كن إيجابياً، مقنعاً، ومشجعاً على الشراء
-- إذا لم يكن المنتج متوفراً، اعتذر بأدب واقترح بديلاً`;
+- إذا لم يكن المنتج متوفراً، اعتذر بأدب واقترح بديلاً من القائمة${orderContext}`;
       const out = await aiChat({
         keys,
         provider: settings?.ai?.provider || 'openai',
         models: { openai: settings?.ai?.model, claude: settings?.ai?.claudeModel, grok: settings?.ai?.grokModel, mistral: settings?.ai?.mistralModel },
         sysPrompt, history: (history || []).slice(-6), message,
-        maxTokens: 300, temperature: 0.8,
+        maxTokens: 350, temperature: 0.8,
       });
-      if (out) return res.json({ reply: out.text, model: out.provider });
+      if (out) {
+        // سلة جاهزة بضغطة: أي منتج/خدمة ذُكر اسمه حرفياً في الرد يظهر كبطاقة قابلة للإضافة
+        const mentioned = pub.filter(p => p.name && p.name.length > 2 && out.text.includes(p.name)).slice(0, 3).map(slim);
+        return res.json({ reply: out.text, model: out.provider, products: mentioned });
+      }
     }
 
     res.json({ reply: smartReply(message, history, products, settings), model: 'local' });
@@ -539,13 +640,17 @@ function _providerOrder(preferred, keys) {
 
 // فرع موحد لكل المزودين المتوافقين مع واجهة OpenAI
 // (OpenAI نفسها، DeepSeek، Grok/xAI، Mistral)
-async function _oaiCompatChat(hostname, key, model, sysPrompt, history, message, maxTokens, temperature, jsonMode) {
+async function _oaiCompatChat(hostname, key, model, sysPrompt, history, message, maxTokens, temperature, jsonMode, imageUrl) {
+  // الرؤية (قراءة الصور) مدعومة لدى OpenAI فقط من هذا الفرع
+  const userContent = (imageUrl && hostname === 'api.openai.com')
+    ? [{ type: 'text', text: message }, { type: 'image_url', image_url: { url: imageUrl } }]
+    : message;
   const body = JSON.stringify({
     model,
     messages: [
       { role: 'system', content: sysPrompt },
       ...(history || []).slice(-10).filter(m => m.content).map(m => ({ role: m.role === 'ai' ? 'assistant' : 'user', content: m.content })),
-      { role: 'user', content: message },
+      { role: 'user', content: userContent },
     ],
     max_tokens: maxTokens, temperature,
     ...(jsonMode ? { response_format: { type: 'json_object' } } : {}),
@@ -556,7 +661,7 @@ async function _oaiCompatChat(hostname, key, model, sysPrompt, history, message,
   return parsed.choices?.[0]?.message?.content?.trim() || null;
 }
 
-async function _geminiChat(key, sysPrompt, history, message, maxTokens, temperature) {
+async function _geminiChat(key, sysPrompt, history, message, maxTokens, temperature, imageUrl) {
   const rawHistory = (history || []).slice(-8).filter(m => m.content).map(m => ({
     role: m.role === 'ai' ? 'model' : 'user',
     parts: [{ text: m.content }],
@@ -567,19 +672,22 @@ async function _geminiChat(key, sysPrompt, history, message, maxTokens, temperat
     if (altHistory.length === 0 || altHistory[altHistory.length - 1].role !== turn.role) altHistory.push(turn);
   }
   while (altHistory.length > 0 && altHistory[altHistory.length - 1].role === 'user') altHistory.pop();
+  const userParts = [{ text: message }];
+  const img = _parseDataUrl(imageUrl);
+  if (img) userParts.push({ inline_data: { mime_type: img.mime, data: img.b64 } });
   const body = JSON.stringify({
-    contents: [...altHistory, { role: 'user', parts: [{ text: message }] }],
+    contents: [...altHistory, { role: 'user', parts: userParts }],
     generationConfig: { maxOutputTokens: maxTokens, temperature },
     systemInstruction: { parts: [{ text: sysPrompt }] },
   });
-  const r = await _https('generativelanguage.googleapis.com', `/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`, {}, body);
+  const r = await _https('generativelanguage.googleapis.com', `/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`, {}, body);
   return JSON.parse(r).candidates?.[0]?.content?.parts?.[0]?.text?.trim() || null;
 }
 
 // Claude (Anthropic) — عبر SDK الرسمي. claude-haiku-4-5 هو الأنسب
 // سعراً وسرعة لمحادثات الزبائن اليومية.
 let _AnthropicSDK = null;
-async function _claudeChat(key, model, sysPrompt, history, message, maxTokens) {
+async function _claudeChat(key, model, sysPrompt, history, message, maxTokens, imageUrl) {
   if (_AnthropicSDK === null) {
     try { _AnthropicSDK = require('@anthropic-ai/sdk'); }
     catch { _AnthropicSDK = false; console.warn('[AI] @anthropic-ai/sdk غير مثبت — شغّل npm install في مجلد server'); }
@@ -591,7 +699,13 @@ async function _claudeChat(key, model, sysPrompt, history, message, maxTokens) {
     .filter(m => m.content)
     .map(m => ({ role: m.role === 'ai' ? 'assistant' : 'user', content: m.content }));
   while (msgs.length && msgs[0].role === 'assistant') msgs.shift();
-  msgs.push({ role: 'user', content: message });
+  const img = _parseDataUrl(imageUrl);
+  msgs.push({
+    role: 'user',
+    content: img
+      ? [{ type: 'image', source: { type: 'base64', media_type: img.mime, data: img.b64 } }, { type: 'text', text: message }]
+      : message,
+  });
   const resp = await anthropic.messages.create({
     model: model || 'claude-haiku-4-5',
     max_tokens: maxTokens,
@@ -603,24 +717,29 @@ async function _claudeChat(key, model, sysPrompt, history, message, maxTokens) {
   return block?.text?.trim() || null;
 }
 
-// الواجهة الموحدة — تُرجع { text, provider } أو null إذا فشل الجميع
-async function aiChat({ keys, provider, models = {}, sysPrompt, history, message, maxTokens = 400, temperature = 0.7, jsonMode = false }) {
+// المزودون القادرون على قراءة الصور (Vision)
+const VISION_PROVIDERS = { openai: true, gemini: true, claude: true };
+
+// الواجهة الموحدة — تُرجع { text, provider, usedImage } أو null إذا فشل الجميع
+async function aiChat({ keys, provider, models = {}, sysPrompt, history, message, maxTokens = 400, temperature = 0.7, jsonMode = false, imageUrl = '' }) {
   for (const p of _providerOrder(provider, keys)) {
     try {
+      // OpenAI يقبل روابط http وdata معاً؛ Gemini وClaude يحتاجان data URL (base64)
+      const img = imageUrl && VISION_PROVIDERS[p] && (p === 'openai' || imageUrl.startsWith('data:')) ? imageUrl : '';
       let text = null;
-      if (p === 'openai')   text = await _oaiCompatChat('api.openai.com',   keys.openai,   models.openai  || 'gpt-4o-mini',          sysPrompt, history, message, maxTokens, temperature, jsonMode);
+      if (p === 'openai')   text = await _oaiCompatChat('api.openai.com',   keys.openai,   models.openai  || 'gpt-4o-mini',          sysPrompt, history, message, maxTokens, temperature, jsonMode, img);
       if (p === 'deepseek') text = await _oaiCompatChat('api.deepseek.com', keys.deepseek, models.deepseek || 'deepseek-chat',        sysPrompt, history, message, maxTokens, temperature, false);
       if (p === 'grok')     text = await _oaiCompatChat('api.x.ai',         keys.grok,     models.grok    || 'grok-3-mini',          sysPrompt, history, message, maxTokens, temperature, false);
       if (p === 'mistral')  text = await _oaiCompatChat('api.mistral.ai',   keys.mistral,  models.mistral || 'mistral-small-latest', sysPrompt, history, message, maxTokens, temperature, false);
-      if (p === 'gemini')   text = await _geminiChat(keys.gemini, sysPrompt, history, message, maxTokens, temperature);
-      if (p === 'claude')   text = await _claudeChat(keys.claude, models.claude, sysPrompt, history, message, maxTokens);
-      if (text) return { text, provider: p };
+      if (p === 'gemini')   text = await _geminiChat(keys.gemini, sysPrompt, history, message, maxTokens, temperature, img);
+      if (p === 'claude')   text = await _claudeChat(keys.claude, models.claude, sysPrompt, history, message, maxTokens, img);
+      if (text) return { text, provider: p, usedImage: !!img };
     } catch (e) { console.warn(`[AI] ${p}:`, e.message); }
   }
   return null;
 }
 
-function _https(hostname, path, extraHeaders, body, method = 'POST') {
+function _https(hostname, path, extraHeaders, body, method = 'POST', timeoutMs = 12000) {
   return new Promise((resolve, reject) => {
     const opts = {
       hostname, path, method,
@@ -633,10 +752,18 @@ function _https(hostname, path, extraHeaders, body, method = 'POST') {
       res.on('end', () => resolve(data));
     });
     req.on('error', reject);
-    req.setTimeout(12000, () => { req.destroy(); reject(new Error('Timeout')); });
+    // توليد الصور قد يستغرق 20-40 ثانية — المهلة قابلة للتخصيص لكل نداء
+    req.setTimeout(timeoutMs, () => { req.destroy(); reject(new Error('Timeout')); });
     if (body) req.write(body);
     req.end();
   });
+}
+
+// يحوّل data URL إلى { mime, b64 } أو null إن لم يكن صورة base64 صالحة
+function _parseDataUrl(imageUrl) {
+  if (!imageUrl || typeof imageUrl !== 'string' || !imageUrl.startsWith('data:')) return null;
+  const m = imageUrl.match(/^data:(image\/[a-z0-9.+-]+);base64,(.+)$/i);
+  return m ? { mime: m[1], b64: m[2] } : null;
 }
 
 module.exports = router;

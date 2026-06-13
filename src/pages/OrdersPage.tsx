@@ -240,7 +240,8 @@ export default function OrdersPage() {
   const [search, setSearch] = useState('');
   const [expanded, setExpanded] = useState<string | null>(null);
   const [view, setView] = useState<'list' | 'kanban'>('list');
-  const [autoShipState, setAutoShipState] = useState<{id: string, step: number, msg: string} | null>(null);
+  const [autoShipState, setAutoShipState] = useState<{id: string, step: number, msg: string, steps?: {label:string; ok:boolean; detail?:string; error?:string}[], real?: boolean} | null>(null);
+  const [manualTrk, setManualTrk] = useState('');
   const [mainTab, setMainTab] = React.useState<'orders'|'customers'>('orders');
   const [showQuickOrder, setShowQuickOrder] = useState(false);
   const { currency } = settings.brand;
@@ -266,27 +267,39 @@ export default function OrdersPage() {
   orders.forEach(o => { counts[o.status] = (counts[o.status] || 0) + 1; });
   const pending = counts.pending || 0;
 
-  // 🤖 Auto-Delivery Bot Simulation
+  // 🚚 الشحن عبر قناة الربط الحقيقية — كل خطوة معروضة تقابل حدثاً وقع فعلاً
+  // على الخادم (API/Webhook)، ولا توجد أي خطوات تمثيلية.
   const runAutoDeliveryBot = async (order: any) => {
-    setAutoShipState({ id: order.id, step: 1, msg: '🤖 جارٍ الاتصال بخادم شركة التوصيل (Amana/Jibli)...' });
-    await new Promise(r => setTimeout(r, 2000));
-    
-    setAutoShipState({ id: order.id, step: 2, msg: `🔑 تسجيل الدخول بحساب ${settings.brand.name}...` });
-    await new Promise(r => setTimeout(r, 1500));
-    
-    setAutoShipState({ id: order.id, step: 3, msg: `📝 ملء استمارة الشحن: ${order.customerName} - ${order.city} - ${order.items[0]?.size || 'N/A'}/${order.items[0]?.color || 'N/A'}...` });
-    await new Promise(r => setTimeout(r, 2000));
-    
-    const trackingNum = 'SAHAR-' + Math.floor(Math.random() * 900000 + 100000);
-    setAutoShipState({ id: order.id, step: 4, msg: `✅ تم إنشاء بوليصة الشحن بنجاح! رقم التتبع: ${trackingNum}` });
-    await new Promise(r => setTimeout(r, 1500));
+    setExpanded(order.id);
+    setAutoShipState({ id: order.id, step: 1, msg: '📡 إرسال الطلب لقناة الربط الحقيقية (API/Webhook)...' });
+    const r = await shipOrder(order.id);
+    if (!r) { setAutoShipState(null); return; }
+    if (r.real) {
+      setAutoShipState({ id: order.id, step: 4, real: true, steps: r.steps,
+        msg: `✅ شحنة حقيقية لدى ${r.provider} — رقم التتبع من الشركة: ${r.tracking}` });
+    } else {
+      setAutoShipState({ id: order.id, step: 4, real: false, steps: r.steps,
+        msg: `⚠️ لم تُرسل فعلياً لشركة التوصيل — ${r.apiError || 'لا قناة ربط مهيأة'}. سُجّل تتبع داخلي ${r.tracking}. استخدم «الإدخال اليدوي» بالأسفل لإيصالها للشركة.` });
+    }
+  };
 
-    // Ship with real tracking number
-    await shipOrder(order.id, settings.delivery?.defaultProvider || 'Amana', trackingNum);
-    
-    notify('success', `📱 تم إشعار الزبون ${order.customerPhone} عبر واتساب: "طلبك شُحن برقم ${trackingNum} وسيصل خلال 48 ساعة"`);
-    setAutoShipState(null);
-    setExpanded(null);
+  // 📋 الإدخال اليدوي الصادق: نسخ بيانات الشحنة لإدخالها في موقع شركة بدون API
+  const copyShipmentData = async (order: any) => {
+    const text = [
+      `الاسم: ${order.customerName}`,
+      `الهاتف: ${order.customerPhone}`,
+      `المدينة: ${order.city}`,
+      `العنوان: ${order.address}`,
+      `المنتجات: ${(order.items || []).map((i: any) => `${i.productName} ×${i.quantity}`).join('، ')}`,
+      `المبلغ عند الاستلام (COD): ${order.total} ${currency}`,
+      `مرجع الطلب: ${order.customerCode || order.id}`,
+    ].join('\n');
+    try {
+      await navigator.clipboard.writeText(text);
+      notify('success', '📋 نُسخت بيانات الشحنة — ألصقها في استمارة موقع شركة التوصيل');
+    } catch {
+      notify('error', '⚠️ تعذر النسخ التلقائي — انسخ البيانات من بطاقة الطلب يدوياً');
+    }
   };
 
   const colDefs = [
@@ -385,7 +398,7 @@ export default function OrdersPage() {
                   <p style={{ fontSize: 15, fontWeight: 900, color: 'var(--txt-1)', marginBottom: 10 }}>{o.total} {currency}</p>
                   <div style={{ display: 'flex', gap: 6 }}>
                     {o.status === 'pending' && (<><button onClick={() => approveOrder(o.id)} className="btn btn-success btn-sm" style={{ flex: 1, justifyContent: 'center' }}>✅</button><button onClick={() => rejectOrder(o.id)} className="btn btn-danger btn-sm" style={{ paddingInline: 10 }}>✕</button></>)}
-                    {o.status === 'approved' && <button onClick={() => runAutoDeliveryBot(o)} className="btn btn-primary btn-sm" style={{ flex: 1, justifyContent: 'center', background: 'linear-gradient(90deg, #6366f1, #a855f7)' }}>🤖 روبوت التوصيل</button>}
+                    {o.status === 'approved' && <button onClick={() => runAutoDeliveryBot(o)} className="btn btn-primary btn-sm" style={{ flex: 1, justifyContent: 'center', background: 'linear-gradient(90deg, #6366f1, #a855f7)' }}>🚚 إنشاء الشحنة</button>}
                     {o.status === 'shipped' && <button onClick={() => deliverOrder(o.id)} className="btn btn-success btn-sm" style={{ flex: 1, justifyContent: 'center' }}>📦 وُصّل</button>}
                   </div>
                 </div>
@@ -443,15 +456,55 @@ export default function OrdersPage() {
               {expanded === order.id && (
                 <div className="anim-fade-in" style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--clr-border)', display: 'flex', flexDirection: 'column', gap: 14 }}>
                   
-                  {/* 🤖 Auto-Delivery Bot UI */}
+                  {/* 🚚 معالج الشحن الصادق — خطوات حقيقية من الخادم، لا تمثيل */}
                   {autoShipState?.id === order.id && (
-                    <div style={{ padding: 20, borderRadius: 16, background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.3)', marginBottom: 20, textAlign: 'center' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, color: '#a5b4fc', fontSize: 16, fontWeight: 700, marginBottom: 10 }}>
-                        {autoShipState.step < 4 ? <Loader2 className="spin" size={20} /> : <CheckCircle size={20} color="#34d399" />}
-                        {autoShipState.msg}
+                    <div style={{ padding: 18, borderRadius: 16, background: autoShipState.real === false ? 'rgba(245,158,11,0.08)' : 'rgba(99,102,241,0.1)', border: `1px solid ${autoShipState.real === false ? 'rgba(245,158,11,0.3)' : 'rgba(99,102,241,0.3)'}`, marginBottom: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, color: autoShipState.real === false ? '#fbbf24' : '#a5b4fc', fontSize: 13.5, fontWeight: 700, marginBottom: 10, lineHeight: 1.6 }}>
+                        {autoShipState.step < 4 ? <Loader2 className="spin" size={18} style={{ flexShrink: 0, marginTop: 2 }} /> : autoShipState.real ? <CheckCircle size={18} color="#34d399" style={{ flexShrink: 0, marginTop: 2 }} /> : <span style={{ flexShrink: 0 }}>⚠️</span>}
+                        <span>{autoShipState.msg}</span>
                       </div>
-                      <div style={{ height: 6, background: 'rgba(255,255,255,0.1)', borderRadius: 3, overflow: 'hidden' }}>
-                        <div style={{ height: '100%', background: '#6366f1', width: `${(autoShipState.step / 4) * 100}%`, transition: 'width 0.5s' }} />
+                      {/* كل سطر هنا حدث وقع فعلاً على الخادم — ✓ نجح أو ✗ فشل بسببه */}
+                      {!!autoShipState.steps?.length && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '10px 12px', borderRadius: 12, background: 'rgba(0,0,0,0.25)' }}>
+                          {autoShipState.steps.map((s, i) => (
+                            <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 12, lineHeight: 1.6 }}>
+                              <span style={{ color: s.ok ? '#34d399' : '#f87171', fontWeight: 900, flexShrink: 0 }}>{s.ok ? '✓' : '✗'}</span>
+                              <span style={{ color: 'var(--txt-1)' }}>
+                                {s.label}
+                                {s.detail && <span style={{ color: '#34d399', fontWeight: 700 }}> — {s.detail}</span>}
+                                {s.error && <span style={{ color: '#f87171' }}> — {s.error}</span>}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <div style={{ height: 5, background: 'rgba(255,255,255,0.1)', borderRadius: 3, overflow: 'hidden', marginTop: 10 }}>
+                        <div style={{ height: '100%', background: autoShipState.real === false ? '#f59e0b' : '#6366f1', width: `${(autoShipState.step / 4) * 100}%`, transition: 'width 0.5s' }} />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 📋 الإدخال اليدوي — للشركات بدون ربط API: انسخ، أدخل في موقعها، ألصق رقم التتبع الحقيقي */}
+                  {(order.status === 'approved' || (autoShipState?.id === order.id && autoShipState.real === false)) && (
+                    <div style={{ padding: 14, borderRadius: 14, background: 'rgba(255,255,255,0.03)', border: '1px dashed var(--clr-border)', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      <p style={{ fontSize: 12, fontWeight: 800, color: 'var(--txt-1)' }}>📋 الإدخال اليدوي لدى شركة بدون ربط API</p>
+                      <p style={{ fontSize: 11.5, color: 'var(--txt-3)', lineHeight: 1.7 }}>انسخ بيانات الشحنة، أدخلها في موقع شركة التوصيل بنفسك، ثم ألصق هنا <b>رقم التتبع الحقيقي</b> الذي أعطتك إياه الشركة — يُحفظ في الطلب ويظهر للزبون في صفحة التتبع.</p>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <button onClick={() => copyShipmentData(order)} className="btn btn-ghost btn-sm" style={{ flex: 1, minWidth: 150, justifyContent: 'center' }}>📋 نسخ بيانات الشحنة</button>
+                        <input
+                          value={expanded === order.id ? manualTrk : ''}
+                          onChange={e => setManualTrk(e.target.value)}
+                          placeholder="ألصق رقم التتبع الحقيقي هنا..."
+                          className="input"
+                          style={{ flex: 2, minWidth: 170, fontSize: 12 }}
+                          dir="ltr"
+                        />
+                        <button
+                          onClick={async () => { const t = manualTrk.trim(); if (!t) return; await shipOrder(order.id, order.deliveryProvider || settings.delivery?.defaultProvider, t); setManualTrk(''); setAutoShipState(null); setExpanded(null); }}
+                          disabled={!manualTrk.trim()}
+                          className="btn btn-success btn-sm"
+                          style={{ minWidth: 130, justifyContent: 'center', opacity: manualTrk.trim() ? 1 : 0.5 }}
+                        >✅ حفظ الشحن بالرقم الحقيقي</button>
                       </div>
                     </div>
                   )}
@@ -478,7 +531,7 @@ export default function OrdersPage() {
                     </div>
                     {order.trackingNumber && (
                       <div style={{ padding: '10px 13px', borderRadius: 12, background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.22)' }}>
-                        <p style={{ fontSize: 11, color: '#34d399', fontWeight: 700, marginBottom: 4 }}>رقم التتبع (Auto-Bot)</p>
+                        <p style={{ fontSize: 11, color: '#34d399', fontWeight: 700, marginBottom: 4 }}>رقم التتبع</p>
                         <p style={{ fontSize: 13, fontWeight: 900, fontFamily: 'monospace', color: '#34d399' }}>{order.trackingNumber}</p>
                         <p style={{ fontSize: 11.5, color: 'var(--txt-3)', marginTop: 2 }}>{order.deliveryProvider}</p>
                       </div>
@@ -502,7 +555,7 @@ export default function OrdersPage() {
                     </>)}
                     {order.status === 'approved' && (
                       <button onClick={() => runAutoDeliveryBot(order)} className="btn btn-primary" style={{ flex: 1, justifyContent: 'center', background: 'linear-gradient(90deg, #6366f1, #a855f7)' }}>
-                        <Bot size={15} /> موافقة وتشغيل روبوت التوصيل الآلي
+                        <Bot size={15} /> إنشاء الشحنة عبر الربط الحقيقي (API/Webhook)
                       </button>
                     )}
                     {order.status === 'shipped' && <button onClick={() => { deliverOrder(order.id); setExpanded(null); }} className="btn btn-success" style={{ flex: 1, justifyContent: 'center' }}><Package size={15} /> تأكيد التوصيل</button>}

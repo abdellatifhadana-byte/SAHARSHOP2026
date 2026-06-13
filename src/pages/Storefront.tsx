@@ -32,7 +32,8 @@ interface StoreInfo {
   };
   hcaptchaSiteKey?:string; // حماية البوتات — يظهر الودجت في الدفع إن وُجد
 }
-interface ChatMsg { role:'user'|'ai'; content:string; product?:SProduct; }
+interface ChatSuggestion { id:string; name:string; price:number; emoji?:string; imageUrl?:string; type?:string; }
+interface ChatMsg { role:'user'|'ai'; content:string; product?:SProduct; products?:ChatSuggestion[]; }
 
 // ═══════════════════════════════════════════════════════════════ CONSTANTS
 const MOROCCAN_CITIES = [
@@ -232,8 +233,11 @@ function PageSkeleton() {
       <div style={{width:60,height:60,borderRadius:'50%',background:DS.purpleSoft,display:'flex',alignItems:'center',justifyContent:'center',fontSize:28,animation:'skeletonPulse 1.5s ease infinite',boxShadow:`0 0 40px ${DS.purpleGlow}`}}>
         <ShoppingBag size={24} color={DS.purpleLight}/>
       </div>
+      <div style={{textAlign:'center'}}>
+        <div style={{fontSize:16,fontWeight:900,color:DS.textPrimary}}>مرحباً بك 👋</div>
+        <div style={{fontSize:12,color:DS.textTertiary,marginTop:8,lineHeight:1.8,fontWeight:600}}>جاري تحميل المتجر... من فضلك انتظر قليلاً<br/>نجهّز لك المنتجات والخدمات المتاحة</div>
+      </div>
       <div style={{width:160,height:10,borderRadius:DS.radiusFull,background:DS.bgGlass,animation:'skeletonPulse 1.5s ease infinite'}}/>
-      <div style={{width:100,height:8,borderRadius:DS.radiusFull,background:DS.bgGlass,animation:'skeletonPulse 1.5s ease 0.3s infinite'}}/>
       <style>{`@keyframes skeletonPulse{0%,100%{opacity:0.4}50%{opacity:0.8}}`}</style>
     </div>
   );
@@ -731,9 +735,9 @@ function TrackingModal({userId,storeInfo,onClose}:{userId:string;storeInfo:Store
 }
 
 // ═══════════════════════════════════════════════════════════════ FLOATING CHAT
-function FloatingChat({userId,storeInfo}:{userId:string;storeInfo:StoreInfo}) {
+function FloatingChat({userId,storeInfo,allProducts,onAddToCart,onView}:{userId:string;storeInfo:StoreInfo;allProducts:SProduct[];onAddToCart:(p:SProduct)=>void;onView:(p:SProduct)=>void}) {
   const [open,setOpen]=useState(false);
-  const [msgs,setMsgs]=useState<ChatMsg[]>([{role:'ai',content:`مرحباً! 👋 أنا مساعد ${storeInfo.brand.name||'المتجر'}\nكيف يمكنني مساعدتك؟`}]);
+  const [msgs,setMsgs]=useState<ChatMsg[]>([{role:'ai',content:`مرحباً! 👋 أنا مساعد ${storeInfo.brand.name||'المتجر'}\nنقدر نعاونك تختار منتج أو خدمة، نتبع طلبك، أو نحجز ليك موعد 😊`}]);
   const [input,setInput]=useState('');
   const [loading,setLoading]=useState(false);
   const [unread,setUnread]=useState(0);
@@ -742,7 +746,30 @@ function FloatingChat({userId,storeInfo}:{userId:string;storeInfo:StoreInfo}) {
 
   useEffect(()=>{if(open){setUnread(0);endRef.current?.scrollIntoView();}},[msgs,open]);
 
-  const send=async(msg?:string)=>{const text=msg||input.trim();if(!text)return;setInput('');setMsgs(m=>[...m,{role:'user',content:text}]);setLoading(true);try{const r=await fetch('/api/ai/public-reply',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,history:msgs.slice(-8).map(m=>({role:m.role,content:m.content})),userId})});const d=await r.json();setMsgs(m=>[...m,{role:'ai',content:d.reply,product:d.product}]);if(!open)setUnread(n=>n+1);}catch{setMsgs(m=>[...m,{role:'ai',content:'عذراً، حدث خطأ. حاول مرة أخرى.'}]);}setLoading(false);};
+  const send=async(msg?:string)=>{const text=msg||input.trim();if(!text)return;setInput('');setMsgs(m=>[...m,{role:'user',content:text}]);setLoading(true);try{const r=await fetch('/api/ai/public-reply',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,history:msgs.slice(-8).map(m=>({role:m.role,content:m.content})),userId})});const d=await r.json();setMsgs(m=>[...m,{role:'ai',content:d.reply,product:d.product,products:d.products}]);if(!open)setUnread(n=>n+1);}catch{setMsgs(m=>[...m,{role:'ai',content:'عذراً، حدث خطأ. حاول مرة أخرى.'}]);}setLoading(false);};
+
+  // بطاقة منتج/خدمة مقترَح داخل المحادثة — «سلة جاهزة بضغطة»
+  const SuggCard=({s}:{s:ChatSuggestion})=>{
+    const full=allProducts.find(p=>p.id===s.id);
+    const isSvc=s.type==='service';
+    return (
+      <div style={{display:'flex',alignItems:'center',gap:8,padding:'7px 9px',borderRadius:DS.radiusSm,background:'rgba(255,255,255,0.04)',border:DS.glassBorder,marginTop:6}}>
+        {s.imageUrl
+          ? <img src={s.imageUrl} alt={s.name} style={{width:34,height:34,borderRadius:8,objectFit:'cover',flexShrink:0}}/>
+          : <div style={{width:34,height:34,borderRadius:8,background:DS.bgGlass,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,flexShrink:0}}>{s.emoji||(isSvc?'🛠️':'📦')}</div>}
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontSize:10,fontWeight:800,color:DS.textPrimary,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{s.name}</div>
+          <div style={{fontSize:10,color:DS.orange,fontWeight:700}}>{s.price} {storeInfo.brand.currency||'MAD'}</div>
+        </div>
+        {full&&(
+          <button onClick={()=>{setOpen(false);isSvc?onView(full):onAddToCart(full);}}
+            style={{flexShrink:0,padding:'5px 10px',borderRadius:DS.radiusFull,background:`linear-gradient(135deg, ${DS.purple}, ${DS.purpleLight})`,border:'none',color:'#fff',fontSize:9.5,fontWeight:800,cursor:'pointer',fontFamily:'inherit'}}>
+            {isSvc?'📅 احجز':'🛒 أضف للسلة'}
+          </button>
+        )}
+      </div>
+    );
+  };
 
   return (<>
     <button onClick={()=>setOpen(v=>!v)} style={{width:52,height:52,borderRadius:'50%',background:`linear-gradient(135deg, ${DS.purple}, ${DS.purpleLight})`,border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:`0 8px 32px ${DS.purpleGlow}`,position:'fixed',bottom:28,left:20,zIndex:150,color:'#fff',transition:DS.transitionFast}}>
@@ -752,8 +779,8 @@ function FloatingChat({userId,storeInfo}:{userId:string;storeInfo:StoreInfo}) {
     {open&&(
       <div style={{position:'fixed',bottom:92,left:16,right:16,maxWidth:380,marginLeft:'auto',background:`linear-gradient(180deg, rgba(20,20,40,0.98), rgba(10,10,20,0.98))`,backdropFilter:DS.glassBlur,border:`1px solid ${DS.border}`,borderRadius:DS.radiusLg,boxShadow:DS.glassShadowHover,zIndex:200,overflow:'hidden',display:'flex',flexDirection:'column',maxHeight:440}}>
         <div style={{padding:'14px 16px',background:`linear-gradient(135deg, ${DS.purple}, ${DS.purpleLight})`,display:'flex',alignItems:'center',gap:10}}><div style={{width:32,height:32,borderRadius:'50%',background:'rgba(255,255,255,0.15)',display:'flex',alignItems:'center',justifyContent:'center'}}><Bot size={14}/></div><div><div style={{fontSize:12,fontWeight:700}}>مساعد {storeInfo.brand.name}</div><div style={{fontSize:9,opacity:0.7}}>AI · متاح الآن</div></div><button onClick={()=>setOpen(false)} style={{marginRight:'auto',background:'none',border:'none',color:'rgba(255,255,255,0.7)',cursor:'pointer'}}><X size={14}/></button></div>
-        <div style={{flex:1,overflow:'auto',padding:'10px',display:'flex',flexDirection:'column',gap:8}}>{msgs.map((m,i)=><div key={i} style={{maxWidth:'85%',alignSelf:m.role==='user'?'flex-end':'flex-start'}}><div style={{padding:'8px 12px',borderRadius:DS.radiusSm,background:m.role==='user'?`linear-gradient(135deg, ${DS.purple}, ${DS.purpleLight})`:DS.glassBg,border:m.role==='user'?'none':DS.glassBorder,color:'#fff',fontSize:11,lineHeight:1.5,whiteSpace:'pre-wrap'}}>{m.content}</div></div>)}{loading&&<div style={{padding:'8px 12px',borderRadius:DS.radiusSm,background:DS.glassBg,color:DS.textTertiary,fontSize:11,alignSelf:'flex-start'}}>يكتب...</div>}<div ref={endRef}/></div>
-        <div style={{padding:'6px 10px',display:'flex',gap:4,flexWrap:'wrap',borderTop:`1px solid ${DS.border}`}}>{['المنتجات','التوصيل','تتبع طلبي'].map(q=><button key={q} onClick={()=>send(q)} style={{fontSize:9,padding:'4px 10px',borderRadius:DS.radiusFull,background:DS.bgGlass,border:DS.glassBorder,color:DS.textSecondary,cursor:'pointer'}}>{q}</button>)}</div>
+        <div style={{flex:1,overflow:'auto',padding:'10px',display:'flex',flexDirection:'column',gap:8}}>{msgs.map((m,i)=><div key={i} style={{maxWidth:'85%',alignSelf:m.role==='user'?'flex-end':'flex-start'}}><div style={{padding:'8px 12px',borderRadius:DS.radiusSm,background:m.role==='user'?`linear-gradient(135deg, ${DS.purple}, ${DS.purpleLight})`:DS.glassBg,border:m.role==='user'?'none':DS.glassBorder,color:'#fff',fontSize:11,lineHeight:1.5,whiteSpace:'pre-wrap'}}>{m.content}</div>{m.products?.map(s=><SuggCard key={s.id} s={s}/>)}</div>)}{loading&&<div style={{padding:'8px 12px',borderRadius:DS.radiusSm,background:DS.glassBg,color:DS.textTertiary,fontSize:11,alignSelf:'flex-start'}}>يكتب...</div>}<div ref={endRef}/></div>
+        <div style={{padding:'6px 10px',display:'flex',gap:4,flexWrap:'wrap',borderTop:`1px solid ${DS.border}`}}>{['المنتجات','الخدمات','تتبع طلبي','التوصيل'].map(q=><button key={q} onClick={()=>send(q)} style={{fontSize:9,padding:'4px 10px',borderRadius:DS.radiusFull,background:DS.bgGlass,border:DS.glassBorder,color:DS.textSecondary,cursor:'pointer'}}>{q}</button>)}</div>
         <div style={{padding:'8px 10px',borderTop:`1px solid ${DS.border}`,display:'flex',gap:8}}><input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&!e.shiftKey&&send()} placeholder="اكتب سؤالك..." style={{flex:1,padding:'8px 12px',fontSize:11,borderRadius:DS.radiusFull,border:DS.glassBorder,background:DS.bgInput,color:DS.textPrimary,outline:'none',fontFamily:'Tajawal,sans-serif'}}/><button onClick={()=>send()} disabled={!input.trim()||loading} style={{width:32,height:32,borderRadius:'50%',background:`linear-gradient(135deg, ${DS.purple}, ${DS.purpleLight})`,border:'none',color:'#fff',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',opacity:(!input.trim()||loading)?0.5:1}}><Send size={11}/></button></div>
       </div>
     )}
@@ -824,7 +851,9 @@ export default function Storefront() {
       <LuckyWheel userId={userId} open={showWheel} onClose={()=>setShowWheel(false)}/>
       {showCart&&<CartSidebar cart={cart} storeInfo={storeInfo!} userId={userId} onClose={()=>setShowCart(false)} onOrderSuccess={id=>{setSuccessOrderId(id);setShowCart(false);}}/>}
       {showTrack&&<TrackingModal userId={userId} storeInfo={storeInfo!} onClose={()=>setShowTrack(false)}/>}
-      <FloatingChat userId={userId} storeInfo={storeInfo!}/>
+      <FloatingChat userId={userId} storeInfo={storeInfo!} allProducts={products}
+        onAddToCart={p=>{cart.add(p,'','');setShowCart(true);}}
+        onView={p=>setViewProduct(p)}/>
     </div>
   );
 }

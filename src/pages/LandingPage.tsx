@@ -141,9 +141,25 @@ export default function LandingPage() {
           <span style={{ color: '#00D2B3', display: 'block' }}>{t(lang, 'landing.hero.title2')}</span>
         </h1>
 
-        <p style={{ fontSize: 'clamp(13px, 2vw, 16px)', color: 'rgba(255,255,255,0.4)', maxWidth: 460, margin: '0 auto 0', lineHeight: 1.7 }}>
-          {t(lang, lang === 'ar' ? 'landing.customer.desc' : 'landing.merchant.desc')}
+        <p style={{ fontSize: 'clamp(13px, 2vw, 16px)', color: 'rgba(255,255,255,0.4)', maxWidth: 520, margin: '0 auto 0', lineHeight: 1.7 }}>
+          {t(lang, 'landing.hero.sub')}
         </p>
+      </section>
+
+      {/* ── PILLARS: منتجات · خدمات · مواعيد · توصيل ── */}
+      <section style={{ maxWidth: 780, margin: '0 auto', padding: '0 24px 44px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(165px, 1fr))', gap: 12, animation: loaded ? 'fadeUp 0.7s 0.2s ease both' : 'none' }}>
+        {([
+          { icon: '🛍️', k: 'products', color: '#FF6A00' },
+          { icon: '🛠️', k: 'services', color: '#00D2B3' },
+          { icon: '📅', k: 'booking',  color: '#a78bfa' },
+          { icon: '🚚', k: 'delivery', color: '#60a5fa' },
+        ] as const).map(p => (
+          <div key={p.k} className="hover-lift" style={{ padding: '20px 16px', borderRadius: 18, background: `${p.color}08`, border: `1px solid ${p.color}26`, textAlign: 'center' }}>
+            <div style={{ fontSize: 26, marginBottom: 8 }}>{p.icon}</div>
+            <div style={{ fontSize: 14, fontWeight: 900, color: p.color, marginBottom: 6 }}>{t(lang, `landing.pillar.${p.k}`)}</div>
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', lineHeight: 1.7, fontWeight: 500 }}>{t(lang, `landing.pillar.${p.k}.d`)}</div>
+          </div>
+        ))}
       </section>
 
       {/* ── WHO IS THIS FOR ── */}

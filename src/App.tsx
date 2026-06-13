@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { useStore } from './store';
 import AuthPage              from './pages/AuthPage';
@@ -32,6 +32,49 @@ const PAGE_URLS: Record<string, string> = {
 const URL_PAGES: Record<string, string> = Object.fromEntries(
   Object.entries(PAGE_URLS).map(([k, v]) => [v, k])
 );
+
+// رسائل تحميل سياقية — كل صفحة تشرح ماذا يجري فعلاً أثناء جلب بياناتها
+const LOADING_MSGS: Record<string, [string, string]> = {
+  dashboard:     ['مرحباً بعودتك 👋', 'نجلب طلباتك وإحصائياتك الحية...'],
+  products:      ['جاري تحميل منتجاتك وخدماتك...', 'نجهّز الكتالوج والمخزون والحجوزات'],
+  services:      ['جاري تحميل خدماتك...', 'نجهّز قائمة الخدمات وتقويم الحجوزات'],
+  orders:        ['جاري تحميل الطلبات...', 'نجلب أحدث الطلبات وحالاتها'],
+  conversations: ['جاري تحميل المحادثات...', 'نجلب رسائل زبائنك'],
+  customers:     ['جاري تحميل الزبائن...', 'نجلب قائمة زبائنك وبياناتهم'],
+  analytics:     ['جاري تحميل التحليلات...', 'نحسب الزيارات والمشاهدات والمبيعات'],
+  insights:      ['جاري تحميل الأداء...', 'نحلل أرقام متجرك'],
+  connections:   ['جاري تحميل الاتصالات...', 'نتحقق من الخدمات المربوطة بمتجرك'],
+  delivery:      ['جاري تحميل التوصيل...', 'نجلب شركات الشحن وسجل الشحنات'],
+  coupons:       ['جاري تحميل الكوبونات...', 'نجلب أكواد الخصم والعروض'],
+  settings:      ['جاري تحميل الإعدادات...', 'نجلب إعدادات متجرك المحفوظة'],
+};
+
+// سبلاش الشعار — يظهر مرة واحدة في الجلسة ثم يختفي ويكشف التطبيق
+function SplashScreen() {
+  const [phase, setPhase] = useState<'show' | 'fade' | 'done'>(() => {
+    try { return sessionStorage.getItem('sahar_splash') ? 'done' : 'show'; } catch { return 'show'; }
+  });
+  useEffect(() => {
+    if (phase !== 'show') return;
+    const t1 = setTimeout(() => setPhase('fade'), 1500);
+    const t2 = setTimeout(() => { try { sessionStorage.setItem('sahar_splash', '1'); } catch {} setPhase('done'); }, 2100);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [phase]);
+  if (phase === 'done') return null;
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 99999, background: '#0A0A0F', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 18, opacity: phase === 'fade' ? 0 : 1, transition: 'opacity 0.6s ease', pointerEvents: phase === 'fade' ? 'none' : 'auto' }}>
+      <style>{`@keyframes splashLogo{0%{transform:scale(.6);opacity:0}60%{transform:scale(1.06);opacity:1}100%{transform:scale(1)}}@keyframes splashGlow{0%,100%{box-shadow:0 0 30px rgba(255,106,0,.25)}50%{box-shadow:0 0 70px rgba(255,106,0,.5)}}@keyframes splashText{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}`}</style>
+      <div style={{ width: 92, height: 92, borderRadius: 26, overflow: 'hidden', background: 'rgba(255,106,0,0.08)', border: '2px solid rgba(255,106,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'splashLogo .9s cubic-bezier(.16,1,.3,1) both, splashGlow 2s ease infinite' }}>
+        <img src="/icon-512.png" alt="SAHAR" style={{ width: '78%', height: '78%', objectFit: 'contain' }}
+          onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; (e.currentTarget.parentElement as HTMLElement).innerHTML = '<span style="font-size:40px;font-weight:900;color:#FF6A00">S</span>'; }} />
+      </div>
+      <div style={{ textAlign: 'center', animation: 'splashText .7s .35s ease both' }}>
+        <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: '-0.02em', color: '#FAFAFA', fontFamily: 'Tajawal, system-ui, sans-serif' }}><span style={{ color: '#FF6A00' }}>SAHAR</span> shop</div>
+        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', marginTop: 6, fontWeight: 600, fontFamily: 'Tajawal, system-ui, sans-serif' }}>منصة المغرب الذكية للبيع والخدمات والحجوزات</div>
+      </div>
+    </div>
+  );
+}
 
 function getSeasonalTheme(): string {
   const m = new Date().getMonth();
@@ -90,12 +133,15 @@ function AppShell() {
   // الإعدادات الحقيقية من الخادم، حتى لا يُعاد الإعداد الأولي على جهاز جديد
   // فتُكتب القيم الافتراضية فوق إعدادات المتجر المحفوظة (مسح الإعدادات).
   if (token && !isDemoMode && !isPublicRoute && isLoading) {
+    const pageKey = URL_PAGES[location.pathname] || '';
+    const [msgTitle, msgSub] = LOADING_MSGS[pageKey] || ['مرحباً بعودتك 👋', 'جاري تحميل متجرك... نجلب بياناتك المحفوظة'];
     return (
       <>
         <ThemeManager />
-        <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14 }}>
+        <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, padding: 24, textAlign: 'center' }}>
           <div className="spin" style={{ width: 34, height: 34, border: '3px solid var(--border2)', borderTopColor: 'var(--ember)', borderRadius: '50%' }} />
-          <div style={{ fontSize: 13, color: 'var(--ink3)', fontWeight: 600 }}>جارٍ تحميل متجرك...</div>
+          <div style={{ fontSize: 15, color: 'var(--ink1)', fontWeight: 800 }}>{msgTitle}</div>
+          <div style={{ fontSize: 12, color: 'var(--ink3)', fontWeight: 600, marginTop: -6 }}>{msgSub}</div>
         </div>
       </>
     );
@@ -156,5 +202,10 @@ function AppShell() {
 }
 
 export default function App() {
-  return <AppShell />;
+  return (
+    <>
+      <SplashScreen />
+      <AppShell />
+    </>
+  );
 }

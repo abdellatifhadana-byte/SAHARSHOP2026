@@ -40,6 +40,23 @@ router.post('/create/:orderId', auth, async (req, res) => {
     const tracking = 'TRK-' + crypto.randomBytes(3).toString('hex').toUpperCase();
     // نتتبع سبب فشل كل طريقة حقيقية حتى يعرف التاجر لماذا انتهى الأمر بالمحاكاة
     const failures = [];
+    // كل خطوة هنا تقابل حدثاً وقع فعلاً — لا خطوات تمثيلية
+    const steps = [{
+      label: 'تجهيز بيانات الشحنة',
+      ok: true,
+      detail: `${order.customerName} · ${order.customerPhone} · ${order.city} · COD ${order.total} ${settings.brand?.currency || 'MAD'}`,
+    }];
+    // نص جاهز للنسخ — للإدخال اليدوي في موقع أي شركة بدون API
+    const manualCopy = [
+      `الاسم: ${order.customerName}`,
+      `الهاتف: ${order.customerPhone}`,
+      `المدينة: ${order.city}`,
+      `العنوان: ${order.address}`,
+      `المنتجات: ${(order.items || []).map(i => `${i.productName} ×${i.quantity}`).join('، ')}`,
+      `المبلغ عند الاستلام (COD): ${order.total} ${settings.brand?.currency || 'MAD'}`,
+      `مرجع الطلب: ${order.customerCode || order.id}`,
+    ].join('\n');
+    const openUrl = prov.addOrderPage || prov.websiteUrl || '';
 
     // ── Amana API ──────────────────────────────────────────────────
     if (prov.apiType === 'amana' && prov.apiKey) {
@@ -59,13 +76,16 @@ router.post('/create/:orderId', auth, async (req, res) => {
         }, payload);
         const data = JSON.parse(result);
         const realTracking = data.trackingNumber || data.tracking_number || tracking;
+        steps.push({ label: `إرسال بيانات الشحنة إلى ${prov.name} (Amana API)`, ok: true, detail: `POST ${prov.apiEndpoint || 'api.amana.ma'}/api/v1/parcels` });
+        steps.push({ label: 'استلام رقم التتبع من الشركة', ok: true, detail: realTracking });
         await db.updateOrder(order.id, { status: 'processing', trackingNumber: realTracking, deliveryProvider: prov.name });
         await db.addLog({ userId: req.user.id, user: 'System', action: `✅ شحنة حقيقية عبر Amana API: ${order.id}`, details: `تتبع: ${realTracking}`, type: 'delivery', severity: 'success' });
         await db.addNotification({ userId: req.user.id, type: 'success', message: `📦 أُنشئت شحنة حقيقية لدى ${prov.name} — تتبع: ${realTracking}` });
-        return res.json({ success: true, tracking: realTracking, provider: prov.name, real: true, via: 'amana-api' });
+        return res.json({ success: true, tracking: realTracking, provider: prov.name, real: true, via: 'amana-api', steps, manual: { copyText: manualCopy, openUrl } });
       } catch (e) {
         console.warn('[Delivery/Amana]', e.message);
         failures.push(`Amana API: ${e.message}`);
+        steps.push({ label: `إرسال بيانات الشحنة إلى ${prov.name} (Amana API)`, ok: false, error: e.message });
       }
     }
 
@@ -87,13 +107,16 @@ router.post('/create/:orderId', auth, async (req, res) => {
         }, payload);
         const data = JSON.parse(result);
         const realTracking = data.tracking || data.code || tracking;
+        steps.push({ label: `إرسال بيانات الشحنة إلى ${prov.name} (Jibli API)`, ok: true, detail: `POST ${prov.apiEndpoint || 'api.jibli.ma'}/v1/orders/create` });
+        steps.push({ label: 'استلام رقم التتبع من الشركة', ok: true, detail: realTracking });
         await db.updateOrder(order.id, { status: 'processing', trackingNumber: realTracking, deliveryProvider: prov.name });
         await db.addLog({ userId: req.user.id, user: 'System', action: `✅ شحنة حقيقية عبر Jibli API: ${order.id}`, details: `تتبع: ${realTracking}`, type: 'delivery', severity: 'success' });
         await db.addNotification({ userId: req.user.id, type: 'success', message: `📦 أُنشئت شحنة حقيقية لدى ${prov.name} — تتبع: ${realTracking}` });
-        return res.json({ success: true, tracking: realTracking, provider: prov.name, real: true, via: 'jibli-api' });
+        return res.json({ success: true, tracking: realTracking, provider: prov.name, real: true, via: 'jibli-api', steps, manual: { copyText: manualCopy, openUrl } });
       } catch (e) {
         console.warn('[Delivery/Jibli]', e.message);
         failures.push(`Jibli API: ${e.message}`);
+        steps.push({ label: `إرسال بيانات الشحنة إلى ${prov.name} (Jibli API)`, ok: false, error: e.message });
       }
     }
 
@@ -120,21 +143,25 @@ router.post('/create/:orderId', auth, async (req, res) => {
           'X-Webhook-Secret': prov.apiKey || '',
         }, payload);
         await db.updateOrder(order.id, { status: 'processing', trackingNumber: tracking, deliveryProvider: prov.name });
+        steps.push({ label: `إرسال الطلب إلى نظام ${prov.name} (Webhook)`, ok: true, detail: u.hostname });
         await db.addLog({ userId: req.user.id, user: 'System', action: `✅ شحنة حقيقية عبر Webhook: ${order.id}`, details: `تتبع: ${tracking}`, type: 'delivery', severity: 'success' });
         await db.addNotification({ userId: req.user.id, type: 'success', message: `📦 أُرسل الطلب لنظام ${prov.name} عبر Webhook — تتبع: ${tracking}` });
-        return res.json({ success: true, tracking, provider: prov.name, real: true, via: 'webhook' });
+        return res.json({ success: true, tracking, provider: prov.name, real: true, via: 'webhook', steps, manual: { copyText: manualCopy, openUrl } });
       } catch (e) {
         console.warn('[Delivery/Webhook]', e.message);
         failures.push(`Webhook: ${e.message}`);
+        steps.push({ label: `إرسال الطلب إلى نظام ${prov.name} (Webhook)`, ok: false, error: e.message });
       }
     }
 
     // ── Simulation fallback — محاكاة فقط، لم يُرسل شيء للشركة ─────────
     const why = failures.length ? failures.join(' · ') : 'لا يوجد مفتاح API أو Webhook مهيأ لهذه الشركة';
+    if (!failures.length) steps.push({ label: `لا قناة ربط حقيقية مهيأة لشركة ${prov.name}`, ok: false, error: 'أضف مفتاح API أو Webhook من صفحة التوصيل، أو استخدم الإدخال اليدوي' });
+    steps.push({ label: 'توليد رقم تتبع داخلي (محاكاة — لم يصل للشركة)', ok: true, detail: tracking });
     await db.updateOrder(order.id, { status: 'processing', trackingNumber: tracking, deliveryProvider: prov.name });
     await db.addLog({ userId: req.user.id, user: 'System', action: `⚠️ محاكاة (لم يُرسل فعلياً): ${order.id}`, details: `${prov.name} — ${tracking} — السبب: ${why}`, type: 'delivery', severity: 'warning' });
     await db.addNotification({ userId: req.user.id, type: 'warning', message: `⚠️ طلب ${order.id}: لم يُرسل لشركة ${prov.name} — أدخله يدوياً في موقعها (السبب: ${why})` });
-    res.json({ success: true, tracking, provider: prov.name, real: false, apiError: why, openUrl: prov.addOrderPage || prov.websiteUrl });
+    res.json({ success: true, tracking, provider: prov.name, real: false, apiError: why, openUrl, steps, manual: { copyText: manualCopy, openUrl } });
   } catch (e) { console.error('[delivery/create]', e.message); res.status(500).json({ error: 'Server error' }); }
 });
 
