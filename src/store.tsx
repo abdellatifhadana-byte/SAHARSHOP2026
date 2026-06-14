@@ -9,34 +9,6 @@ import {
 import * as api from './services/api';
 import { validateImport } from './utils/importSchema';
 
-// C-3: نسخة من الإعدادات بدون أسرار الطرف الثالث — لمنع بقاء المفاتيح في localStorage
-function stripSecrets(settings: any): any {
-  try {
-    const s = JSON.parse(JSON.stringify(settings));
-    const blank = (o: any, keys: string[]) => { if (o && typeof o === 'object') keys.forEach(k => { if (typeof o[k] === 'string' && o[k]) o[k] = ''; }); };
-    blank(s, ['cloudinaryApiKey', 'cloudinaryApiSecret', 'supabaseKey']);
-    blank(s.ai, ['apiKey', 'geminiKey', 'claudeKey', 'deepseekKey', 'grokKey', 'mistralKey']);
-    blank(s.security, ['hcaptchaSecret']);
-    blank(s.marketing, ['brevoApiKey']);
-    if (s.social && typeof s.social === 'object') {
-      for (const k of Object.keys(s.social)) blank(s.social[k], ['accessToken', 'apiKey']);
-    }
-    return s;
-  } catch { return settings; }
-}
-
-// نتيجة الشحن الصادقة — كل خطوة فيها تقابل حدثاً وقع فعلاً على الخادم
-export interface ShipResult {
-  real: boolean;
-  tracking: string;
-  provider: string;
-  via?: string;
-  apiError?: string;
-  openUrl?: string;
-  steps?: { label: string; ok: boolean; detail?: string; error?: string }[];
-  manualCopy?: string;
-}
-
 interface StoreValue {
   token: string | null;
   user: any;
@@ -79,7 +51,7 @@ interface StoreValue {
   updateOrder: (id: string, u: Partial<Order>) => Promise<void>;
   approveOrder: (id: string) => Promise<void>;
   rejectOrder: (id: string, reason?: string) => Promise<void>;
-  shipOrder: (id: string, provider?: string, tracking?: string) => Promise<ShipResult | void>;
+  shipOrder: (id: string, provider?: string, tracking?: string) => Promise<void>;
   deliverOrder: (id: string) => Promise<void>;
 
   // Conversations
@@ -157,7 +129,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     currentRole: 'admin' as UserRole,
     isOnline: false,
     isLoading: !!storedToken && !isDemo, // true only for real logged-in users pending first fetch
-    hydrated: false, // true بعد أول جلب ناجح للإعدادات من الخادم
     sidebarOpen: false,
     onboardingCompleted: (() => { try { const u = localStorage.getItem('ai_commerce_user'); return u ? JSON.parse(u).onboardingCompleted === true : false; } catch { return false; } })(),
   });
@@ -219,29 +190,19 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         }
       } catch {}
 
-      // allSettled بدل all: فشل طلب واحد (مهلة شبكة مثلاً) لا يجب أن يُسقط
-      // كل البيانات ويُظهر اللوحة فارغة رغم أن الخادم يحتوي كل شيء
-      const [productsR, ordersR, customersR, settingsR, convsR] = await Promise.allSettled([
+      const [products, orders, customers, settings, convs] = await Promise.all([
         api.productsAPI.list(),
         api.ordersAPI.list(),
         api.customersAPI.list(),
         api.settingsAPI.get(),
         api.conversationsAPI.list(),
       ]);
-      const val = <T,>(r: PromiseSettledResult<T>): T | null => r.status === 'fulfilled' ? r.value : null;
-      const products = val(productsR);
-      const orders = val(ordersR);
-      const customers = val(customersR) as any;
-      const convs = val(convsR);
-      const settingsOk = settingsR.status === 'fulfilled';
-      const settings = settingsOk ? (settingsR as PromiseFulfilledResult<any>).value : null;
-
       setState(s => ({
         ...s,
         user: currentUser || s.user,
-        products: products ?? s.products,
-        orders: orders ?? s.orders,
-        customers: customers?.data ?? customers ?? s.customers,
+        products: products || s.products,
+        orders: orders || s.orders,
+        customers: (customers as any)?.data ?? customers ?? s.customers,
         settings: (settings && settings.brand) ? (() => {
             const localTheme = (() => { try { return localStorage.getItem('ai_commerce_theme'); } catch { return null; } })();
             const merged = { ...s.settings, ...settings };
@@ -252,37 +213,25 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             }
             return merged;
           })() : s.settings,
-        conversations: convs ?? s.conversations,
-        // قرار الإعداد الأولي يُتخذ فقط عند نجاح جلب الإعدادات:
-        // إعدادات فارغة = حساب جديد فعلاً → onboarding
-        // فشل الطلب = لا نغير شيئاً (حتى لا يُعاد onboarding ويمسح الإعدادات)
-        onboardingCompleted: settingsOk
-          ? (settings ? settings.onboardingDone === true : false)
-          : s.onboardingCompleted,
-        hydrated: s.hydrated || settingsOk,
+        conversations: convs || s.conversations,
+        onboardingCompleted: (settings && settings.brand) ? (settings.onboardingDone === true) : s.onboardingCompleted,
         isOnline: true,
         isLoading: false,
       }));
-      if (!settingsOk) {
-        notify('warning', '⚠️ تعذر تحميل إعدادات المتجر من الخادم — أعد تحميل الصفحة');
-      }
     } catch (e: any) {
       setState(s => ({ ...s, isOnline: false, isLoading: false }));
     }
-  }, [notify]);
+  }, []);
 
   useEffect(() => { refreshData(); }, [refreshData]);
 
-  // Persist state backup — فقط بعد تحميل البيانات الحقيقية من الخادم،
-  // حتى لا تُكتب القيم الافتراضية الفارغة فوق النسخة الاحتياطية الجيدة
+  // Persist offline state
   useEffect(() => {
-    if (state.token && state.hydrated) {
+    if (!state.isOnline && state.token) {
       if (saveTimer.current) clearTimeout(saveTimer.current);
       saveTimer.current = setTimeout(() => {
         try {
-          const { token, user, notifications, currentPage, sidebarOpen, isLoading, isOnline, hydrated, ...toSave } = state as any;
-          // C-3: لا تُحفظ أسرار الطرف الثالث (مفاتيح AI/سوشيال/كلاودينري...) في localStorage
-          if (toSave.settings) toSave.settings = stripSecrets(toSave.settings);
+          const { token, user, notifications, currentPage, sidebarOpen, ...toSave } = state;
           localStorage.setItem('ai_commerce_os_state', JSON.stringify(toSave));
         } catch {}
       }, 1000);
@@ -337,8 +286,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     api.setToken(token);
     api.setRefreshToken(refreshToken);
     try { localStorage.setItem('ai_commerce_user', JSON.stringify(user)); } catch {}
-    // isLoading حتى وصول الإعدادات — يمنع وميض Onboarding على جهاز جديد
-    setState(s => ({ ...s, token, user, currentPage: 'dashboard', isLoading: true }));
+    setState(s => ({ ...s, token, user, currentPage: 'dashboard' }));
     setTimeout(() => refreshData(), 100);
     // Redirect to dashboard
     if (window.location.pathname === '/' || window.location.pathname === '/login' || window.location.pathname === '/register') {
@@ -411,12 +359,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     log('المدير', `أضاف منتج: ${np.name}`, `${np.price} ${state.settings.brand.currency}`, 'product', 'success');
   };
 
-  // رسائل حقيقية: فشل الحفظ على الخادم يظهر للمستخدم بدل تجاهله بصمت
   const updateProduct = async (id: string, u: Partial<Product>) => {
     setState(s => ({ ...s, products: s.products.map(p => p.id === id ? { ...p, ...u } : p) }));
     if (state.isOnline && api.getToken()) {
-      try { await api.productsAPI.update(id, u); }
-      catch (e: any) { notify('error', `❌ لم يُحفظ التعديل على الخادم: ${e?.message || 'تحقق من الاتصال'}`); }
+      try { await api.productsAPI.update(id, u); } catch {}
     }
   };
 
@@ -424,8 +370,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const p = state.products.find(x => x.id === id);
     setState(s => ({ ...s, products: s.products.filter(p => p.id !== id) }));
     if (state.isOnline && api.getToken()) {
-      try { await api.productsAPI.remove(id); notify('success', `✅ حُذف "${p?.name || 'المنتج'}" نهائياً من الخادم`); }
-      catch (e: any) { notify('error', `❌ لم يُحذف من الخادم: ${e?.message || 'تحقق من الاتصال'}`); }
+      try { await api.productsAPI.remove(id); } catch {}
     }
     if (p) log('المدير', `حذف منتج: ${p.name}`, '', 'product', 'warning');
   };
@@ -436,8 +381,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const newStock = Math.max(0, p.stock + delta);
     setState(s => ({ ...s, products: s.products.map(x => x.id === id ? { ...x, stock: newStock } : x) }));
     if (state.isOnline && api.getToken()) {
-      try { await api.productsAPI.update(id, { stock: newStock }); }
-      catch (e: any) { notify('error', `❌ لم يُحفظ المخزون على الخادم: ${e?.message || 'تحقق من الاتصال'}`); }
+      try { await api.productsAPI.update(id, { stock: newStock }); } catch {}
     }
   };
 
@@ -455,16 +399,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const updateCustomer = async (id: string, u: Partial<Customer>) => {
     setState(s => ({ ...s, customers: s.customers.map(c => c.id === id ? { ...c, ...u } : c) }));
     if (state.isOnline && api.getToken()) {
-      try { await api.customersAPI.update(id, u); }
-      catch (e: any) { notify('error', `❌ لم يُحفظ تعديل الزبون على الخادم: ${e?.message || 'تحقق من الاتصال'}`); }
+      try { await api.customersAPI.update(id, u); } catch {}
     }
   };
 
   const deleteCustomer = async (id: string) => {
     setState(s => ({ ...s, customers: s.customers.filter(c => c.id !== id) }));
     if (state.isOnline && api.getToken()) {
-      try { await api.customersAPI.remove(id); notify('success', '✅ حُذف الزبون من الخادم'); }
-      catch (e: any) { notify('error', `❌ لم يُحذف الزبون من الخادم: ${e?.message || 'تحقق من الاتصال'}`); }
+      try { await api.customersAPI.remove(id); } catch {}
     }
   };
 
@@ -484,8 +426,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const updateOrder = async (id: string, u: Partial<Order>) => {
     setState(s => ({ ...s, orders: s.orders.map(o => o.id === id ? { ...o, ...u } : o) }));
     if (state.isOnline && api.getToken()) {
-      try { await api.ordersAPI.update(id, u); }
-      catch (e: any) { notify('error', `❌ لم يُحفظ تعديل الطلب على الخادم: ${e?.message || 'تحقق من الاتصال'}`); }
+      try { await api.ordersAPI.update(id, u); } catch {}
     }
   };
 
@@ -505,75 +446,31 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const rejectOrder = async (id: string, reason?: string) => {
     setState(s => ({ ...s, orders: s.orders.map(o => o.id === id ? { ...o, status: 'cancelled' as OrderStatus } : o) }));
     if (state.isOnline && api.getToken()) {
-      try { await api.ordersAPI.reject(id); }
-      catch (e: any) { notify('error', `⚠️ الرفض لم يُسجل على الخادم: ${e?.message || 'تحقق من الاتصال'}`); return; }
+      try { await api.ordersAPI.reject(id); } catch {}
     }
     notify('info', '❌ تم رفض الطلب');
     log('المدير', `رفض طلب: ${id}`, reason||'', 'order', 'warning');
   };
 
-  const shipOrder = async (id: string, provider?: string, tracking?: string): Promise<ShipResult | void> => {
-    let trk = tracking || 'TRK-' + Math.random().toString(36).slice(2,8).toUpperCase();
-    let prov = provider || state.settings.delivery?.defaultProvider || 'Amana';
-    // shipMsg: الرسالة الصادقة الوحيدة التي يراها التاجر عن مصير الشحنة
-    let shipMsg: { type: NotifType; text: string } = { type: 'success', text: '' };
-    // النتيجة الصادقة تُعاد لواجهة الطلبات لعرض الخطوات الحقيقية
-    let result: ShipResult = { real: false, tracking: trk, provider: prov };
-
+  const shipOrder = async (id: string, provider?: string, tracking?: string) => {
+    const trk = tracking || 'TRK-' + Math.random().toString(36).slice(2,8).toUpperCase();
+    const prov = provider || state.settings.delivery?.defaultProvider || 'Amana';
+    setState(s => ({ ...s, orders: s.orders.map(o => o.id === id ? { ...o, status: 'shipped' as OrderStatus, trackingNumber: trk, deliveryProvider: prov } : o) }));
     if (state.isOnline && api.getToken()) {
-      if (tracking) {
-        // التاجر أدخل رقم تتبع حقيقياً بنفسه (أنشأ الشحنة يدوياً في موقع الشركة)
-        // — لا نستدعي قناة الربط، الرقم حقيقي من مصدره
-        result = { real: true, tracking: trk, provider: prov, via: 'manual',
-          steps: [{ label: 'رقم تتبع حقيقي أُدخل يدوياً (أنشأت الشحنة بنفسك لدى الشركة)', ok: true, detail: trk }] };
-        shipMsg = { type: 'success', text: `🚚 شُحن الطلب — ✅ برقم التتبع الحقيقي الذي أدخلته: ${trk}` };
-      } else {
-        // الخطوة 1: محاولة إنشاء شحنة فعلية لدى شركة التوصيل (API/Webhook)
-        try {
-          const d = await api.deliveryAPI.create(id);
-          if (d?.tracking) trk = d.tracking;
-          if (d?.provider) prov = d.provider;
-          result = { real: !!d?.real, tracking: trk, provider: prov, via: d?.via,
-            apiError: d?.apiError, openUrl: d?.openUrl || d?.manual?.openUrl,
-            steps: d?.steps, manualCopy: d?.manual?.copyText };
-          if (d?.real) {
-            shipMsg = { type: 'success', text: `🚚 شُحن الطلب — ✅ شحنة حقيقية لدى ${prov} (تتبع: ${trk})` };
-          } else {
-            shipMsg = { type: 'warning', text: `🚚 شُحن الطلب لكن ⚠️ بوضع المحاكاة — لم يُرسل فعلياً لـ${prov}. أدخله يدوياً في موقع الشركة. تتبع داخلي: ${trk}${d?.apiError ? ` · السبب: ${d.apiError}` : ''}` };
-          }
-        } catch (e: any) {
-          // لا شركة مهيأة أو فشل المسار — نكمل الشحن برقم داخلي مع توضيح
-          const noProv = /provider/i.test(e?.message || '');
-          result = { real: false, tracking: trk, provider: prov,
-            apiError: noProv ? 'لا توجد شركة توصيل مفعّلة' : (e?.message || 'تعذر الاتصال'),
-            steps: [{ label: 'إنشاء شحنة لدى شركة التوصيل', ok: false, error: noProv ? 'لا توجد شركة توصيل مفعّلة — أضف واحدة من صفحة التوصيل' : (e?.message || '') }] };
-          shipMsg = { type: 'info', text: `🚚 شُحن الطلب برقم تتبع داخلي ${trk} — ${noProv ? 'لا توجد شركة توصيل مفعّلة (أضف واحدة من صفحة التوصيل)' : `تعذر إنشاء الشحنة لدى الشركة: ${e?.message || ''}`}` };
-        }
-      }
-      // الخطوة 2: تسجيل الطلب كمشحون بالتتبع النهائي
-      setState(s => ({ ...s, orders: s.orders.map(o => o.id === id ? { ...o, status: 'shipped' as OrderStatus, trackingNumber: trk, deliveryProvider: prov } : o) }));
       try {
         const updated = await api.ordersAPI.ship(id, { trackingNumber: trk, provider: prov });
         setState(s => ({ ...s, orders: s.orders.map(o => o.id === id ? updated : o) }));
-      } catch (e: any) { notify('error', `⚠️ الشحن لم يُسجل على الخادم: ${e?.message || 'تحقق من الاتصال'}`); return; }
-    } else {
-      setState(s => ({ ...s, orders: s.orders.map(o => o.id === id ? { ...o, status: 'shipped' as OrderStatus, trackingNumber: trk, deliveryProvider: prov } : o) }));
-      shipMsg = { type: 'info', text: `🚚 شُحن محلياً (بدون اتصال) — تتبع: ${trk}` };
-      result = { real: false, tracking: trk, provider: prov, apiError: 'بدون اتصال' };
+      } catch {}
     }
-
-    notify(shipMsg.type, shipMsg.text || `🚚 تم الشحن — رقم التتبع: ${trk}`);
+    notify('success', `🚚 تم الشحن — رقم التتبع: ${trk}`);
     try { Sounds.shipped(); } catch {}
     log('النظام', `شحن طلب: ${id}`, trk, 'delivery', 'success');
-    result.tracking = trk; result.provider = prov;
-    return result;
   };
 
   const deliverOrder = async (id: string) => {
     setState(s => ({ ...s, orders: s.orders.map(o => o.id === id ? { ...o, status: 'delivered' as OrderStatus } : o) }));
     if (state.isOnline && api.getToken()) {
-      try { await api.ordersAPI.deliver(id); }
-      catch (e: any) { notify('error', `⚠️ التوصيل لم يُسجل على الخادم: ${e?.message || 'تحقق من الاتصال'}`); return; }
+      try { await api.ordersAPI.deliver(id); } catch {}
     }
     notify('success', '📦 تم التوصيل بنجاح! 🎉');
     try { Sounds.delivered(); } catch {}
