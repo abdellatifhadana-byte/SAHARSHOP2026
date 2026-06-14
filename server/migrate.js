@@ -242,6 +242,9 @@ async function migrate() {
     // Add product video column for existing databases
     await client.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS video_url TEXT DEFAULT ''`).catch(() => {});
 
+    // Abandoned-cart reminder flag (H-4) — لتذكير موثوق عبر cron بدل setTimeout
+    await client.query(`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS cart_reminded BOOLEAN DEFAULT FALSE`).catch(() => {});
+
     // Store analytics events (visits + product views) for the storefront
     await client.query(`CREATE TABLE IF NOT EXISTS store_events (
       id BIGSERIAL PRIMARY KEY,

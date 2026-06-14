@@ -48,8 +48,15 @@ router.post('/', auth, async (req, res) => {
     }
 
     await db.saveBroadcast({ userId: req.user.id, message: finalMsg, target, sentTo: sent, failed, type, simulated: !isReal });
-    await db.addLog({ userId: req.user.id, user: 'Manager', action: `Broadcast sent`, details: `${sent}/${targets.length} customers`, type: 'notification', severity: 'info' });
-    await db.addNotification({ userId: req.user.id, type: 'success', message: `📢 تم الإرسال لـ ${sent} زبون` });
+    await db.addLog({ userId: req.user.id, user: 'Manager', action: isReal ? `Broadcast sent` : `Broadcast simulated`, details: `${sent}/${targets.length} customers${isReal ? '' : ' (simulated)'}`, type: 'notification', severity: 'info' });
+    // M-6: لا نُبلّغ "تم الإرسال" لرسائل لم تُرسَل فعلياً — نوضّح وضع المحاكاة
+    await db.addNotification({
+      userId: req.user.id,
+      type: isReal ? 'success' : 'warning',
+      message: isReal
+        ? `📢 تم الإرسال فعلياً لـ ${sent} زبون`
+        : `📢 محاكاة فقط: جُهّزت رسالة لـ ${sent} زبون لكنها لم تُرسَل — اربط WhatsApp API للإرسال الحقيقي`,
+    });
 
     res.json({ success: true, sent, failed, total: targets.length, simulated: !isReal });
   } catch (e) { console.error('[broadcast]', e.message); res.status(500).json({ error: 'Server error' }); }

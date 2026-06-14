@@ -235,7 +235,6 @@ function OrdersSkeleton() {
 export default function OrdersPage() {
   const { orders, approveOrder, rejectOrder, shipOrder, deliverOrder, settings, notify, customers, products, addOrder, isLoading } = useStore();
 
-  if (isLoading) return <OrdersSkeleton />;
   const [filter, setFilter] = useState('pending');
   const [search, setSearch] = useState('');
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -244,6 +243,9 @@ export default function OrdersPage() {
   const [manualTrk, setManualTrk] = useState('');
   const [mainTab, setMainTab] = React.useState<'orders'|'customers'>('orders');
   const [showQuickOrder, setShowQuickOrder] = useState(false);
+
+  // C-4: العائد الشرطي بعد تنفيذ كل الـ hooks — لتفادي مخالفة Rules of Hooks (كراش عند تبدّل isLoading)
+  if (isLoading) return <OrdersSkeleton />;
   const { currency } = settings.brand;
 
   const trustByPhone = orders.reduce((acc, o) => {

@@ -538,7 +538,8 @@ export default function ProductsPage() {
         if (sort === 'stock') return b.stock - a.stock;
         return b.createdAt.localeCompare(a.createdAt);
       }),
-    [products, search, filter, sort, settings],
+    // M-2: typeFilter كان ناقصاً — تبديله لم يكن يُعيد حساب القائمة
+    [products, search, filter, typeFilter, sort, settings],
   );
 
   const countFor = (f: Filter) =>

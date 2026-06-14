@@ -24,18 +24,22 @@ router.post('/', auth, async (req, res) => {
   } catch (e) { console.error('[coupons]', e.message); res.status(500).json({ error: 'Server error' }); }
 });
 
-// PUT /api/coupons/:id — update
+// PUT /api/coupons/:id — update (C-1: تحقّق ملكية قبل التعديل)
 router.put('/:id', auth, async (req, res) => {
   try {
-    await db.updateCoupon(req.params.id, req.body);
+    const existing = await db.getCoupon(req.params.id);
+    if (!existing || existing.userId !== req.user.id) return res.status(404).json({ error: 'Not found' });
+    await db.updateCoupon(req.params.id, req.body, req.user.id);
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: 'Server error' }); }
 });
 
-// DELETE /api/coupons/:id — delete
+// DELETE /api/coupons/:id — delete (C-1: تحقّق ملكية قبل الحذف)
 router.delete('/:id', auth, async (req, res) => {
   try {
-    await db.deleteCoupon(req.params.id);
+    const existing = await db.getCoupon(req.params.id);
+    if (!existing || existing.userId !== req.user.id) return res.status(404).json({ error: 'Not found' });
+    await db.deleteCoupon(req.params.id, req.user.id);
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: 'Server error' }); }
 });
@@ -48,7 +52,9 @@ router.get('/validate', async (req, res) => {
   const orderTotal = parseFloat(total) || 0;
   try {
     const result = await db.validateCoupon(userId, code, orderTotal);
-    res.json(result);
+    // C-1: لا نكشف couponId للعميل العام (منع IDOR على الكوبونات)
+    const { couponId, ...publicResult } = result;
+    res.json(publicResult);
   } catch (e) { res.status(500).json({ error: 'Server error' }); }
 });
 

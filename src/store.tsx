@@ -9,6 +9,22 @@ import {
 import * as api from './services/api';
 import { validateImport } from './utils/importSchema';
 
+// C-3: نسخة من الإعدادات بدون أسرار الطرف الثالث — لمنع بقاء المفاتيح في localStorage
+function stripSecrets(settings: any): any {
+  try {
+    const s = JSON.parse(JSON.stringify(settings));
+    const blank = (o: any, keys: string[]) => { if (o && typeof o === 'object') keys.forEach(k => { if (typeof o[k] === 'string' && o[k]) o[k] = ''; }); };
+    blank(s, ['cloudinaryApiKey', 'cloudinaryApiSecret', 'supabaseKey']);
+    blank(s.ai, ['apiKey', 'geminiKey', 'claudeKey', 'deepseekKey', 'grokKey', 'mistralKey']);
+    blank(s.security, ['hcaptchaSecret']);
+    blank(s.marketing, ['brevoApiKey']);
+    if (s.social && typeof s.social === 'object') {
+      for (const k of Object.keys(s.social)) blank(s.social[k], ['accessToken', 'apiKey']);
+    }
+    return s;
+  } catch { return settings; }
+}
+
 // نتيجة الشحن الصادقة — كل خطوة فيها تقابل حدثاً وقع فعلاً على الخادم
 export interface ShipResult {
   real: boolean;
@@ -265,6 +281,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       saveTimer.current = setTimeout(() => {
         try {
           const { token, user, notifications, currentPage, sidebarOpen, isLoading, isOnline, hydrated, ...toSave } = state as any;
+          // C-3: لا تُحفظ أسرار الطرف الثالث (مفاتيح AI/سوشيال/كلاودينري...) في localStorage
+          if (toSave.settings) toSave.settings = stripSecrets(toSave.settings);
           localStorage.setItem('ai_commerce_os_state', JSON.stringify(toSave));
         } catch {}
       }, 1000);

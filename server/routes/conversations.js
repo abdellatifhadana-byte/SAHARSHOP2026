@@ -15,23 +15,9 @@ router.post('/', auth, async (req, res) => {
   try {
     const conv = await db.createConversation({ ...req.body, userId: req.user.id });
     await db.addNotification({ userId: req.user.id, type: 'info', message: `💬 New conversation with ${conv.customerName}` });
-    // Abandoned cart reminder — 24 hours after conversation with no order
-    const convIdForTimer = conv.id;
-    const userIdForTimer = req.user.id;
-    setTimeout(async () => {
-      try {
-        const updatedConv = await db.getConversation(convIdForTimer);
-        if (!updatedConv || updatedConv.status === 'archived') return;
-        const orders = await db.getOrders(userIdForTimer);
-        const hasOrder = orders.some(o =>
-          o.customerId === updatedConv.customerId && new Date(o.createdAt) > new Date(updatedConv.createdAt)
-        );
-        if (!hasOrder) {
-          await db.addMessage(convIdForTimer, { content: 'مرحبا! 😊 هل أتممت طلبك؟ نحن هنا إذا كنت بحاجة مساعدة', role: 'ai' });
-          await db.addNotification({ userId: userIdForTimer, type: 'info', message: `⏰ تم إرسال تنبيه سلة مهجورة لـ ${updatedConv.customerName}` });
-        }
-      } catch(e) {}
-    }, 24 * 60 * 60 * 1000); // 24 hours
+    // H-4: تذكير السلة المهجورة يتولّاه الآن cron موثوق على الخادم
+    // (يفحص المحادثات >24س بلا طلب لاحق ويذكّرها مرّة واحدة عبر cart_reminded)
+    // بدل setTimeout في الذاكرة الذي يضيع عند إعادة تشغيل الخادم.
     res.status(201).json(conv);
   } catch (e) { console.error('[conversations]', e.message); res.status(500).json({ error: 'Server error' }); }
 });

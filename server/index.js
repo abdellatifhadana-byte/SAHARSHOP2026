@@ -87,7 +87,8 @@ app.use(cors({
   methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
 }));
 app.use(require('cookie-parser')());
-app.use(express.json({ limit: '20mb' }));
+// H-3: نحتفظ بالـ raw body للتحقّق من توقيع Webhook (Meta) بدقّة
+app.use(express.json({ limit: '20mb', verify: (req, _res, buf) => { req.rawBody = buf; } }));
 app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 if (process.env.NODE_ENV !== 'test') app.use(morgan('dev'));
 
@@ -101,6 +102,11 @@ app.use('/api/coupons/public/spin', rateLimit({ windowMs: 60 * 60 * 1000, max: 1
 app.use('/api/orders/public',       rateLimit({ windowMs: 60 * 60 * 1000, max: 15, message: { error: 'طلبات كثيرة من هذا الجهاز — حاول بعد قليل' } }));
 app.use('/api/ai/public-reply',     rateLimit({ windowMs: 10 * 60 * 1000, max: 30, message: { error: 'رسائل كثيرة — انتظر قليلاً ثم أعد المحاولة' } }));
 app.use('/api/coupons/validate',    rateLimit({ windowMs: 10 * 60 * 1000, max: 40, message: { error: 'محاولات تحقق كثيرة — انتظر قليلاً' } }));
+
+// H-5: سقف لمسارات الذكاء الاصطناعي (حماية تكلفة المالك من الاستنزاف)
+app.use('/api/ai/',          rateLimit({ windowMs: 60 * 60 * 1000, max: 120, standardHeaders: true, legacyHeaders: false, message: { error: 'طلبات ذكاء اصطناعي كثيرة — انتظر قليلاً (حماية التكلفة)' } }));
+// C-2: تحديد محاولات تتبّع الطلب (يدعم منع تعداد البيانات)
+app.use('/api/orders/track', rateLimit({ windowMs: 15 * 60 * 1000, max: 30, standardHeaders: true, legacyHeaders: false, message: { error: 'محاولات تتبّع كثيرة — انتظر قليلاً' } }));
 
 // ── Routes ───────────────────────────────────────────────────
 app.use('/api/auth',          require('./routes/auth'));
@@ -212,8 +218,16 @@ async function startServer() {
         } catch { return false; }
       };
 
+      // C-3: مصادقة فورية عبر كوكي HttpOnly (آمنة من XSS) إن توفّرت —
+      // تتيح مصادقة WebSocket دون إرسال التوكن في رسالة من localStorage
+      const cookieHeader = req.headers.cookie || '';
+      const cookiePair = cookieHeader.split(';').map(s => s.trim()).find(s => s.startsWith('token='));
+      if (cookiePair) { try { authenticate(decodeURIComponent(cookiePair.slice(6))); } catch {} }
+
       // Give client 5 s in production to send auth message; allow dev without auth
-      if (process.env.NODE_ENV === 'production') {
+      if (userId) {
+        // مُصادَق عبر الكوكي — لا حاجة لمؤقّت أو رسالة auth إضافية
+      } else if (process.env.NODE_ENV === 'production') {
         authTimer = setTimeout(() => {
           if (!userId) { ws.close(4001, 'Auth timeout'); }
         }, 5000);
@@ -355,6 +369,28 @@ function startDailyBackup() {
   console.log('[Backup] Daily backup scheduled');
 }
 startDailyBackup();
+
+// ── Abandoned-cart reminder Cron (H-4) ──────────────────────────
+// بديل موثوق لمؤقّتات setTimeout في الذاكرة (التي تُفقد عند إعادة التشغيل):
+// فحص دوري كل ساعة يجد المحادثات المهجورة ويذكّرها مرّة واحدة.
+function startAbandonedCartCron() {
+  const { db } = require('./database');
+  async function run() {
+    try {
+      const convs = await db.getAbandonedConversations();
+      for (const c of convs) {
+        await db.addMessage(c.id, { content: 'مرحبا! 😊 هل أتممت طلبك؟ نحن هنا إذا كنت بحاجة مساعدة', role: 'ai' });
+        await db.addNotification({ userId: c.userId, type: 'info', message: `⏰ تم إرسال تنبيه سلة مهجورة لـ ${c.customerName}` });
+        await db.markCartReminded(c.id);
+      }
+      if (convs.length) console.log(`[AbandonedCart] Sent ${convs.length} reminder(s)`);
+    } catch (e) { console.error('[AbandonedCart]', e.message); }
+  }
+  setTimeout(run, 30 * 1000);
+  setInterval(run, 60 * 60 * 1000);
+  console.log('[AbandonedCart] Hourly reminder cron scheduled');
+}
+startAbandonedCartCron();
 
 
 

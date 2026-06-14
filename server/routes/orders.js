@@ -129,7 +129,8 @@ router.put('/:id/approve', auth, async (req, res) => {
     for (const item of (order.items || [])) {
       if (!item.productId) continue;
       const p = await db.getProduct(item.productId);
-      if (p) await db.updateProduct(p.id, {
+      // H-6: لا يُعدّل المخزون إلا لمنتجات هذا المتجر
+      if (p && p.userId === req.user.id) await db.updateProduct(p.id, {
         stock: Math.max(0, (p.stock || 0) - (item.quantity || 1)),
         sales: (p.sales || 0) + (item.quantity || 1),
       });
@@ -300,7 +301,8 @@ router.post('/public', sanitizeBody, validateOrder, async (req, res) => {
     const safeItems = [];
     for (const it of items) {
       let p = null;
-      if (it.productId) { try { p = await db.getProduct(it.productId); } catch {} }
+      // H-6: لا تُستعمل أسعار/مخزون منتج يخص متجراً آخر
+      if (it.productId) { try { p = await db.getProduct(it.productId); if (p && p.userId !== userId) p = null; } catch {} }
       const price = p ? +p.price : Math.max(0, +it.price || 0);
       const qty = Math.max(1, +it.quantity || 1);
       subtotal += price * qty;
@@ -395,10 +397,16 @@ router.get('/track/:phone', async (req, res) => {
   const { phone } = req.params;
   const { userId } = req.query;
   if (!phone || !userId) return res.status(400).json({ error: 'phone and userId required' });
+  // C-2: مطابقة تامّة على آخر 9 أرقام (الرقم الوطني) بدل includes —
+  // يمنع تعداد بيانات الزبائن (PII) عبر رقم جزئي قصير
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length < 9) return res.status(400).json({ error: 'أدخل رقم الهاتف كاملاً للتتبّع' });
+  const last9 = digits.slice(-9);
   try {
-    const orders = (await db.getOrders(userId)).filter(o =>
-      o.customerPhone?.replace(/\D/g,'').includes(phone.replace(/\D/g,''))
-    );
+    const orders = (await db.getOrders(userId)).filter(o => {
+      const ph = (o.customerPhone || '').replace(/\D/g, '');
+      return ph.length >= 9 && ph.slice(-9) === last9;
+    });
     const STATUS_AR = { pending:'⏳ بانتظار التأكيد', approved:'✅ تم التأكيد', processing:'⚙️ جارٍ التحضير', shipped:'🚚 في الطريق', delivered:'📦 وصل', cancelled:'❌ ملغي' };
     res.json(orders.map(o => ({
       id: o.id, status: o.status, statusAr: STATUS_AR[o.status] || o.status,

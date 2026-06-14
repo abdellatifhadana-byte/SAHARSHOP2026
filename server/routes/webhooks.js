@@ -17,10 +17,16 @@ router.get('/meta', (req, res) => {
 router.post('/meta', (req, res) => {
   const sig = req.headers['x-hub-signature-256'];
   const appSecret = process.env.META_APP_SECRET;
-  if (appSecret && sig) {
-    const hmac   = crypto.createHmac('sha256', appSecret);
-    const digest = 'sha256=' + hmac.update(JSON.stringify(req.body)).digest('hex');
-    if (sig !== digest) return res.status(401).send('Invalid signature');
+  // H-3: عند ضبط السر يصبح التحقّق إلزامياً، على الـ raw body، ومقارنة آمنة زمنياً
+  if (appSecret) {
+    if (!sig) return res.status(401).send('Missing signature');
+    const raw = req.rawBody || Buffer.from(JSON.stringify(req.body));
+    const digest = 'sha256=' + crypto.createHmac('sha256', appSecret).update(raw).digest('hex');
+    const a = Buffer.from(String(sig));
+    const b = Buffer.from(digest);
+    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+      return res.status(401).send('Invalid signature');
+    }
   }
 
   const body = req.body;

@@ -17,7 +17,11 @@ router.post('/track', async (req, res) => {
       sessionId: (sessionId || '').slice(0, 60),
     };
     await db.addStoreEvent(ev);
-    if (ev.type === 'view' && ev.productId) await db.incrementProductViews(ev.productId);
+    // H-6: لا تُضخَّم مشاهدات منتج إلا إذا كان فعلاً ضمن هذا المتجر
+    if (ev.type === 'view' && ev.productId) {
+      const p = await db.getProduct(ev.productId).catch(() => null);
+      if (p && p.userId === ev.userId) await db.incrementProductViews(ev.productId);
+    }
     res.json({ ok: true });
   } catch (e) { res.json({ ok: false }); }
 });

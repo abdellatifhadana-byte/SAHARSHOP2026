@@ -96,13 +96,21 @@ export default function AnalyticsPage() {
   const margin    = revenue > 0 ? Math.round((profit / revenue) * 100) : 0;
   const dlvRate   = serverData?.dlvRate   ?? (orders.length ? Math.round((orders.filter(o => o.status === 'delivered').length / orders.length) * 100) : 0);
 
-  const now = new Date();
-  const monthly = useMemo(() => Array.from({ length: months }, (_, i) => {
-    const d = new Date(now.getFullYear(), now.getMonth() - (months - 1 - i), 1);
-    const label = d.toLocaleString('ar', { month: 'short' });
-    const mo = active.filter(o => { const od = new Date(o.createdAt); return od.getMonth() === d.getMonth() && od.getFullYear() === d.getFullYear(); });
-    return { label, revenue: mo.reduce((s, o) => s + o.total, 0), count: mo.length };
-  }), [months, active.length]);
+  // M-4: سلاسل شهرية حقيقية (إيراد/تكلفة/ربح/توصيل/زبائن جدد) — لا بيانات مُفبركة
+  const monthly = useMemo(() => {
+    const ref = new Date();
+    return Array.from({ length: months }, (_, i) => {
+      const d = new Date(ref.getFullYear(), ref.getMonth() - (months - 1 - i), 1);
+      const sameMonth = (dt: string) => { const x = new Date(dt); return x.getMonth() === d.getMonth() && x.getFullYear() === d.getFullYear(); };
+      const moAll = orders.filter(o => sameMonth(o.createdAt));
+      const moActive = moAll.filter(o => o.status !== 'cancelled');
+      const rev = moActive.reduce((s, o) => s + o.total, 0);
+      const cost = moActive.reduce((s, o) => s + o.items.reduce((ss, item) => { const p = products.find(x => x.id === item.productId); return ss + (p?.cost || 0) * item.quantity; }, 0), 0);
+      const delivered = moAll.filter(o => o.status === 'delivered').length;
+      const newCust = customers.filter(c => (c as any).createdAt && sameMonth((c as any).createdAt)).length;
+      return { label: d.toLocaleString('ar', { month: 'short' }), revenue: rev, count: moActive.length, cost, profit: rev - cost, delivered, total: moAll.length, newCust };
+    });
+  }, [months, orders, products, customers]);
 
   const topProds = [...products].sort((a, b) => b.sales - a.sales).slice(0, 5);
   const maxSales = topProds[0]?.sales || 1;
@@ -124,13 +132,14 @@ export default function AnalyticsPage() {
     const a = document.createElement('a'); a.href = `data:text/csv;charset=utf-8,${encodeURIComponent(csv)}`; a.download = `analytics-${new Date().toISOString().split('T')[0]}.csv`; a.click();
   };
 
+  // M-4: كل الـ sparklines الآن من بيانات شهرية حقيقية
   const kpis = [
     { label: 'الإيرادات',      value: `${revenue.toLocaleString()} ${currency}`,  color: '#10b981', spark: monthly.map(m => m.revenue) },
-    { label: 'صافي الربح',    value: `${profit.toLocaleString()} ${currency}`,   color: '#6366f1', spark: monthly.map(m => Math.max(0, m.revenue * 0.35)) },
-    { label: 'هامش الربح',    value: `${margin}%`,                               color: '#a855f7', spark: [margin-5,margin-2,margin,margin+1,margin,margin+2,margin] },
+    { label: 'صافي الربح',    value: `${profit.toLocaleString()} ${currency}`,   color: '#6366f1', spark: monthly.map(m => m.profit) },
+    { label: 'هامش الربح',    value: `${margin}%`,                               color: '#a855f7', spark: monthly.map(m => m.revenue > 0 ? Math.round((m.profit / m.revenue) * 100) : 0) },
     { label: 'متوسط الطلب',   value: `${avgOrder} ${currency}`,                  color: '#f97316', spark: monthly.map(m => m.count ? m.revenue / m.count : 0) },
-    { label: 'معدل التوصيل',  value: `${dlvRate}%`,                              color: '#06b6d4', spark: [dlvRate-5,dlvRate,dlvRate+2,dlvRate-1,dlvRate,dlvRate+3,dlvRate] },
-    { label: 'زبائن متكررون', value: String(customers.filter(c => c.totalOrders >= 3).length), color: '#8b5cf6', spark: [0,1,1,2,2,3,customers.filter(c=>c.totalOrders>=3).length] },
+    { label: 'معدل التوصيل',  value: `${dlvRate}%`,                              color: '#06b6d4', spark: monthly.map(m => m.total ? Math.round((m.delivered / m.total) * 100) : 0) },
+    { label: 'زبائن متكررون', value: String(customers.filter(c => c.totalOrders >= 3).length), color: '#8b5cf6', spark: monthly.map(m => m.newCust) },
   ];
 
   return (

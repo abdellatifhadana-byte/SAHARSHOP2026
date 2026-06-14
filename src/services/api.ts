@@ -61,6 +61,8 @@ async function _doFetch(method: string, path: string, body?: unknown): Promise<R
   return fetch(`${BASE_URL}${path}`, {
     method, headers,
     body: body ? JSON.stringify(body) : undefined,
+    // C-3: إرسال كوكي HttpOnly كمصادقة دفاعية (تمهيداً للتخلي عن localStorage)
+    credentials: 'include',
     signal: AbortSignal.timeout(10000),
   });
 }
@@ -74,6 +76,7 @@ async function _tryRefresh(): Promise<boolean> {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refreshToken: _refreshToken }),
+      credentials: 'include',
       signal: AbortSignal.timeout(10000),
     });
     if (!res.ok) { setRefreshToken(null); return false; }

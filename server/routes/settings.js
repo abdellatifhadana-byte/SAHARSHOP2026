@@ -76,6 +76,8 @@ router.get('/export', auth, async (req, res) => {
 function deepMerge(target, source) {
   const result = { ...target };
   for (const key of Object.keys(source)) {
+    // H-2: منع Prototype Pollution
+    if (key === '__proto__' || key === 'constructor' || key === 'prototype') continue;
     if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key]) && target[key] && typeof target[key] === 'object') {
       result[key] = deepMerge(target[key], source[key]);
     } else {

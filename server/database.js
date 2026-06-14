@@ -1,6 +1,7 @@
 'use strict';
-const pool   = require('./db');
-const crypto = require('crypto');
+const pool    = require('./db');
+const crypto  = require('crypto');
+const secrets = require('./lib/secrets');
 
 function uid() { return crypto.randomUUID(); }
 function now() { return new Date().toISOString(); }
@@ -181,13 +182,15 @@ const db = {
   // ── Settings ─────────────────────────────────────────────────
   async getSettings(userId) {
     const { rows } = await pool.query('SELECT data FROM settings WHERE user_id = $1', [userId]);
-    return rows[0] ? rows[0].data : null;
+    // فك تشفير الأسرار at-rest (H-1) — passthrough للقيم غير المشفّرة
+    return rows[0] ? secrets.decryptSettings(rows[0].data) : null;
   },
   async saveSettings(userId, data) {
+    // تشفير الأسرار قبل التخزين (H-1) — دون تعديل كائن المتصل
     await pool.query(
       `INSERT INTO settings (user_id, data, updated_at) VALUES ($1,$2,NOW())
        ON CONFLICT (user_id) DO UPDATE SET data = $2, updated_at = NOW()`,
-      [userId, JSON.stringify(data)]
+      [userId, JSON.stringify(secrets.encryptSettings(data))]
     );
     return data;
   },
@@ -354,6 +357,14 @@ const db = {
     const { rows } = await pool.query('SELECT * FROM orders WHERE id = $1', [id]);
     return _mapOrder(rows[0]) || null;
   },
+  // تتبّع الطلب بالكود السرّي — مُقيَّد بالمتجر (C-5: كانت غير معرّفة)
+  async findOrderByCode(userId, code) {
+    const { rows } = await pool.query(
+      'SELECT * FROM orders WHERE user_id = $1 AND UPPER(customer_code) = UPPER($2) LIMIT 1',
+      [userId, String(code || '').trim()]
+    );
+    return _mapOrder(rows[0]) || null;
+  },
   async createOrder(o) {
     const id = uid();
     const customerCode = o.customerCode || crypto.randomBytes(4).toString('hex').toUpperCase();
@@ -518,6 +529,30 @@ const db = {
     await pool.query('DELETE FROM conversations WHERE id = $1', [id]);
   },
 
+  // ── Abandoned-cart reminders (H-4) ───────────────────────────
+  // بديل موثوق لمؤقّتات setTimeout في الذاكرة: استعلام مجدول يجد
+  // المحادثات المهجورة (>24س، نشطة، بلا طلب لاحق، ولم تُذكَّر بعد).
+  async getAbandonedConversations(limit = 200) {
+    const { rows } = await pool.query(
+      `SELECT c.* FROM conversations c
+       WHERE c.cart_reminded = FALSE
+         AND c.status = 'active'
+         AND c.created_at < NOW() - INTERVAL '24 hours'
+         AND NOT EXISTS (
+           SELECT 1 FROM orders o
+           WHERE o.user_id = c.user_id AND o.customer_id = c.customer_id
+             AND o.created_at > c.created_at
+         )
+       ORDER BY c.created_at ASC
+       LIMIT $1`,
+      [limit]
+    ).catch(() => ({ rows: [] }));
+    return rows.map(_mapConv);
+  },
+  async markCartReminded(id) {
+    await pool.query('UPDATE conversations SET cart_reminded = TRUE WHERE id = $1', [id]).catch(() => {});
+  },
+
   // ── Delivery providers ────────────────────────────────────────
   async getDeliveryProviders(userId) {
     const { rows } = await pool.query(
@@ -602,6 +637,11 @@ const db = {
     );
     return rows[0] || null;
   },
+  // جلب كوبون بالمعرّف — للتحقّق من الملكية في الـ routes (C-1)
+  async getCoupon(id) {
+    const { rows } = await pool.query('SELECT * FROM coupons WHERE id = $1', [id]);
+    return _mapCoupon(rows[0]) || null;
+  },
   // التحقق الحقيقي من الكوبون: الوجود، التفعيل، الصلاحية، حد الاستخدام، الحد الأدنى للطلب
   async validateCoupon(userId, code, orderTotal = 0) {
     const c = await this.getCouponByCode(userId, code);
@@ -640,7 +680,7 @@ const db = {
     );
     return _mapCoupon(rows[0]);
   },
-  async updateCoupon(id, u) {
+  async updateCoupon(id, u, userId) {
     const map = { code:'code', type:'type', value:'value', minOrder:'min_order',
                   maxUses:'max_uses', uses:'uses', active:'active', expiresAt:'expires_at' };
     const parts = []; const vals = [id]; let idx = 2;
@@ -649,10 +689,14 @@ const db = {
       parts.push(`${pgCol} = $${idx++}`); vals.push(u[jsKey]);
     }
     if (!parts.length) return;
-    await pool.query(`UPDATE coupons SET ${parts.join(', ')} WHERE id = $1`, vals);
+    // حارس المستأجر (C-1): لا يُعدّل إلا صاحب الكوبون
+    if (userId) { vals.push(userId); await pool.query(`UPDATE coupons SET ${parts.join(', ')} WHERE id = $1 AND user_id = $${idx}`, vals); }
+    else await pool.query(`UPDATE coupons SET ${parts.join(', ')} WHERE id = $1`, vals);
   },
-  async deleteCoupon(id) {
-    await pool.query('DELETE FROM coupons WHERE id = $1', [id]);
+  async deleteCoupon(id, userId) {
+    // حارس المستأجر (C-1): لا يُحذف إلا صاحب الكوبون
+    if (userId) await pool.query('DELETE FROM coupons WHERE id = $1 AND user_id = $2', [id, userId]);
+    else await pool.query('DELETE FROM coupons WHERE id = $1', [id]);
   },
 
   // ── Notifications ─────────────────────────────────────────────

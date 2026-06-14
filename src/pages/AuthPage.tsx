@@ -15,17 +15,17 @@ function loadScript(src: string): Promise<void> {
 
 const DS = {
   bg: '#0A0A14',
-  purple: '#7C3AED',
-  purpleLight: '#A855F7',
-  purpleGlow: 'rgba(124,58,237,0.2)',
-  orange: '#FF7A00',
-  orangeLight: '#FFB347',
-  orangeGlow: 'rgba(255,122,0,0.2)',
+  purple: '#FF6A00',
+  purpleLight: '#FF8533',
+  purpleGlow: 'rgba(255,106,0,0.22)',
+  orange: '#FF6A00',
+  orangeLight: '#FF8533',
+  orangeGlow: 'rgba(255,106,0,0.22)',
   text: '#FAFAFA',
   text2: 'rgba(255,255,255,0.55)',
   text3: 'rgba(255,255,255,0.3)',
   border: 'rgba(255,255,255,0.06)',
-  borderFocus: 'rgba(124,58,237,0.4)',
+  borderFocus: 'rgba(255,106,0,0.45)',
   glass: 'rgba(255,255,255,0.03)',
   glassHover: 'rgba(255,255,255,0.06)',
   radius: 16,
@@ -128,7 +128,7 @@ export default function AuthPage() {
     boxSizing: 'border-box',
     fontFamily: 'Tajawal, sans-serif',
     transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-    boxShadow: focusedField === fieldName ? `0 0 20px ${DS.purpleGlow}` : 'none',
+    boxShadow: focusedField === fieldName ? `0 0 0 3px rgba(255,106,0,0.15), 0 0 20px ${DS.purpleGlow}` : 'none',
   });
 
   return (
@@ -153,21 +153,21 @@ export default function AuthPage() {
           position: 'absolute', top: '-15%', right: '-10%',
           width: '50vw', height: '50vw', maxWidth: 500, maxHeight: 500,
           borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(124,58,237,0.12) 0%, transparent 70%)',
+          background: 'radial-gradient(circle, rgba(255,106,0,0.13) 0%, transparent 70%)',
           animation: 'ambientGlow 6s ease-in-out infinite',
         }} />
         <div style={{
           position: 'absolute', bottom: '-10%', left: '-5%',
           width: '40vw', height: '40vw', maxWidth: 400, maxHeight: 400,
           borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(255,122,0,0.08) 0%, transparent 70%)',
+          background: 'radial-gradient(circle, rgba(255,106,0,0.08) 0%, transparent 70%)',
           animation: 'ambientGlow 8s ease-in-out infinite 1s',
         }} />
         <div style={{
           position: 'absolute', top: '40%', left: '50%', transform: 'translate(-50%, -50%)',
           width: '60vw', height: '60vw', maxWidth: 600, maxHeight: 600,
           borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(124,58,237,0.04) 0%, transparent 60%)',
+          background: 'radial-gradient(circle, rgba(0,210,179,0.04) 0%, transparent 60%)',
         }} />
         {/* Grid */}
         <div style={{
@@ -241,11 +241,11 @@ export default function AuthPage() {
                   cursor: 'pointer', border: 'none', fontFamily: 'inherit',
                   transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
                   background: String(isLogin) === v
-                    ? 'linear-gradient(135deg, #7C3AED, #A855F7)'
+                    ? 'linear-gradient(135deg, #FF6A00, #FF8533)'
                     : 'transparent',
                   color: String(isLogin) === v ? '#fff' : DS.text2,
                   boxShadow: String(isLogin) === v
-                    ? `0 4px 16px ${DS.purpleGlow}`
+                    ? `0 4px 16px rgba(255,106,0,0.35)`
                     : 'none',
                 }}>
                 {label}
@@ -311,7 +311,7 @@ export default function AuthPage() {
                       .then(() => setError('✅ تم إرسال رابط إعادة التعيين إلى بريدك الإلكتروني'))
                       .catch(() => setError('✅ إذا كان البريد مسجلاً سيصلك رابط إعادة التعيين'));
                   }}
-                  style={{ background: 'none', border: 'none', color: 'rgba(124,58,237,0.7)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', padding: 0, textDecoration: 'underline' }}>
+                  style={{ background: 'none', border: 'none', color: 'rgba(255,106,0,0.7)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', padding: 0, textDecoration: 'underline' }}>
                   نسيت كلمة المرور؟
                 </button>
               </div>
@@ -331,10 +331,10 @@ export default function AuthPage() {
             <button type="submit" disabled={loading}
               style={{
                 width: '100%', padding: '15px', borderRadius: DS.radiusSm,
-                background: loading ? 'rgba(124,58,237,0.4)' : 'linear-gradient(135deg, #7C3AED, #A855F7)',
+                background: loading ? 'rgba(255,106,0,0.4)' : 'linear-gradient(135deg, #FF6A00, #FF8533)',
                 border: 'none', color: '#fff', fontSize: 15, fontWeight: 700,
                 cursor: loading ? 'not-allowed' : 'pointer', marginTop: 8,
-                boxShadow: loading ? 'none' : `0 8px 28px ${DS.purpleGlow}`,
+                boxShadow: loading ? 'none' : `0 8px 28px rgba(255,106,0,0.38)`,
                 transition: 'all 0.25s',
                 fontFamily: 'inherit',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
@@ -423,9 +423,9 @@ export default function AuthPage() {
               marginTop: 18, color: DS.text3, fontSize: 12, textDecoration: 'none',
               transition: 'color 0.2s',
             }}
-            onMouseEnter={e => (e.currentTarget.style.color = DS.purpleLight)}
+            onMouseEnter={e => (e.currentTarget.style.color = '#FF8533')}
             onMouseLeave={e => (e.currentTarget.style.color = DS.text3)}>
-            <ArrowLeft size={13} /> الصففحة الرئيسية
+            <ArrowLeft size={13} /> الصفحة الرئيسية
           </a>
         </div>
       </div>
