@@ -12,7 +12,7 @@ import TourGuide             from './components/TourGuide';
 const PAGE_URLS: Record<string, string> = {
   dashboard:     '/dashboard',
   products:      '/products',
-  services:      '/products',
+  services:      '/services',
   orders:        '/orders',
   conversations: '/messages',
   customers:     '/customers',
@@ -193,7 +193,7 @@ function AppShell() {
         <Route path="/register"element={isAuthed ? <Navigate to="/dashboard" replace /> : <AuthPage />} />
 
         {/* ── PROTECTED: Merchant dashboard ── */}
-        {['/dashboard','/products','/orders','/messages','/customers',
+        {['/dashboard','/products','/services','/orders','/messages','/customers',
           '/analytics','/insights','/connections','/delivery','/notifications',
           '/settings','/studio','/editor','/import','/coupons','/guide'].map(path => (
           <Route key={path} path={path}

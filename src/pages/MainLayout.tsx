@@ -59,8 +59,15 @@ function PageContent() {
 }
 
 export default function MainLayout() {
-  const { token, isOnline } = useStore();
+  const { isOnline, currentPage } = useStore();
   const [showSearch, setShowSearch] = React.useState(false);
+
+  // إعادة التمرير للأعلى عند تغيير الصفحة — كانت الصفحة الجديدة تظهر "بالأسفل"
+  useEffect(() => {
+    try { window.scrollTo({ top: 0, behavior: 'auto' }); } catch { window.scrollTo(0, 0); }
+    const m = document.querySelector('main');
+    if (m) m.scrollTop = 0;
+  }, [currentPage]);
 
   // Listen for Ctrl+K
   React.useEffect(() => {

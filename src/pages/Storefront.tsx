@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   Search, ShoppingCart, X, MessageCircle, Share2, Plus, Minus, Check,
   Package, Heart, Send, Bot, ArrowRight, Play,
-  Flame, ChevronUp, ChevronLeft, ChevronRight, Clock, MapPin, Filter, SlidersHorizontal, Eye,
+  Flame, ChevronUp, Clock, MapPin, Filter, SlidersHorizontal, Eye,
   Camera, Gift, Sparkles, Star, Zap, Circle, ShoppingBag,
 } from 'lucide-react';
 
@@ -158,14 +158,14 @@ function useCart() {
 
 // ═══════════════════════════════════════════════════════════════ DESIGN SYSTEM
 const DS = {
-  purple: '#FF6A00',
-  purpleLight: '#FF8533',
-  purpleGlow: 'rgba(255,106,0,0.28)',
-  purpleSoft: 'rgba(255,106,0,0.10)',
-  orange: '#FF6A00',
-  orangeLight: '#FF8533',
-  orangeGlow: 'rgba(255,106,0,0.28)',
-  orangeSoft: 'rgba(255,106,0,0.10)',
+  purple: '#7C3AED',
+  purpleLight: '#A855F7',
+  purpleGlow: 'rgba(124,58,237,0.25)',
+  purpleSoft: 'rgba(124,58,237,0.12)',
+  orange: '#FF7A00',
+  orangeLight: '#FFB347',
+  orangeGlow: 'rgba(255,122,0,0.25)',
+  orangeSoft: 'rgba(255,122,0,0.12)',
   bg: '#0A0A14',
   bgCard: 'rgba(255,255,255,0.06)',
   bgCardHover: 'rgba(255,255,255,0.10)',
@@ -176,8 +176,8 @@ const DS = {
   textTertiary: 'rgba(255,255,255,0.45)',
   border: 'rgba(255,255,255,0.08)',
   borderHover: 'rgba(255,255,255,0.14)',
-  borderPurple: 'rgba(255,106,0,0.28)',
-  borderOrange: 'rgba(255,106,0,0.28)',
+  borderPurple: 'rgba(124,58,237,0.3)',
+  borderOrange: 'rgba(255,122,0,0.3)',
   glassBg: 'rgba(255,255,255,0.08)',
   glassBlur: 'blur(24px)',
   glassBorder: '1px solid rgba(255,255,255,0.08)',
@@ -199,17 +199,17 @@ function AnimatedBackground() {
     <div style={{position:'fixed',inset:0,zIndex:0,overflow:'hidden',pointerEvents:'none'}}>
       <div style={{
         position:'absolute',top:'-20%',right:'-10%',width:'60vw',height:'60vw',maxWidth:600,maxHeight:600,
-        borderRadius:'50%',background:'radial-gradient(circle, rgba(255,106,0,0.14) 0%, transparent 70%)',
+        borderRadius:'50%',background:'radial-gradient(circle, rgba(124,58,237,0.15) 0%, transparent 70%)',
         animation:'bgFloat1 12s ease-in-out infinite',
       }}/>
       <div style={{
         position:'absolute',bottom:'-15%',left:'-5%',width:'50vw',height:'50vw',maxWidth:500,maxHeight:500,
-        borderRadius:'50%',background:'radial-gradient(circle, rgba(255,106,0,0.10) 0%, transparent 70%)',
+        borderRadius:'50%',background:'radial-gradient(circle, rgba(255,122,0,0.12) 0%, transparent 70%)',
         animation:'bgFloat2 15s ease-in-out infinite',
       }}/>
       <div style={{
         position:'absolute',top:'40%',left:'-8%',width:'30vw',height:'30vw',maxWidth:350,maxHeight:350,
-        borderRadius:'50%',background:'radial-gradient(circle, rgba(0,210,179,0.07) 0%, transparent 70%)',
+        borderRadius:'50%',background:'radial-gradient(circle, rgba(124,58,237,0.08) 0%, transparent 70%)',
         animation:'bgFloat3 18s ease-in-out infinite',
       }}/>
       <div style={{
@@ -395,21 +395,10 @@ function ProductModal({p,cart,onClose,currency,userId}:{p:SProduct;cart:ReturnTy
   const [giftWrap,setGiftWrap]=useState(false);
   const [giftMsg,setGiftMsgLocal]=useState('');
   const [lightboxIdx,setLightboxIdx]=useState<number|null>(null);
-  const [lbTouchX,setLbTouchX]=useState<number|null>(null);
   const [variantRows,setVariantRows]=useState<{size:string;color:string;qty:number}[]>([{size:p.sizes?.[0]||'',color:p.colors?.[0]||'',qty:1}]);
   const firstColorImg=p.colors?.[0]&&p.colorImages?.[p.colors[0]];
   const [activeImage,setActiveImage]=useState(firstColorImg||p.imageUrl||'');
   const galleryImgs=[p.imageUrl,...(p.images||[])].filter((x,i,a)=>x&&a.indexOf(x)===i);
-  useEffect(()=>{
-    if(lightboxIdx===null) return;
-    const h=(e:KeyboardEvent)=>{
-      if(e.key==='ArrowLeft') setLightboxIdx(i=>(i!+1)%galleryImgs.length);
-      if(e.key==='ArrowRight') setLightboxIdx(i=>(i!-1+galleryImgs.length)%galleryImgs.length);
-      if(e.key==='Escape') setLightboxIdx(null);
-    };
-    window.addEventListener('keydown',h);
-    return ()=>window.removeEventListener('keydown',h);
-  },[lightboxIdx,galleryImgs.length]);
   const rating=p.sales>20?5:p.sales>10?4:p.sales>3?4:3;
   void userId;
   useBackToClose(true,onClose);
@@ -420,23 +409,10 @@ function ProductModal({p,cart,onClose,currency,userId}:{p:SProduct;cart:ReturnTy
 
   return (<>
     {lightboxIdx!==null&&galleryImgs.length>0&&(
-      <div
-        style={{position:'fixed',inset:0,zIndex:600,background:'rgba(0,0,0,0.97)',display:'flex',alignItems:'center',justifyContent:'center',userSelect:'none'}}
-        onClick={()=>setLightboxIdx(null)}
-        onTouchStart={e=>setLbTouchX(e.touches[0].clientX)}
-        onTouchEnd={e=>{if(lbTouchX===null)return;const d=lbTouchX-e.changedTouches[0].clientX;if(Math.abs(d)>50)setLightboxIdx(i=>d>0?(i!+1)%galleryImgs.length:(i!-1+galleryImgs.length)%galleryImgs.length);setLbTouchX(null);}}>
-        {/* Close */}
-        <button onClick={e=>{e.stopPropagation();setLightboxIdx(null);}} style={{position:'absolute',top:14,left:14,width:40,height:40,borderRadius:'50%',background:'rgba(0,0,0,0.6)',backdropFilter:'blur(12px)',border:'1px solid rgba(255,255,255,0.15)',color:'#fff',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',zIndex:3}}><X size={20}/></button>
-        {/* Counter */}
-        <div style={{position:'absolute',top:18,right:14,background:'rgba(0,0,0,0.6)',backdropFilter:'blur(12px)',borderRadius:DS.radiusFull,padding:'5px 14px',fontSize:12,fontWeight:700,color:'rgba(255,255,255,0.8)',zIndex:3}}>{lightboxIdx+1}/{galleryImgs.length}</div>
-        {/* Prev arrow */}
-        {galleryImgs.length>1&&<button onClick={e=>{e.stopPropagation();setLightboxIdx(i=>(i!-1+galleryImgs.length)%galleryImgs.length);}} style={{position:'absolute',right:14,top:'50%',transform:'translateY(-50%)',width:44,height:44,borderRadius:'50%',background:'rgba(0,0,0,0.55)',backdropFilter:'blur(12px)',border:'1px solid rgba(255,255,255,0.15)',color:'#fff',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',zIndex:3}}><ChevronRight size={22}/></button>}
-        {/* Next arrow */}
-        {galleryImgs.length>1&&<button onClick={e=>{e.stopPropagation();setLightboxIdx(i=>(i!+1)%galleryImgs.length);}} style={{position:'absolute',left:14,top:'50%',transform:'translateY(-50%)',width:44,height:44,borderRadius:'50%',background:'rgba(0,0,0,0.55)',backdropFilter:'blur(12px)',border:'1px solid rgba(255,255,255,0.15)',color:'#fff',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',zIndex:3}}><ChevronLeft size={22}/></button>}
-        {/* Image */}
-        <img src={galleryImgs[lightboxIdx]} alt="" style={{maxWidth:'82%',maxHeight:'82%',objectFit:'contain',borderRadius:DS.radiusMd,pointerEvents:'none'}}/>
-        {/* Thumbnail strip */}
-        {galleryImgs.length>1&&<div style={{position:'absolute',bottom:16,left:0,right:0,display:'flex',gap:8,justifyContent:'center',padding:'0 20px',overflowX:'auto'}}>{galleryImgs.map((img,i)=><button key={i} onClick={e=>{e.stopPropagation();setLightboxIdx(i);}} style={{flexShrink:0,width:52,height:52,borderRadius:DS.radiusSm,overflow:'hidden',border:`2px solid ${i===lightboxIdx?DS.orange:'rgba(255,255,255,0.2)'}`,cursor:'pointer',padding:0,transition:'border-color 0.2s',boxShadow:i===lightboxIdx?`0 0 12px ${DS.orangeGlow}`:'none'}}><img src={img} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/></button>)}</div>}
+      <div style={{position:'fixed',inset:0,zIndex:600,background:'rgba(0,0,0,0.96)',display:'flex',alignItems:'center',justifyContent:'center'}} onClick={()=>setLightboxIdx(null)}>
+        <button onClick={()=>setLightboxIdx(null)} style={{position:'absolute',top:16,left:16,width:40,height:40,borderRadius:'50%',background:DS.glassBg,backdropFilter:DS.glassBlur,border:DS.glassBorder,color:'#fff',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',zIndex:3}}><X size={20}/></button>
+        <img src={galleryImgs[lightboxIdx]} alt="" style={{maxWidth:'90%',maxHeight:'90%',objectFit:'contain',borderRadius:DS.radiusMd}}/>
+        {galleryImgs.length>1&&<div style={{position:'absolute',bottom:20,left:0,right:0,display:'flex',gap:8,justifyContent:'center'}}>{galleryImgs.map((img,i)=><button key={i} onClick={e=>{e.stopPropagation();setLightboxIdx(i);}} style={{width:48,height:48,borderRadius:DS.radiusSm,overflow:'hidden',border:`2px solid ${i===lightboxIdx?DS.purpleLight:'rgba(255,255,255,0.2)'}`,cursor:'pointer',padding:0}}><img src={img} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/></button>)}</div>}
       </div>
     )}
 
@@ -503,30 +479,53 @@ function ProductModal({p,cart,onClose,currency,userId}:{p:SProduct;cart:ReturnTy
 }
 
 // ═══════════════════════════════════════════════════════════════ SERVICE MODAL
-function ServiceModal({p,cart,onClose,currency,storeInfo}:{p:SProduct;cart:ReturnType<typeof useCart>;onClose:()=>void;currency:string;storeInfo:StoreInfo}) {
-  const [added,setAdded]=useState(false);
-  const [note,setNote]=useState('');
-  // حجز الزبون: الزمان والمكان والشخص — كل التفاصيل تصل للتاجر
-  const [bkDate,setBkDate]=useState('');
-  const [bkTime,setBkTime]=useState('');
-  const [bkPlace,setBkPlace]=useState('');
-  const [bkPerson,setBkPerson]=useState('');
+function ServiceModal({p,onClose,currency,storeInfo,userId}:{p:SProduct;onClose:()=>void;currency:string;storeInfo:StoreInfo;userId:string}) {
+  // نوع الطلب الذي يختاره الزبون: حجز موعد / طلب الخدمة / طلب عاجل
+  const [action,setAction]=useState<'booking'|'request'|'urgent'|''>('');
+  const [bkDate,setBkDate]=useState(''); const [bkTime,setBkTime]=useState(''); const [bkNotes,setBkNotes]=useState('');
+  const [reqDetails,setReqDetails]=useState(''); const [reqPlace,setReqPlace]=useState(''); const [reqBudget,setReqBudget]=useState('');
+  const [urPhone,setUrPhone]=useState(''); const [urNotes,setUrNotes]=useState('');
+  // سلة الخدمة: معلومات الزبون (منفصلة تماماً عن سلة المنتجات)
+  const [cName,setCName]=useState(''); const [cPhone,setCPhone]=useState(''); const [cCity,setCCity]=useState(''); const [cAddr,setCAddr]=useState('');
+  const [loading,setLoading]=useState(false);
   useBackToClose(true,onClose);
   const gallery=[p.imageUrl,...(p.portfolio||[]),...(p.images||[])].filter((x,i,a)=>x&&a.indexOf(x)===i);
-  const mode=cfv(p,'serviceMode');
-  const isUrgent=mode.includes('استعجال');
-  const hasAppt=mode.includes('موعد')||!mode;
   const svcPhone=(cfv(p,'servicePhone')||storeInfo.brand.phone||'').replace(/[^\d+]/g,'');
-  const bookingText=[
-    isUrgent&&!bkDate?'⚡ طلب استعجالي — في أقرب وقت ممكن':'',
-    bkDate?`📅 الموعد: ${bkDate}${bkTime?` ⏰ ${bkTime}`:''}`:'',
-    bkPlace?`📍 المكان: ${bkPlace}`:'',
-    bkPerson?`👤 تفضيلات: ${bkPerson}`:'',
-    note?`📝 ${note}`:'',
-  ].filter(Boolean).join('\n');
+  const fld:React.CSSProperties={width:'100%',padding:'11px 13px',borderRadius:DS.radiusSm,border:DS.glassBorder,background:DS.bgInput,color:DS.textPrimary,fontSize:12,outline:'none',boxSizing:'border-box',fontFamily:'Tajawal,sans-serif'};
 
-  const bookWA=()=>{const phone=svcPhone.replace(/\D/g,'');const msg=`مرحباً ${storeInfo.brand.name}! 👋\n\nأريد حجز خدمة:\n🔧 ${p.name}\n💰 ${p.price.toLocaleString()} ${currency}${p.duration?`\n⏱️ ${p.duration}`:''}${p.workArea?`\n📍 ${p.workArea}`:''}${bookingText?`\n\n${bookingText}`:''}\n\nأرجو التأكيد 🙏`;if(phone)window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`,'_blank');else navigator.clipboard?.writeText(msg);};
-  const addToOrder=()=>{cart.add(p,'','',false,bookingText||note);setAdded(true);setTimeout(()=>{setAdded(false);onClose();},900);};
+  const actionLabel=action==='booking'?'📅 حجز موعد':action==='request'?'🧾 طلب الخدمة':action==='urgent'?'⚡ طلب عاجل':'';
+  const summary=action==='booking'
+    ? ['📅 حجز موعد',bkDate?`اليوم: ${bkDate}${bkTime?` ⏰ ${bkTime}`:''}`:'',bkNotes?`📝 ${bkNotes}`:''].filter(Boolean).join('\n')
+    : action==='request'
+    ? ['🧾 طلب الخدمة',reqDetails?`التفاصيل: ${reqDetails}`:'',reqPlace?`📍 المكان: ${reqPlace}`:'',reqBudget?`💰 الميزانية: ${reqBudget} ${currency}`:''].filter(Boolean).join('\n')
+    : action==='urgent'
+    ? ['⚡ طلب عاجل — في أقرب وقت',urPhone?`📞 هاتف مؤكد: ${urPhone}`:'',urNotes?`📝 ${urNotes}`:''].filter(Boolean).join('\n')
+    : '';
+  const stepValid=action==='booking'?!!bkDate:action==='request'?reqDetails.trim().length>2:action==='urgent'?urPhone.replace(/\D/g,'').length>=9:false;
+  const phoneForOrder=(action==='urgent'&&urPhone?urPhone:cPhone).trim();
+  const canSubmit=!!action&&stepValid&&cName.trim().length>=2&&phoneForOrder.replace(/\D/g,'').length>=9&&!loading;
+
+  const bookWA=()=>{const phone=svcPhone.replace(/\D/g,'');const msg=`مرحباً ${storeInfo.brand.name}! 👋\n\nأريد خدمة:\n🔧 ${p.name}\n💰 ${p.price.toLocaleString()} ${currency}${p.duration?`\n⏱️ ${p.duration}`:''}${p.workArea?`\n📍 ${p.workArea}`:''}${summary?`\n\n${summary}`:''}\n\nأرجو التأكيد 🙏`;if(phone)window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`,'_blank');else navigator.clipboard?.writeText(msg);};
+
+  const submit=async()=>{
+    if(!canSubmit){alert('اختر نوع الطلب واملأ المعلومات المطلوبة (الاسم والهاتف)');return;}
+    setLoading(true);
+    try{
+      const r=await fetch('/api/orders/public',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+        userId,source:'Service',
+        items:[{productId:p.id,productName:p.name,price:p.price,quantity:1,serviceType:action}],
+        customerName:cName.trim(),customerPhone:phoneForOrder,city:cCity.trim(),address:cAddr.trim(),
+        total:p.price,notes:`[طلب خدمة: ${p.name}]\n${summary}`,
+      })});
+      const d=await r.json();
+      if(!r.ok)throw new Error(d.error||'تعذر إرسال الطلب');
+      const ph=svcPhone.replace(/\D/g,'');
+      if(ph){const msg=`مرحباً ${storeInfo.brand.name}! 👋\n\nطلب خدمة جديد:\n🔧 ${p.name}\n${summary}\n\n👤 ${cName}\n📱 ${phoneForOrder}${cCity?`\n📍 ${cCity}`:''}`;setTimeout(()=>window.open(`https://wa.me/${ph}?text=${encodeURIComponent(msg)}`,'_blank'),400);}
+      alert(`✅ تم إرسال طلب خدمتك!\nسيتواصل معك ${storeInfo.brand.name} للتأكيد.`);
+      onClose();
+    }catch(e:any){alert(`خطأ: ${e.message}`);}
+    setLoading(false);
+  };
 
   const cfs=(p.customFields||[]).filter(f=>f.id!=='serviceMode'&&f.id!=='servicePhone'&&f.value&&!(f.type==='boolean'&&f.value!=='true'));
 
@@ -553,31 +552,60 @@ function ServiceModal({p,cart,onClose,currency,storeInfo}:{p:SProduct;cart:Retur
           {p.description&&<p style={{fontSize:13,color:DS.textSecondary,lineHeight:1.8,margin:'0 0 18px'}}>{p.description}</p>}
           {cfs.length>0&&<div style={{marginBottom:18,padding:'14px 16px',background:DS.glassBg,borderRadius:DS.radiusMd,border:DS.glassBorder}}><div style={{fontSize:10,color:DS.textTertiary,fontWeight:700,letterSpacing:'.06em',marginBottom:10}}>تفاصيل الخدمة</div><div style={{display:'flex',flexDirection:'column',gap:7}}>{cfs.map(f=><div key={f.id} style={{display:'flex',justifyContent:'space-between',gap:10,fontSize:12}}><span style={{color:DS.textTertiary,flexShrink:0}}>{f.label}</span><span style={{color:DS.textPrimary,fontWeight:600,textAlign:'left'}}>{f.type==='boolean'?'✓':f.value}</span></div>)}</div></div>}
           {gallery.length>0&&<div style={{marginBottom:18}}><div style={{fontSize:10,color:DS.textTertiary,fontWeight:700,letterSpacing:'.06em',marginBottom:10}}>📸 من أعمالنا السابقة</div><div style={{display:'flex',gap:8,overflowX:'auto',paddingBottom:4}}>{gallery.map((img,i)=><img key={i} src={img} alt="" loading="lazy" style={{width:110,height:110,objectFit:'cover',borderRadius:DS.radiusSm,flexShrink:0,border:DS.glassBorder}}/>)}</div></div>}
-          {/* نموذج الحجز — الزبون يحدد الزمان والمكان والشخص */}
-          <div style={{marginBottom:6,padding:'14px 16px',background:DS.purpleSoft,borderRadius:DS.radiusMd,border:`1px solid ${DS.borderPurple}`}}>
-            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12,flexWrap:'wrap',gap:8}}>
-              <span style={{fontSize:12,fontWeight:800,color:DS.purpleLight}}>{isUrgent&&hasAppt?'⚡ استعجالية أو 📅 بموعد — اختر':isUrgent?'⚡ خدمة استعجالية — متاحة فوراً':'📅 خدمة بموعد مسبق'}</span>
-              {svcPhone&&(
-                <span style={{display:'flex',gap:6}}>
-                  <a href={`tel:${svcPhone}`} style={{fontSize:11,fontWeight:700,color:'#fff',background:DS.glassBg,border:DS.glassBorder,borderRadius:DS.radiusFull,padding:'5px 12px',textDecoration:'none'}}>📞 اتصال</a>
-                  <a href={`https://wa.me/${svcPhone.replace(/\D/g,'')}`} target="_blank" rel="noreferrer" style={{fontSize:11,fontWeight:700,color:'#fff',background:'#25D366',borderRadius:DS.radiusFull,padding:'5px 12px',textDecoration:'none'}}>واتساب</a>
-                </span>
-              )}
-            </div>
-            {hasAppt&&(
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:8}}>
-                <div><div style={{fontSize:10,color:DS.textTertiary,fontWeight:700,marginBottom:4}}>📅 اليوم{isUrgent?' (اختياري)':''}</div><input type="date" value={bkDate} onChange={e=>setBkDate(e.target.value)} style={{width:'100%',padding:'11px 13px',borderRadius:DS.radiusSm,border:DS.glassBorder,background:DS.bgInput,color:DS.textPrimary,fontSize:12,outline:'none',boxSizing:'border-box',fontFamily:'Tajawal,sans-serif'}}/></div>
-                <div><div style={{fontSize:10,color:DS.textTertiary,fontWeight:700,marginBottom:4}}>⏰ الساعة</div><input type="time" value={bkTime} onChange={e=>setBkTime(e.target.value)} style={{width:'100%',padding:'11px 13px',borderRadius:DS.radiusSm,border:DS.glassBorder,background:DS.bgInput,color:DS.textPrimary,fontSize:12,outline:'none',boxSizing:'border-box',fontFamily:'Tajawal,sans-serif'}}/></div>
-              </div>
-            )}
-            <div style={{marginBottom:8}}><div style={{fontSize:10,color:DS.textTertiary,fontWeight:700,marginBottom:4}}>📍 المكان / العنوان</div><input value={bkPlace} onChange={e=>setBkPlace(e.target.value)} placeholder="مثال: حي المعاريف، الدار البيضاء" style={{width:'100%',padding:'11px 13px',borderRadius:DS.radiusSm,border:DS.glassBorder,background:DS.bgInput,color:DS.textPrimary,fontSize:12,outline:'none',boxSizing:'border-box',fontFamily:'Tajawal,sans-serif'}}/></div>
-            <div style={{marginBottom:8}}><div style={{fontSize:10,color:DS.textTertiary,fontWeight:700,marginBottom:4}}>👤 الشخص المطلوب / تفضيلات</div><input value={bkPerson} onChange={e=>setBkPerson(e.target.value)} placeholder="مثال: نفس الفني السابق، امرأة، يتكلم الأمازيغية..." style={{width:'100%',padding:'11px 13px',borderRadius:DS.radiusSm,border:DS.glassBorder,background:DS.bgInput,color:DS.textPrimary,fontSize:12,outline:'none',boxSizing:'border-box',fontFamily:'Tajawal,sans-serif'}}/></div>
-            <div><div style={{fontSize:10,color:DS.textTertiary,fontWeight:700,marginBottom:4}}>📝 وصف إضافي</div><textarea value={note} onChange={e=>setNote(e.target.value)} rows={2} placeholder="صف ما تحتاجه بالتفصيل..." style={{...{width:'100%',padding:'11px 13px',borderRadius:DS.radiusSm,border:DS.glassBorder,background:DS.bgInput,color:DS.textPrimary,fontSize:12,outline:'none',boxSizing:'border-box',fontFamily:'Tajawal,sans-serif'},resize:'none'} as any}/></div>
+          {/* اختيار نوع الطلب — كل زر بنموذجه الخاص (منفصل عن سلة المنتجات) */}
+          <div style={{fontSize:12,fontWeight:800,color:DS.purpleLight,marginBottom:10}}>كيف تريد طلب هذه الخدمة؟</div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginBottom:14}}>
+            {([['booking','📅','حجز موعد'],['request','🧾','طلب الخدمة'],['urgent','⚡','طلب عاجل']] as const).map(([a,ic,lb])=>(
+              <button key={a} onClick={()=>setAction(a)} style={{padding:'12px 6px',borderRadius:DS.radiusMd,border:`1px solid ${action===a?DS.purpleLight:DS.border}`,background:action===a?DS.purpleSoft:DS.glassBg,color:action===a?DS.purpleLight:DS.textSecondary,cursor:'pointer',fontFamily:'inherit',display:'flex',flexDirection:'column',alignItems:'center',gap:5,transition:DS.transitionFast}}>
+                <span style={{fontSize:20}}>{ic}</span><span style={{fontSize:11,fontWeight:800}}>{lb}</span>
+              </button>
+            ))}
           </div>
+          {svcPhone&&(
+            <div style={{display:'flex',gap:6,marginBottom:14}}>
+              <a href={`tel:${svcPhone}`} style={{fontSize:11,fontWeight:700,color:'#fff',background:DS.glassBg,border:DS.glassBorder,borderRadius:DS.radiusFull,padding:'6px 14px',textDecoration:'none'}}>📞 اتصال</a>
+              <a href={`https://wa.me/${svcPhone.replace(/\D/g,'')}`} target="_blank" rel="noreferrer" style={{fontSize:11,fontWeight:700,color:'#fff',background:'#25D366',borderRadius:DS.radiusFull,padding:'6px 14px',textDecoration:'none'}}>واتساب مباشر</a>
+            </div>
+          )}
+          {action&&<div style={{padding:'14px 16px',background:DS.purpleSoft,borderRadius:DS.radiusMd,border:`1px solid ${DS.borderPurple}`,marginBottom:14}}>
+            {action==='booking'&&<>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:8}}>
+                <div><div style={{fontSize:10,color:DS.textTertiary,fontWeight:700,marginBottom:4}}>📅 اليوم *</div><input type="date" value={bkDate} onChange={e=>setBkDate(e.target.value)} style={fld}/></div>
+                <div><div style={{fontSize:10,color:DS.textTertiary,fontWeight:700,marginBottom:4}}>⏰ الساعة</div><input type="time" value={bkTime} onChange={e=>setBkTime(e.target.value)} style={fld}/></div>
+              </div>
+              <div style={{fontSize:10,color:DS.textTertiary,fontWeight:700,marginBottom:4}}>📝 ملاحظات</div><textarea rows={2} value={bkNotes} onChange={e=>setBkNotes(e.target.value)} placeholder="أي تفاصيل عن الموعد..." style={{...fld,resize:'none'} as any}/>
+            </>}
+            {action==='request'&&<>
+              <div style={{fontSize:10,color:DS.textTertiary,fontWeight:700,marginBottom:4}}>🧾 تفاصيل ما تحتاجه *</div><textarea rows={3} value={reqDetails} onChange={e=>setReqDetails(e.target.value)} placeholder="صف الخدمة المطلوبة بالتفصيل..." style={{...fld,resize:'none',marginBottom:8} as any}/>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+                <div><div style={{fontSize:10,color:DS.textTertiary,fontWeight:700,marginBottom:4}}>📍 المكان</div><input value={reqPlace} onChange={e=>setReqPlace(e.target.value)} placeholder="الحي / المدينة" style={fld}/></div>
+                <div><div style={{fontSize:10,color:DS.textTertiary,fontWeight:700,marginBottom:4}}>💰 الميزانية ({currency})</div><input value={reqBudget} onChange={e=>setReqBudget(e.target.value)} placeholder="تقريبية" dir="ltr" style={fld}/></div>
+              </div>
+            </>}
+            {action==='urgent'&&<>
+              <div style={{fontSize:11,fontWeight:700,color:'#FCD34D',background:'rgba(245,158,11,0.12)',border:'1px solid rgba(245,158,11,0.3)',borderRadius:DS.radiusSm,padding:'8px 12px',marginBottom:10}}>⚡ طلب عاجل — سيتم التواصل معك في أقرب وقت</div>
+              <div style={{fontSize:10,color:DS.textTertiary,fontWeight:700,marginBottom:4}}>📞 هاتف مؤكَّد للتواصل الفوري *</div><input value={urPhone} onChange={e=>setUrPhone(e.target.value)} placeholder="0612345678" dir="ltr" type="tel" style={{...fld,marginBottom:8}}/>
+              <div style={{fontSize:10,color:DS.textTertiary,fontWeight:700,marginBottom:4}}>📝 ملاحظات</div><textarea rows={2} value={urNotes} onChange={e=>setUrNotes(e.target.value)} placeholder="صف الحالة العاجلة..." style={{...fld,resize:'none'} as any}/>
+            </>}
+          </div>}
+          {/* سلة الخدمة — معلومات الزبون لإتمام الطلب (مستقلة عن سلة المنتجات) */}
+          {action&&<div style={{padding:'14px 16px',background:DS.glassBg,borderRadius:DS.radiusMd,border:DS.glassBorder}}>
+            <div style={{fontSize:11,fontWeight:800,color:DS.textPrimary,marginBottom:10}}>🧺 سلة الخدمة — معلوماتك</div>
+            <div style={{display:'flex',flexDirection:'column',gap:8}}>
+              <input value={cName} onChange={e=>setCName(e.target.value)} placeholder="الاسم الكامل *" style={fld}/>
+              <input value={cPhone} onChange={e=>setCPhone(e.target.value)} placeholder={action==='urgent'?'الهاتف (نفس المؤكَّد أعلاه)':'رقم الهاتف *'} dir="ltr" type="tel" style={fld}/>
+              <input value={cCity} onChange={e=>setCCity(e.target.value)} placeholder="المدينة" style={fld}/>
+              <input value={cAddr} onChange={e=>setCAddr(e.target.value)} placeholder="العنوان (اختياري)" style={fld}/>
+            </div>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:12,paddingTop:10,borderTop:`1px solid ${DS.border}`,fontSize:13}}>
+              <span style={{color:DS.textTertiary,fontWeight:600}}>{actionLabel} · {p.name}</span>
+              <span style={{fontWeight:900}}>{p.price.toLocaleString()} {currency}</span>
+            </div>
+          </div>}
         </div>
         <div style={{padding:'14px 22px 26px',position:'sticky',bottom:0,background:'rgba(10,10,20,0.97)',backdropFilter:DS.glassBlur,borderTop:`1px solid ${DS.border}`,display:'flex',gap:10}}>
-          <button onClick={bookWA} style={{flex:1.4,height:52,borderRadius:DS.radiusFull,background:'#25D366',border:'none',color:'#fff',fontSize:14,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}><MessageCircle size={16}/> احجز عبر واتساب</button>
-          <button onClick={addToOrder} style={{flex:1,height:52,borderRadius:DS.radiusFull,background:added?'#10B981':DS.glassBg,border:added?'none':`1px solid ${DS.borderPurple}`,color:added?'#fff':DS.purpleLight,fontSize:13,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6,transition:DS.transitionFast}}>{added?<><Check size={15}/> أُضيفت ✓</>:<>+ أضف للطلب</>}</button>
+          <button onClick={bookWA} style={{flex:1,height:52,borderRadius:DS.radiusFull,background:'#25D366',border:'none',color:'#fff',fontSize:13,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}><MessageCircle size={16}/> واتساب</button>
+          <button onClick={submit} disabled={!canSubmit} style={{flex:1.6,height:52,borderRadius:DS.radiusFull,background:canSubmit?`linear-gradient(135deg, ${DS.purple}, ${DS.purpleLight})`:DS.glassBg,border:canSubmit?'none':`1px solid ${DS.border}`,color:canSubmit?'#fff':DS.textTertiary,fontSize:14,fontWeight:700,cursor:canSubmit?'pointer':'not-allowed',display:'flex',alignItems:'center',justifyContent:'center',gap:8,boxShadow:canSubmit?`0 8px 24px ${DS.purpleGlow}`:'none'}}>{loading?'⟳ جارٍ الإرسال...':<><Check size={16}/> تأكيد طلب الخدمة</>}</button>
         </div>
       </div>
     </div>
@@ -823,8 +851,6 @@ export default function Storefront() {
   const [showTrack,setShowTrack]=useState(false);
   const [showWheel,setShowWheel]=useState(false);
   const [tab,setTab]=useState<'all'|'products'|'services'|'digital'>('all');
-  const [searchQuery,setSearchQuery]=useState('');
-  const [sortBy,setSortBy]=useState<'default'|'price-asc'|'price-desc'|'popular'>('default');
   const [liveTicker,setLiveTicker]=useState<{name:string;city:string;product:string;time:string}[]>([]);
   const [successOrderId,setSuccessOrderId]=useState('');
   const [cartAnim,setCartAnim]=useState(false);
@@ -837,17 +863,9 @@ export default function Storefront() {
   useEffect(()=>{if(viewProduct)trackStoreEvent(userId,'view',{id:viewProduct.id,name:viewProduct.name});},[viewProduct?.id]);
   useEffect(()=>{const h=(e:any)=>{if(e.detail)setViewProduct(e.detail);};document.addEventListener('viewProduct',h);return()=>document.removeEventListener('viewProduct',h);},[]);
 
-  const applyFilter=(prods:SProduct[]):SProduct[]=>{
-    let r=prods;
-    if(searchQuery.trim()){const q=searchQuery.toLowerCase();r=r.filter(p=>p.name.toLowerCase().includes(q)||p.category?.toLowerCase().includes(q)||p.description?.toLowerCase().includes(q));}
-    if(sortBy==='price-asc') return [...r].sort((a,b)=>a.price-b.price);
-    if(sortBy==='price-desc') return [...r].sort((a,b)=>b.price-a.price);
-    if(sortBy==='popular') return [...r].sort((a,b)=>b.sales-a.sales);
-    return r;
-  };
-  const allProducts=applyFilter(products.filter(p=>(!p.type||p.type==='product')));
-  const allServices=applyFilter(products.filter(p=>p.type==='service'));
-  const allDigital=applyFilter(products.filter(p=>p.type==='digital'));
+  const allProducts=products.filter(p=>(!p.type||p.type==='product'));
+  const allServices=products.filter(p=>p.type==='service');
+  const allDigital=products.filter(p=>p.type==='digital');
   const showProducts=tab==='all'||tab==='products';
   const showServices=tab==='all'||tab==='services';
   const showDigital=tab==='all'||tab==='digital';
@@ -868,60 +886,21 @@ export default function Storefront() {
       <style>{`body{background:${DS.bg}!important;margin:0;padding:0}::-webkit-scrollbar{width:3px;height:3px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:${DS.border};border-radius:99px}`}</style>
       <AnimatedBackground/>
       <header style={{position:'sticky',top:12,zIndex:100,margin:'12px 14px 0',background:DS.glassBg,backdropFilter:DS.glassBlur,WebkitBackdropFilter:DS.glassBlur,border:DS.glassBorder,borderRadius:DS.radiusXl,padding:'8px 16px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,height:56,boxShadow:DS.glassShadow}}>
-        <div style={{display:'flex',alignItems:'center',gap:10}}>
-          {brand.logo
-            ? <img src={brand.logo} alt={brand.name} style={{width:36,height:36,borderRadius:10,objectFit:'contain',border:'1.5px solid rgba(255,106,0,0.2)'}}/>
-            : <div style={{width:36,height:36,borderRadius:10,background:'linear-gradient(135deg,#FF6A00,#FF8533)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,fontWeight:900,color:'#fff'}}>{brand.name?.[0]||'S'}</div>}
-          <div style={{fontSize:13,fontWeight:700}}>{brand.name}</div>
-        </div>
-        <div style={{display:'flex',gap:6,alignItems:'center'}}><button onClick={()=>setShowTrack(true)} style={{padding:'6px 12px',borderRadius:DS.radiusFull,background:DS.bgGlass,border:DS.glassBorder,color:DS.textSecondary,fontSize:10,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',gap:4}}><Package size={11}/> تتبع</button>{brand.phone&&<a href={`https://wa.me/${brand.phone.replace(/\D/g,'')}`} target="_blank" rel="noreferrer" style={{padding:'6px 12px',borderRadius:DS.radiusFull,background:'rgba(37,211,102,0.1)',border:'1px solid rgba(37,211,102,0.2)',color:'#25D366',fontSize:10,fontWeight:600,textDecoration:'none',display:'flex',alignItems:'center',gap:4}}><MessageCircle size={11}/> واتساب</a>}<button onClick={()=>setShowCart(true)} style={{position:'relative',padding:'6px 12px',borderRadius:DS.radiusFull,background:cartAnim?`linear-gradient(135deg,#FF6A00,#FF8533)`:DS.bgGlass,border:`1px solid ${cartAnim?'transparent':DS.border}`,color:cartAnim?'#fff':DS.textSecondary,fontSize:10,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',gap:4,transition:DS.transitionFast,boxShadow:cartAnim?`0 4px 16px ${DS.purpleGlow}`:'none'}}><ShoppingCart size={13}/>{cart.count>0&&<span>({cart.count})</span>}</button></div>
+        <div style={{display:'flex',alignItems:'center',gap:10}}>{brand.logo&&<img src={brand.logo} alt={brand.name} style={{width:30,height:30,borderRadius:'50%',objectFit:'contain'}}/>}<div style={{fontSize:13,fontWeight:700}}>{brand.name}</div></div>
+        <div style={{display:'flex',gap:6,alignItems:'center'}}><button onClick={()=>setShowTrack(true)} style={{padding:'6px 12px',borderRadius:DS.radiusFull,background:DS.bgGlass,border:DS.glassBorder,color:DS.textSecondary,fontSize:10,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',gap:4}}><Package size={11}/> تتبع</button>{brand.phone&&<a href={`https://wa.me/${brand.phone.replace(/\D/g,'')}`} target="_blank" rel="noreferrer" style={{padding:'6px 12px',borderRadius:DS.radiusFull,background:'rgba(37,211,102,0.1)',border:'1px solid rgba(37,211,102,0.2)',color:'#25D366',fontSize:10,fontWeight:600,textDecoration:'none',display:'flex',alignItems:'center',gap:4}}><MessageCircle size={11}/> واتساب</a>}<button onClick={()=>setShowCart(true)} style={{position:'relative',padding:'6px 12px',borderRadius:DS.radiusFull,background:cartAnim?`linear-gradient(135deg, ${DS.purple}, ${DS.purpleLight})`:DS.bgGlass,border:`1px solid ${cartAnim?'transparent':DS.border}`,color:cartAnim?'#fff':DS.textSecondary,fontSize:10,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',gap:4,transition:DS.transitionFast,boxShadow:cartAnim?`0 4px 16px ${DS.purpleGlow}`:'none'}}><ShoppingCart size={13}/>{cart.count>0&&<span>({cart.count})</span>}</button></div>
       </header>
-      {/* ── Promotions Banner ── */}
-      {(storeInfo?.promotions?.freeShippingThreshold||0)>0&&(
-        <div style={{margin:'8px 14px 0',background:'rgba(255,106,0,0.08)',border:'1px solid rgba(255,106,0,0.22)',borderRadius:DS.radiusFull,padding:'9px 18px',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
-          <span style={{fontSize:14}}>🎁</span>
-          <span style={{fontSize:12,fontWeight:700,color:'#FF8533'}}>شحن مجاني للطلبات فوق {storeInfo?.promotions?.freeShippingThreshold} {cur}</span>
-        </div>
-      )}
-      {storeInfo?.promotions?.bundle?.enabled&&(
-        <div style={{margin:'6px 14px 0',background:'rgba(16,185,129,0.07)',border:'1px solid rgba(16,185,129,0.2)',borderRadius:DS.radiusFull,padding:'9px 18px',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
-          <span style={{fontSize:14}}>🎉</span>
-          <span style={{fontSize:12,fontWeight:700,color:'#10B981'}}>اشتر {storeInfo?.promotions?.bundle?.minItems}+ منتجات واحصل على خصم {storeInfo?.promotions?.bundle?.percent}%</span>
-        </div>
-      )}
       <HeroSection brand={brand} onShop={()=>setTab('products')}/>
-      {/* ── Tabs ── */}
-      <div style={{display:'flex',gap:6,padding:'6px',margin:'0 14px 12px',background:DS.glassBg,backdropFilter:DS.glassBlur,border:DS.glassBorder,borderRadius:DS.radiusFull}}>{[['all','✦ الكل'],['products','🛍️ منتجات'],['services','🔧 خدمات'],['digital','📱 رقمي']].map(([v,l])=><button key={v} onClick={()=>{setTab(v as any);setSearchQuery('');}} style={{flex:1,padding:'10px',borderRadius:DS.radiusFull,border:'none',background:tab===v?`linear-gradient(135deg,#FF6A00,#FF8533)`:'transparent',color:tab===v?'#fff':DS.textSecondary,fontSize:11,fontWeight:700,cursor:'pointer',transition:DS.transitionFast,boxShadow:tab===v?`0 4px 16px ${DS.purpleGlow}`:'none'}}>{l}</button>)}</div>
-      {/* ── Search + Sort ── */}
-      <div style={{display:'flex',gap:8,padding:'0 14px',marginBottom:20}}>
-        <div style={{flex:1,position:'relative'}}>
-          <Search size={13} style={{position:'absolute',right:12,top:'50%',transform:'translateY(-50%)',color:DS.textTertiary,pointerEvents:'none'}}/>
-          <input value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} placeholder="ابحث عن منتج أو خدمة..." style={{width:'100%',padding:'9px 34px 9px 36px',borderRadius:DS.radiusFull,border:searchQuery?`1px solid rgba(255,106,0,0.35)`:DS.glassBorder,background:DS.bgInput,color:DS.textPrimary,fontSize:12,outline:'none',fontFamily:'Tajawal,sans-serif',boxSizing:'border-box',transition:DS.transitionFast}}/>
-          {searchQuery&&<button onClick={()=>setSearchQuery('')} style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',color:DS.textTertiary,display:'flex',padding:2}}><X size={13}/></button>}
-        </div>
-        <select value={sortBy} onChange={e=>setSortBy(e.target.value as any)} style={{flexShrink:0,padding:'9px 10px',borderRadius:DS.radiusFull,border:DS.glassBorder,background:DS.bgGlass,color:DS.textSecondary,fontSize:11,outline:'none',fontFamily:'Tajawal,sans-serif',cursor:'pointer'}}>
-          <option value="default">الترتيب</option>
-          <option value="popular">الأكثر مبيعاً</option>
-          <option value="price-asc">السعر ↑</option>
-          <option value="price-desc">السعر ↓</option>
-        </select>
-      </div>
+      <div style={{display:'flex',gap:6,padding:'6px',margin:'0 14px 24px',background:DS.glassBg,backdropFilter:DS.glassBlur,border:DS.glassBorder,borderRadius:DS.radiusFull}}>{[['all','✦ الكل'],['products','🛍️ منتجات'],['services','🔧 خدمات'],['digital','📱 رقمي']].map(([v,l])=><button key={v} onClick={()=>setTab(v as any)} style={{flex:1,padding:'10px',borderRadius:DS.radiusFull,border:'none',background:tab===v?`linear-gradient(135deg, ${DS.purple}, ${DS.purpleLight})`:'transparent',color:tab===v?'#fff':DS.textSecondary,fontSize:11,fontWeight:700,cursor:'pointer',transition:DS.transitionFast,boxShadow:tab===v?`0 4px 16px ${DS.purpleGlow}`:'none'}}>{l}</button>)}</div>
       <div style={{padding:'0 14px',position:'relative',zIndex:1}}>
         {showProducts&&allProducts.length>0&&<div style={{marginBottom:48}}><div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(155px,1fr))',gap:14}}>{allProducts.map(p=><ProductCard key={p.id} p={p} currency={cur} onAdd={handleAddToCart} onView={p=>setViewProduct(p)}/>)}</div></div>}
         {showServices&&allServices.length>0&&<div style={{marginBottom:48}}><div style={{display:'flex',alignItems:'center',gap:10,marginBottom:16}}><div style={{width:4,height:24,background:`linear-gradient(180deg, ${DS.purple}, ${DS.purpleLight})`,borderRadius:DS.radiusFull,boxShadow:`0 0 12px ${DS.purpleGlow}`}}/><span style={{fontSize:16,fontWeight:900}}>خدماتنا</span><span style={{fontSize:11,color:DS.textTertiary,background:DS.glassBg,border:DS.glassBorder,padding:'3px 10px',borderRadius:DS.radiusFull}}>{allServices.length}</span></div><div style={{display:'flex',gap:12,overflowX:'auto',paddingBottom:8,scrollbarWidth:'none'}}>{allServices.map(p=><ServiceCard key={p.id} p={p} currency={cur} onView={p=>setViewProduct(p)}/>)}</div></div>}
         {showDigital&&allDigital.length>0&&<div style={{marginBottom:48}}><div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(155px,1fr))',gap:14}}>{allDigital.map(p=><ProductCard key={p.id} p={p} currency={cur} onAdd={handleAddToCart} onView={p=>setViewProduct(p)}/>)}</div></div>}
-        {allProducts.length===0&&allServices.length===0&&allDigital.length===0&&(
-          <div style={{textAlign:'center',padding:'60px 20px',color:DS.textTertiary}}>
-            <ShoppingBag size={48} style={{marginBottom:16,opacity:0.15}}/>
-            <div style={{fontSize:15,fontWeight:600}}>{searchQuery?'لم يُعثر على نتائج':'لا توجد منتجات بعد'}</div>
-            {searchQuery&&<button onClick={()=>setSearchQuery('')} style={{marginTop:12,padding:'8px 20px',borderRadius:DS.radiusFull,background:'rgba(255,106,0,0.1)',border:'1px solid rgba(255,106,0,0.25)',color:'#FF8533',fontSize:12,fontWeight:700,cursor:'pointer'}}>مسح البحث</button>}
-          </div>
-        )}
+        {allProducts.length===0&&allServices.length===0&&allDigital.length===0&&<div style={{textAlign:'center',padding:'80px 20px',color:DS.textTertiary}}><ShoppingBag size={48} style={{marginBottom:16,opacity:0.15}}/><div style={{fontSize:15,fontWeight:600}}>لا توجد منتجات بعد</div></div>}
         <div style={{marginTop:48,paddingTop:24,borderTop:`1px solid ${DS.border}`,textAlign:'center',paddingBottom:20}}><div style={{fontSize:12,color:DS.textTertiary,marginBottom:8,fontWeight:700}}>{brand.name}</div><div style={{display:'flex',justifyContent:'center',gap:16}}>{brand.phone&&<a href={`https://wa.me/${brand.phone.replace(/\D/g,'')}`} target="_blank" rel="noreferrer" style={{fontSize:11,color:'#25D366',textDecoration:'none',fontWeight:600}}>واتساب</a>}{brand.instagram&&<a href={`https://instagram.com/${brand.instagram}`} target="_blank" rel="noreferrer" style={{fontSize:11,color:DS.textTertiary,textDecoration:'none',fontWeight:600}}>Instagram</a>}{brand.facebook&&<a href={`https://facebook.com/${brand.facebook}`} target="_blank" rel="noreferrer" style={{fontSize:11,color:DS.textTertiary,textDecoration:'none',fontWeight:600}}>Facebook</a>}</div><div style={{fontSize:9,color:DS.textTertiary,opacity:0.4,marginTop:10}}>Powered by SAHAR Shop 🇲🇦</div></div>
       </div>
       <LiveTicker orders={liveTicker}/>
-      {cart.count>0&&!showCart&&<div style={{position:'fixed',bottom:20,right:14,left:14,zIndex:150}}><button onClick={()=>setShowCart(true)} style={{width:'100%',height:54,background:'linear-gradient(135deg,#FF6A00,#FF8533)',border:'none',borderRadius:DS.radiusFull,color:'#fff',fontSize:15,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:10,boxShadow:`0 8px 32px rgba(255,106,0,0.4)`}}><ShoppingCart size={18}/>السلة ({cart.count})<span style={{background:'rgba(255,255,255,0.2)',borderRadius:DS.radiusFull,padding:'4px 14px',fontSize:13,fontWeight:700}}>{cart.total.toLocaleString()} {cur}</span></button></div>}
-      {viewProduct&&(viewProduct.type==='service'?<ServiceModal p={viewProduct} cart={cart} onClose={()=>setViewProduct(null)} currency={cur} storeInfo={storeInfo!}/>:<ProductModal p={viewProduct} cart={cart} onClose={()=>setViewProduct(null)} currency={cur} userId={userId}/>)}
+      {cart.count>0&&!showCart&&<div style={{position:'fixed',bottom:20,right:14,left:14,zIndex:150}}><button onClick={()=>setShowCart(true)} style={{width:'100%',height:54,background:DS.glassBg,backdropFilter:DS.glassBlur,border:`1px solid ${DS.borderPurple}`,borderRadius:DS.radiusFull,color:DS.textPrimary,fontSize:15,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:10,boxShadow:`0 12px 40px rgba(0,0,0,0.4), 0 0 0 1px ${DS.borderPurple}`}}><ShoppingCart size={18}/>السلة ({cart.count})<span style={{background:DS.purpleSoft,borderRadius:DS.radiusFull,padding:'4px 14px',fontSize:13,fontWeight:700,color:DS.purpleLight}}>{cart.total.toLocaleString()} {cur}</span></button></div>}
+      {viewProduct&&(viewProduct.type==='service'?<ServiceModal p={viewProduct} onClose={()=>setViewProduct(null)} currency={cur} storeInfo={storeInfo!} userId={userId}/>:<ProductModal p={viewProduct} cart={cart} onClose={()=>setViewProduct(null)} currency={cur} userId={userId}/>)}
       {storeInfo?.promotions?.wheel?.enabled!==false&&<button onClick={()=>setShowWheel(true)} aria-label="عجلة الحظ" style={{position:'fixed',bottom:88,left:20,zIndex:150,width:50,height:50,borderRadius:'50%',background:`linear-gradient(135deg, ${DS.orange}, ${DS.orangeLight})`,border:'none',cursor:'pointer',fontSize:23,display:'flex',alignItems:'center',justifyContent:'center',boxShadow:`0 8px 28px ${DS.orangeGlow}`}}>🎡</button>}
       <LuckyWheel userId={userId} open={showWheel} onClose={()=>setShowWheel(false)}/>
       {showCart&&<CartSidebar cart={cart} storeInfo={storeInfo!} userId={userId} onClose={()=>setShowCart(false)} onOrderSuccess={id=>{setSuccessOrderId(id);setShowCart(false);}}/>}

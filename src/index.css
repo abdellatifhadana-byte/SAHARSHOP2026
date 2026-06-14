@@ -862,6 +862,41 @@ body::after {
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   34b. NAV SURFACES — responsive show/hide (fixes duplicate navs)
+   Mobile-first: top mobile bar only. Desktop (≥1024): top action bar
+   + fixed side menu. Only ONE primary nav visible per breakpoint.
+   ═══════════════════════════════════════════════════════════════ */
+.nav-logo  { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.nav-brand { font-weight: 900; font-size: 15px; color: var(--ink1); white-space: nowrap; letter-spacing: -0.02em; }
+.nav-links { display: flex; align-items: center; gap: 4px; }
+
+/* default (mobile/tablet < 1024px) */
+.topnav-desktop      { display: none; }
+.topnav-mobile       { display: flex; }
+.nav-desktop-sidebar { display: none; }
+.main-with-sidebar   { margin-inline-start: 0; }
+
+@media (min-width: 1024px) {
+  .topnav-mobile  { display: none; }
+  .topnav-desktop { display: flex; }
+  /* hide the horizontal links on desktop — the side menu is the primary nav (no duplicates) */
+  .topnav-desktop .nav-links { display: none; }
+  .nav-desktop-sidebar {
+    display: flex; flex-direction: column;
+    position: fixed; top: 56px; bottom: 0; inset-inline-start: 0;
+    width: 240px; z-index: 150;
+    background: var(--glass);
+    border-inline-end: 1px solid var(--border);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    padding: 10px 8px; overflow-y: auto;
+  }
+  .main-with-sidebar { margin-inline-start: 240px; }
+  .mobile-bottom-nav { display: none !important; }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
    35. SIDEBAR — Slide-in Panel
    ═══════════════════════════════════════════════════════════════ */
 .sidebar-overlay {
