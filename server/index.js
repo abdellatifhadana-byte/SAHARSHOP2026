@@ -186,9 +186,13 @@ const migrate = require('./migrate');
 async function startServer() {
   try {
     if (process.env.DATABASE_URL) {
-      await migrate();
+      // Migration must NOT crash the process — otherwise a transient/misconfigured
+      // DB makes the server never listen and the Railway healthcheck fails for 5m.
+      // Start in degraded mode and surface the error in logs/monitoring instead.
+      try { await migrate(); }
+      catch (e) { logger.error('DB migration failed — starting in degraded mode (check DATABASE_URL / DB connectivity)', { error: e.message }); logger.capture(e); }
     } else {
-      console.warn('[Server] ⚠️  DATABASE_URL not set — skipping PostgreSQL migration');
+      logger.warn('DATABASE_URL not set — running without persistence (no-database mode)');
     }
     const server = app.listen(PORT, '0.0.0.0', () => {
       const hasKey = !!(process.env.OPENAI_API_KEY || process.env.GEMINI_API_KEY);
