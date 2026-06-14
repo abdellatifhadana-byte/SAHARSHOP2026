@@ -162,9 +162,21 @@ app.get('*', (req, res) => {
   }
 });
 
+// ── Structured logging + crash handlers (production readiness) ──
+const logger = require('./lib/logger');
+process.on('unhandledRejection', (reason) => {
+  logger.error('Unhandled promise rejection', { reason: reason && reason.message ? reason.message : String(reason) });
+  logger.capture(reason);
+});
+process.on('uncaughtException', (err) => {
+  logger.error('Uncaught exception', { error: err && err.message, stack: err && err.stack });
+  logger.capture(err);
+});
+
 // ── Error handler ────────────────────────────────────────────
 app.use((err, req, res, _next) => {
-  console.error('[Error]', err.message);
+  logger.error('Request error', { path: req.path, method: req.method, error: err.message });
+  logger.capture(err);
   res.status(err.status || 500).json({ error: err.message || 'Internal server error' });
 });
 

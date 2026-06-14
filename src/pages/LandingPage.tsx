@@ -72,7 +72,7 @@ export default function LandingPage() {
 
   return (
     <div dir={isRtl ? 'rtl' : 'ltr'} style={{
-      height: '100dvh', overflow: 'hidden', background: '#0A0A0F', color: '#FAFAFA',
+      minHeight: '100dvh', overflowX: 'hidden', background: '#0A0A0F', color: '#FAFAFA',
       fontFamily: 'Tajawal, system-ui, sans-serif',
       display: 'flex', flexDirection: 'column',
       backgroundImage: `
@@ -131,12 +131,12 @@ export default function LandingPage() {
         </div>
       </header>
 
-      {/* ── ONE-VIEWPORT HERO (no scroll) ── */}
+      {/* ── ONE-VIEWPORT HERO (fits one screen on normal devices; scrolls gracefully on tiny ones — never clips) ── */}
       <main style={{
-        flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column',
+        flex: '1 0 auto', display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center',
-        gap: 'clamp(12px, 2.2vh, 22px)', padding: 'clamp(12px,2.5vh,26px) clamp(16px,4vw,24px)',
-        textAlign: 'center', overflow: 'hidden',
+        gap: 'clamp(12px, 2.2vh, 22px)', padding: 'clamp(16px,2.5vh,26px) clamp(16px,4vw,24px)',
+        textAlign: 'center',
         animation: loaded ? 'fadeUp .6s .05s ease both' : 'none',
       }}>
         {/* Tagline */}

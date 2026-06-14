@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "claude/**"]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies (frontend + server)
+        run: npm install --legacy-peer-deps --no-audit --no-fund
+
+      - name: Install server dependencies
+        run: cd server && npm install --no-audit --no-fund
+
+      - name: Build frontend (vite)
+        run: npm run build
+
+      - name: Server tests
+        run: cd server && npm test
+
+      # TypeScript has known pre-existing errors being paid down (heavy `any`);
+      # surfaced here but not yet a gate.
+      - name: Typecheck (informational)
+        run: npm run lint
+        continue-on-error: true
