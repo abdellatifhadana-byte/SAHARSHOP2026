@@ -10,7 +10,7 @@ module.exports = function auth(req, res, next) {
     return res.status(401).json({ error: 'Authentication required' });
   }
   
-  const token = authHeader.slice(7); // إزالة 'Bearer '
+  const token = authHeader.slice(7); // إلة 'Bearer '
   if (!token) {
     console.log('[auth] Empty token');
     return res.status(401).json({ error: 'Authentication required' });
