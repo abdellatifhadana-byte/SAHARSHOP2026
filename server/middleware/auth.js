@@ -3,16 +3,28 @@ const jwt = require('jsonwebtoken');
 const { JWT_SECRET: SECRET } = require('../lib/config');
 
 module.exports = function auth(req, res, next) {
-  // هجين آمن: Authorization header أولاً، ثم كوكي HttpOnly كبديل
-  // (تمهيد للتخلي عن localStorage دون كسر الجلسات الحالية)
-  const h = req.headers.authorization;
-  const raw = (h && h.startsWith('Bearer ')) ? h.slice(7) : req.cookies?.token;
-  if (!raw) return res.status(401).json({ error: 'Authentication required' });
+  // قراءة التوكن فقط من Authorization header
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    console.log('[auth] No Bearer token provided');
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+  
+  const token = authHeader.slice(7); // إزالة 'Bearer '
+  if (!token) {
+    console.log('[auth] Empty token');
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+  
   try {
-    req.user = jwt.verify(raw, SECRET);
+    req.user = jwt.verify(token, SECRET);
+    console.log('[auth] User authenticated:', req.user.id);
     next();
   } catch (e) {
-    const msg = e.name === 'TokenExpiredError' ? 'Session expired — please login again' : 'Invalid token';
+    console.log('[auth] Token verification failed:', e.name);
+    const msg = e.name === 'TokenExpiredError' 
+      ? 'Session expired — please login again' 
+      : 'Invalid token';
     return res.status(401).json({ error: msg });
   }
 };
