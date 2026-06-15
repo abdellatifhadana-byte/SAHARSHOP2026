@@ -252,6 +252,7 @@ export interface DeliverySettings {
   autoSendOnApproval: boolean;
   notifyCustomerOnShip: boolean;
   trackingUrlTemplate: string;
+  defaultCost?: number;
 }
 
 export interface ProductSettings {
@@ -397,12 +398,12 @@ export const defaultSettings: AppSettings = {
 // ── Seed Data ──────────────────────────────────────────────────
 
 export const seedProducts: Product[] = [
-  { id: 'P1', name: 'قميص كتان كلاسيك', description: 'قميص كتان فاخر 100%', price: 299, cost: 150, stock: 45, category: 'ملابس رجالية', sizes: ['M','L','XL'], colors: ['أبيض','أزرق','بيج'], status: 'published', emoji: '👔', imageUrl: '', images: [], isForChildren: false, views: 342, sales: 45, createdAt: '2025-01-10' },
-  { id: 'P2', name: 'فستان سهرة أنيق', description: 'فستان بتصميم عصري', price: 599, cost: 280, stock: 12, category: 'ملابس نسائية', sizes: ['S','M','L'], colors: ['أسود','أحمر','نبيتي'], status: 'published', emoji: '👗', imageUrl: '', images: [], isForChildren: false, views: 567, sales: 32, createdAt: '2025-01-08' },
-  { id: 'P3', name: 'جاكيت جلد فاخر', description: 'جلد طبيعي 100%', price: 899, cost: 450, stock: 8, category: 'ملابس رجالية', sizes: ['M','L','XL'], colors: ['أسود','بني'], status: 'published', emoji: '🧥', imageUrl: '', images: [], isForChildren: false, views: 234, sales: 18, createdAt: '2025-01-05' },
-  { id: 'P4', name: 'حذاء رياضي عصري', description: 'خفيف ومريح', price: 450, cost: 200, stock: 30, category: 'أحذية', sizes: ['40','41','42','43','44'], colors: ['أبيض','أسود','رمادي'], status: 'published', emoji: '👟', imageUrl: '', images: [], isForChildren: false, views: 456, sales: 28, createdAt: '2025-01-03' },
-  { id: 'P5', name: 'حقيبة يد جلدية', description: 'جلد طبيعي أنيق', price: 350, cost: 160, stock: 3, category: 'إكسسوارات', sizes: [], colors: ['بني','أسود','بيج'], status: 'published', emoji: '👜', imageUrl: '', images: [], isForChildren: false, views: 189, sales: 15, createdAt: '2025-01-01' },
-  { id: 'P6', name: 'بنطال جينز سليم', description: 'قصة سليم عصرية', price: 250, cost: 100, stock: 0, category: 'ملابس رجالية', sizes: ['M','L','XL'], colors: ['أزرق','أسود'], status: 'draft', emoji: '👖', imageUrl: '', images: [], isForChildren: false, views: 123, sales: 0, createdAt: '2025-01-15' },
+  { id: 'P1', name: 'قميص كتان كلاسيك', description: 'قميص كتان فاخر 100%', price: 299, cost: 150, stock: 45, category: 'ملابس رجالية', sizes: ['M','L','XL'], colors: ['أبيض','أزرق','بيج'], status: 'published', emoji: '👔', imageUrl: '', images: [], isForChildren: false, type: 'product', views: 342, sales: 45, createdAt: '2025-01-10' },
+  { id: 'P2', name: 'فستان سهرة أنيق', description: 'فستان بتصميم عصري', price: 599, cost: 280, stock: 12, category: 'ملابس نسائية', sizes: ['S','M','L'], colors: ['أسود','أحمر','نبيتي'], status: 'published', emoji: '👗', imageUrl: '', images: [], isForChildren: false, type: 'product', views: 567, sales: 32, createdAt: '2025-01-08' },
+  { id: 'P3', name: 'جاكيت جلد فاخر', description: 'جلد طبيعي 100%', price: 899, cost: 450, stock: 8, category: 'ملابس رجالية', sizes: ['M','L','XL'], colors: ['أسود','بني'], status: 'published', emoji: '🧥', imageUrl: '', images: [], isForChildren: false, type: 'product', views: 234, sales: 18, createdAt: '2025-01-05' },
+  { id: 'P4', name: 'حذاء رياضي عصري', description: 'خفيف ومريح', price: 450, cost: 200, stock: 30, category: 'أحذية', sizes: ['40','41','42','43','44'], colors: ['أبيض','أسود','رمادي'], status: 'published', emoji: '👟', imageUrl: '', images: [], isForChildren: false, type: 'product', views: 456, sales: 28, createdAt: '2025-01-03' },
+  { id: 'P5', name: 'حقيبة يد جلدية', description: 'جلد طبيعي أنيق', price: 350, cost: 160, stock: 3, category: 'إكسسوارات', sizes: [], colors: ['بني','أسود','بيج'], status: 'published', emoji: '👜', imageUrl: '', images: [], isForChildren: false, type: 'product', views: 189, sales: 15, createdAt: '2025-01-01' },
+  { id: 'P6', name: 'بنطال جينز سليم', description: 'قصة سليم عصرية', price: 250, cost: 100, stock: 0, category: 'ملابس رجالية', sizes: ['M','L','XL'], colors: ['أزرق','أسود'], status: 'draft', emoji: '👖', imageUrl: '', images: [], isForChildren: false, type: 'product', views: 123, sales: 0, createdAt: '2025-01-15' },
 ];
 
 export const seedCustomers: Customer[] = [

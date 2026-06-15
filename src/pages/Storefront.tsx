@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
-  Search, ShoppingCart, X, MessageCircle, Share2, Plus, Minus, Check,
-  Package, Heart, Send, Bot, ArrowRight, Play,
-  Flame, ChevronUp, Clock, MapPin, Filter, SlidersHorizontal, Eye,
-  Camera, Gift, Sparkles, Star, Zap, Circle, ShoppingBag,
+  ShoppingCart, X, MessageCircle, Share2, Plus, Minus, Check,
+  Package, Heart, Send, Bot, ArrowRight,
+  Flame, Clock, MapPin,
+  Camera, Gift, Sparkles, Star, Zap, ShoppingBag,
 } from 'lucide-react';
 
 // ═══════════════════════════════════════════════════════════════ TYPES
@@ -324,7 +324,7 @@ function ProductCard({p,onAdd,onView,currency}:{p:SProduct;onAdd:(p:SProduct)=>v
 
 // ═══════════════════════════════════════════════════════════════ SERVICE CARD
 function serviceIconFor(p:SProduct,sz=22) {
-  const icons:Record<string,JSX.Element> = {
+  const icons:Record<string,React.JSX.Element> = {
     'تصوير':<Camera size={sz}/>,
     'تصميم':<svg width={sz} height={sz} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>,
     'تنظيف':<Sparkles size={sz}/>,
@@ -886,7 +886,7 @@ export default function Storefront() {
       <style>{`body{background:${DS.bg}!important;margin:0;padding:0}::-webkit-scrollbar{width:3px;height:3px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:${DS.border};border-radius:99px}`}</style>
       <AnimatedBackground/>
       <header style={{position:'sticky',top:12,zIndex:100,margin:'12px 14px 0',background:DS.glassBg,backdropFilter:DS.glassBlur,WebkitBackdropFilter:DS.glassBlur,border:DS.glassBorder,borderRadius:DS.radiusXl,padding:'8px 16px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,height:56,boxShadow:DS.glassShadow}}>
-        <div style={{display:'flex',alignItems:'center',gap:10}}>{brand.logo&&<img src={brand.logo} alt={brand.name} style={{width:30,height:30,borderRadius:'50%',objectFit:'contain'}}/>}<div style={{fontSize:13,fontWeight:700}}>{brand.name}</div></div>
+        <div style={{display:'flex',alignItems:'center',gap:10}}>{brand.logo&&<img src={brand.logo} alt={brand.name} style={{width:30,height:30,borderRadius:'50%',objectFit:'contain'}}/>}<div style={{fontSize:13,fontWeight:700}}>{brand.name}</div>{(()=>{const st=storeOpenStatus((brand as any).workStart,(brand as any).workEnd);return st?<span style={{fontSize:9,fontWeight:700,color:st.open?'#10B981':'#EF4444',background:st.open?'rgba(16,185,129,0.12)':'rgba(239,68,68,0.12)',border:'1px solid '+(st.open?'rgba(16,185,129,0.3)':'rgba(239,68,68,0.3)'),borderRadius:DS.radiusFull,padding:'3px 8px',whiteSpace:'nowrap'}}>{(st.open?'🟢 ':'🔴 ')+st.label}</span>:null;})()}</div>
         <div style={{display:'flex',gap:6,alignItems:'center'}}><button onClick={()=>setShowTrack(true)} style={{padding:'6px 12px',borderRadius:DS.radiusFull,background:DS.bgGlass,border:DS.glassBorder,color:DS.textSecondary,fontSize:10,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',gap:4}}><Package size={11}/> تتبع</button>{brand.phone&&<a href={`https://wa.me/${brand.phone.replace(/\D/g,'')}`} target="_blank" rel="noreferrer" style={{padding:'6px 12px',borderRadius:DS.radiusFull,background:'rgba(37,211,102,0.1)',border:'1px solid rgba(37,211,102,0.2)',color:'#25D366',fontSize:10,fontWeight:600,textDecoration:'none',display:'flex',alignItems:'center',gap:4}}><MessageCircle size={11}/> واتساب</a>}<button onClick={()=>setShowCart(true)} style={{position:'relative',padding:'6px 12px',borderRadius:DS.radiusFull,background:cartAnim?`linear-gradient(135deg, ${DS.purple}, ${DS.purpleLight})`:DS.bgGlass,border:`1px solid ${cartAnim?'transparent':DS.border}`,color:cartAnim?'#fff':DS.textSecondary,fontSize:10,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',gap:4,transition:DS.transitionFast,boxShadow:cartAnim?`0 4px 16px ${DS.purpleGlow}`:'none'}}><ShoppingCart size={13}/>{cart.count>0&&<span>({cart.count})</span>}</button></div>
       </header>
       <HeroSection brand={brand} onShop={()=>setTab('products')}/>
