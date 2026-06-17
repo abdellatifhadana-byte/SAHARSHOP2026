@@ -1,14 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useStore } from '../store';
-import { t, type Lang } from '../i18n/translations';
+import { t, type Lang, LANGS, isRtlLang } from '../i18n/translations';
 import { Bot, MessageCircle, Truck, BarChart3, ShieldCheck, Sparkles, Check, Star, ChevronDown, X } from 'lucide-react';
-
-const LANGS: { code: Lang; flag: string; label: string }[] = [
-  { code: 'ar', flag: '🇸🇦', label: 'العربية' },
-  { code: 'darija', flag: '🇲🇦', label: 'الدارجة' },
-  { code: 'fr', flag: '🇫🇷', label: 'Français' },
-  { code: 'en', flag: '🇬🇧', label: 'English' },
-];
 
 const FEATURES = [
   { Icon: Bot, key: 'landing.feature.ai', color: '#FF6A00' },
@@ -50,7 +43,7 @@ export default function LandingPage() {
   const userId = user?.id || (() => { try { const u = localStorage.getItem('ai_commerce_user'); return u ? JSON.parse(u)?.id : null; } catch { return null; } })();
   const storeUrl = userId ? `/store/${userId}` : null;
   const isAuthed = !!token || token === 'demo-token-local';
-  const isRtl = lang === 'ar' || lang === 'darija';
+  const isRtl = isRtlLang(lang);
 
   useEffect(() => { const t = setTimeout(() => setLoaded(true), 60); return () => clearTimeout(t); }, []);
 
@@ -109,7 +102,7 @@ export default function LandingPage() {
           <div ref={langRef} style={{ position: 'relative' }}>
             <button onClick={() => setShowLangMenu(v => !v)}
               style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 11px', borderRadius: 8, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: '#FAFAFA', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
-              {curLang.flag} <span style={{ display: window.innerWidth < 380 ? 'none' : 'inline' }}>{curLang.label}</span>
+              {curLang.flag} <span className="hide-xs">{curLang.label}</span>
               <ChevronDown size={10} style={{ transform: showLangMenu ? 'rotate(180deg)' : 'none', transition: '0.2s' }} />
             </button>
             {showLangMenu && (
@@ -123,6 +116,7 @@ export default function LandingPage() {
               </div>
             )}
           </div>
+          <a href="/market" style={{ padding: '7px 14px', borderRadius: 8, background: 'rgba(255,106,0,0.08)', border: '1px solid rgba(255,106,0,0.2)', color: '#FF9A55', fontSize: 12.5, fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap' }}>🏪 السوق</a>
           {isAuthed ? (
             <a href="/dashboard" style={{ padding: '7px 16px', borderRadius: 8, background: 'linear-gradient(135deg, #FF6A00, #CC5500)', color: '#fff', fontSize: 12.5, fontWeight: 700, textDecoration: 'none' }}>لوحة التحكم</a>
           ) : (
@@ -210,6 +204,9 @@ export default function LandingPage() {
           <button onClick={startDemo} style={{ padding: '9px 20px', borderRadius: 11, background: 'rgba(255,106,0,0.06)', border: '1px solid rgba(255,106,0,0.15)', color: '#FF9A55', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
             {t(lang, 'landing.demo')}
           </button>
+          <a href="/market" style={{ padding: '9px 20px', borderRadius: 11, background: 'rgba(0,210,179,0.06)', border: '1px solid rgba(0,210,179,0.18)', color: '#00D2B3', fontSize: 12.5, fontWeight: 700, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+            🏪 تصفّح السوق
+          </a>
           <button onClick={() => setShowDetails(true)} style={{ padding: '9px 20px', borderRadius: 11, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.55)', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 7 }}>
             الأسعار والتفاصيل <ChevronDown size={12} />
           </button>

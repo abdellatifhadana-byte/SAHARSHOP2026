@@ -3,7 +3,6 @@ import { useStore } from '../store';
 import {
   ShoppingBag, MessageCircle, Users, TrendingUp,
   ChevronRight, AlertTriangle, ChevronDown, ChevronUp, Bell,
-  Package, Zap, ArrowUpRight, ArrowDownRight,
 } from 'lucide-react';
 import { isPushSupported, getPushPermission, subscribeToPush } from '../lib/pushNotifications';
 

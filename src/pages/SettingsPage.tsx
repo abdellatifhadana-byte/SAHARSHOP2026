@@ -6,6 +6,7 @@ import {
   Palette, Wifi, Edit2, X, Save,
 } from 'lucide-react';
 import type { TeamMember } from '../types';
+import { LANGS } from '../i18n';
 import SystemCheck from '../components/SystemCheck';
 import QRCode from '../components/QRCode';
 
@@ -101,6 +102,56 @@ function ChangePasswordForm({ notify }: { notify: (type: string, msg: string) =>
 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
+// نسخ الخادم الاحتياطية اليومية — قائمة + تنزيل مُصادَق (كان الـ endpoint بلا واجهة)
+function ServerBackups() {
+  const [list, setList] = useState<{ filename: string; date: string; size: number }[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState('');
+  const tok = () => { try { return localStorage.getItem('ai_commerce_token') || ''; } catch { return ''; } };
+
+  const load = async () => {
+    setLoading(true); setErr('');
+    try {
+      const r = await fetch('/api/settings/backups', { headers: { Authorization: `Bearer ${tok()}` } });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || 'تعذّر جلب النسخ');
+      setList(Array.isArray(d.backups) ? d.backups : []);
+    } catch (e: any) { setErr(e.message || 'خطأ'); setList([]); }
+    setLoading(false);
+  };
+
+  const download = async (filename: string) => {
+    try {
+      const r = await fetch(`/api/settings/backups/${encodeURIComponent(filename)}`, { headers: { Authorization: `Bearer ${tok()}` } });
+      if (!r.ok) throw new Error('فشل التحميل');
+      const blob = await r.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = filename; a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    } catch (e: any) { alert(e.message || 'فشل التحميل'); }
+  };
+
+  return (
+    <div style={{ marginTop: 10 }}>
+      <button onClick={load} className="btn btn-ghost btn-sm" disabled={loading} style={{ width: '100%', justifyContent: 'center' }}>
+        {loading ? '⟳ جارٍ التحميل...' : '☁️ نسخ الخادم الاحتياطية (يومية)'}
+      </button>
+      {err && <div style={{ fontSize: 11, color: '#EF4444', marginTop: 6 }}>{err}</div>}
+      {list && list.length === 0 && !err && <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 6 }}>لا توجد نسخ خادم بعد — تُنشأ يومياً تلقائياً.</div>}
+      {list && list.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
+          {list.map(b => (
+            <div key={b.filename} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '8px 12px', borderRadius: 10, background: 'var(--panel2)', border: '1px solid var(--border)' }}>
+              <span style={{ fontSize: 12, color: 'var(--ink2)' }}>📅 {b.date} · {Math.round((b.size || 0) / 1024)} KB</span>
+              <button onClick={() => download(b.filename)} className="btn btn-ghost btn-sm"><Download size={13} /> تحميل</button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const {
     settings, updateSettings, notify, logout, isOnline, setPage,
@@ -148,7 +199,7 @@ export default function SettingsPage() {
   const saveTpl = () => {
     if (!tplForm.name.trim() || !tplForm.content.trim()) { notify('error', 'اسم ومحتوى القالب مطلوبان'); return; }
     if (tplEditId) {
-      updateTemplate(tplEditId, { name: tplForm.name, category: tplForm.category, content: tplForm.content });
+      updateTemplate(tplEditId, { name: tplForm.name, category: tplForm.category as any, content: tplForm.content });
     } else {
       addTemplate({ name: tplForm.name, category: tplForm.category, content: tplForm.content, variables: [], active: true });
     }
@@ -235,7 +286,7 @@ export default function SettingsPage() {
               </Field>
               <Field label="اللغة">
                 <select className="select" value={s.brand.language} onChange={e => updateSettings('brand', { ...s.brand, language: e.target.value })}>
-                  {[['ar','العربية'],['fr','Français'],['en','English']].map(([v,l]) => <option key={v} value={v}>{l}</option>)}
+                  {LANGS.map(l => <option key={l.code} value={l.code}>{l.flag} {l.label}</option>)}
                 </select>
               </Field>
               <Field label="بداية ساعات العمل">
@@ -931,7 +982,7 @@ export default function SettingsPage() {
 
             <div style={{ background: 'var(--void2)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 16px' }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink1)', marginBottom: 12 }}>تغيير كلمة المرور</div>
-              <ChangePasswordForm notify={notify} />
+              <ChangePasswordForm notify={notify as any} />
             </div>
 
             <Field label="تسجيل الخروج التلقائي (دقائق)">
@@ -950,6 +1001,7 @@ export default function SettingsPage() {
               <button onClick={() => importRef.current?.click()} className="btn btn-ghost" style={{ justifyContent: 'center' }}><Upload size={15} /> استيراد نسخة</button>
               <input ref={importRef} type="file" accept=".json" style={{ display: 'none' }} onChange={e => { const f=e.target.files?.[0]; if(f){const r=new FileReader();r.onload=ev=>importData(ev.target?.result as string);r.readAsText(f);} }} />
             </div>
+            <ServerBackups />
             <button
               onClick={() => { if (window.confirm('هل أنت متأكد؟ ستُفقد البيانات الحالية.')) resetToDemo(); }}
               className="btn btn-danger"

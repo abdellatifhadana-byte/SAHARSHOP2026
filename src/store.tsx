@@ -265,7 +265,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         isLoading: false,
       }));
       if (!settingsOk) {
-        notify('warning', '⚠️ تعذر تحميل إعدادات المتجر من الخادم — أعد تحميل الصفحة');
+        notify('warning', '⚠️ تعذّر تحميل بيانات متجرك من الخادم — قد تكون الجلسة منتهية. أعد تحميل الصفحة، وإن استمرّ سجّل الخروج ثم الدخول من جديد.');
       }
     } catch (e: any) {
       setState(s => ({ ...s, isOnline: false, isLoading: false }));
@@ -305,9 +305,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
               customerName: data.customerName,
               customerPhone: data.customerPhone,
               source: 'WhatsApp' as const,
-              status: 'active',
+              status: 'active' as const,
               lastMessage: `🛒 طلب جديد: ${data.id}`,
               unread: 1,
+              priority: 'medium' as const,
+              mood: 'neutral' as const,
               pinned: false,
               messages: [],
               createdAt: new Date().toISOString(),
@@ -749,7 +751,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       return result;
     }
 
-    const { data, stats } = result;
+    const { data: data0, stats } = result;
+    const data: any = data0; // import payload (runtime-validated by validateImport)
 
     // Fusion sécurisée : uniquement les clés validées, jamais token/user/etc.
     setState(s => ({

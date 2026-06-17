@@ -6,7 +6,7 @@ export type Page =
   | 'dashboard' | 'products' | 'orders' | 'conversations'
   | 'customers' | 'analytics' | 'insights' | 'connections' | 'delivery'
   | 'notifications' | 'settings' | 'banner' | 'editor' | 'import' | 'coupons'
-  | 'services' | 'guide';
+  | 'services' | 'guide' | 'moderation';
 
 export type UserRole = 'admin' | 'seller' | 'support' | 'delivery';
 export type OrderStatus = 'pending' | 'pending_confirmation' | 'approved' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
@@ -27,6 +27,7 @@ export interface Product {
   cost: number;
   stock: number;
   category: string;
+  sku?: string;
   sizes: string[];
   colors: string[];
   status: ProductStatus;
@@ -63,6 +64,7 @@ export interface Customer {
   phone: string;
   city: string;
   address: string;
+  email?: string;
   totalOrders: number;
   totalSpent: number;
   lastOrderDate: string;

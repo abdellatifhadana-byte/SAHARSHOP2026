@@ -4,19 +4,13 @@ import {
   LayoutDashboard, BarChart3, Settings, Tag,
   Search, LogOut, ExternalLink, Sun, Moon, Plus,
   Users, Bell, Download, Layers,
-  Package, Wrench, UserPlus, MoreHorizontal, X as XIcon, HelpCircle,
+  Package, Wrench, UserPlus, X as XIcon, HelpCircle,
+  Image as ImageIcon, Wand2,
 } from 'lucide-react';
 import { NavIconCart, NavIconTruck, NavIconBrain, NavIconPackage, NavIconMessage } from '../components/icons';
 import React from 'react';
 import GlobalSearch from '../components/GlobalSearch';
-import type { Lang } from '../i18n';
-
-const LANGS: { code: Lang; flag: string; label: string }[] = [
-  { code: 'ar',     flag: '🇸🇦', label: 'العربية'  },
-  { code: 'darija', flag: '🇲🇦', label: 'الدارجة'  },
-  { code: 'fr',     flag: '🇫🇷', label: 'Français' },
-  { code: 'en',     flag: '🇬🇧', label: 'English'  },
-];
+import { type Lang, LANGS, isRtlLang } from '../i18n';
 
 function LangSwitcher({ compact = false }: { compact?: boolean }) {
   const { settings, updateSettings } = useStore();
@@ -31,7 +25,7 @@ function LangSwitcher({ compact = false }: { compact?: boolean }) {
   }, []);
 
   const cur = LANGS.find(l => l.code === lang) || LANGS[0];
-  const isRtl = lang === 'ar' || lang === 'darija';
+  const isRtl = isRtlLang(lang);
 
   return (
     <div ref={ref} style={{ position: 'relative' }}>
@@ -97,42 +91,42 @@ const MAIN_NAV: { page: Page; icon: any; label: string }[] = [
   { page: 'settings',    icon: Settings,        label: 'الإعدادات'  },
 ];
 
-const SIDEBAR_NAV: { page: Page; icon: any; label: string; desc: string }[] = [
-  { page: 'dashboard',     icon: LayoutDashboard, label: 'الرئيسية',  desc: '' },
-  { page: 'products',      icon: NavIconPackage,  label: 'المنتجات',  desc: 'التحكم في جميع المنتجات' },
-  { page: 'services',      icon: Layers,          label: 'الخدمات',   desc: 'التحكم في جميع الخدمات' },
-  { page: 'orders',        icon: NavIconCart,     label: 'الطلبات',   desc: 'جميع طلبات الزبائن منتوج او خدمة أو أخرى' },
-  { page: 'conversations', icon: NavIconMessage,  label: 'الرسائل',   desc: 'صفحة تجميع الرسائل من كل المنصات' },
-  { page: 'customers',     icon: Users,           label: 'الزبائن',   desc: 'التحكم في جميع الزبائن' },
-  { page: 'coupons',       icon: Tag,             label: 'الكوبونات', desc: 'إنشاء كودات وهدايا' },
-  { page: 'import',        icon: Download,        label: 'تصدير',     desc: 'استيراد المحادثة للحصول على معلومات من المحادثات' },
-  { page: 'guide',         icon: HelpCircle,      label: 'شرح التطبيق', desc: 'دليل تفاعلي لكل ميزات التطبيق' },
-  { page: 'settings',      icon: Settings,        label: 'الإعدادات', desc: 'التحكم في كل إعدادات المتجر...' },
-];
-
-const DESKTOP_SIDEBAR_GROUPS: { label: string; items: { page: Page; icon: any; label: string }[] }[] = [
+// ── Single source of truth for the merchant navigation ──────────
+// Rendered IDENTICALLY on desktop (left sidebar) AND mobile (hamburger
+// panel) so every page is reachable on both form factors — no drift.
+type NavItem = { page: Page; icon: any; label: string; desc: string };
+const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   { label: 'التجارة', items: [
-    { page: 'dashboard',   icon: LayoutDashboard, label: 'الرئيسية'   },
-    { page: 'products',    icon: NavIconPackage,  label: 'المنتجات'   },
-    { page: 'services',    icon: Layers,          label: 'الخدمات'    },
-    { page: 'orders',      icon: NavIconCart,     label: 'الطلبات'    },
-    { page: 'customers',   icon: Users,           label: 'الزبائن'    },
-    { page: 'coupons',     icon: Tag,             label: 'الكوبونات'  },
+    { page: 'dashboard', icon: LayoutDashboard, label: 'الرئيسية',  desc: 'نظرة عامة على متجرك' },
+    { page: 'products',  icon: NavIconPackage,  label: 'المنتجات',  desc: 'التحكم في جميع المنتجات' },
+    { page: 'services',  icon: Layers,          label: 'الخدمات',   desc: 'التحكم في جميع الخدمات' },
+    { page: 'orders',    icon: NavIconCart,     label: 'الطلبات',   desc: 'طلبات الزبائن: منتج أو خدمة' },
+    { page: 'customers', icon: Users,           label: 'الزبائن',   desc: 'التحكم في جميع الزبائن' },
+    { page: 'coupons',   icon: Tag,             label: 'الكوبونات', desc: 'إنشاء أكواد خصم وهدايا' },
   ]},
   { label: 'التسويق', items: [
-    { page: 'conversations', icon: NavIconMessage, label: 'الرسائل'  },
-    { page: 'import',        icon: Download,       label: 'تصدير'    },
+    { page: 'conversations', icon: NavIconMessage, label: 'الرسائل',       desc: 'تجميع الرسائل من كل المنصات' },
+    { page: 'banner',        icon: ImageIcon,      label: 'استوديو البانر', desc: 'تصميم بانرات وإعلانات احترافية' },
+    { page: 'editor',        icon: Wand2,          label: 'محرّر الصور',    desc: 'تحسين صور المنتجات بالذكاء الاصطناعي' },
+    { page: 'import',        icon: Download,       label: 'الاستيراد والتصدير', desc: 'استيراد المحادثات واستخراج المعلومات' },
   ]},
   { label: 'العمليات', items: [
-    { page: 'delivery',      icon: NavIconTruck, label: 'التوصيل'   },
-    { page: 'notifications', icon: Bell,         label: 'الإشعارات' },
-    { page: 'connections',   icon: NavIconBrain, label: 'الاتصالات' },
+    { page: 'delivery',      icon: NavIconTruck, label: 'التوصيل',   desc: 'شركات الشحن وسجل الشحنات' },
+    { page: 'notifications', icon: Bell,         label: 'الإشعارات', desc: 'كل تنبيهات متجرك' },
+    { page: 'connections',   icon: NavIconBrain, label: 'الاتصالات', desc: 'ربط واتساب والذكاء والمنصات' },
+    { page: 'insights',      icon: BarChart3,    label: 'الأداء',    desc: 'تحليلات الزيارات والمبيعات' },
   ]},
   { label: 'النظام', items: [
-    { page: 'guide',    icon: HelpCircle, label: 'شرح التطبيق' },
-    { page: 'settings', icon: Settings,   label: 'الإعدادات' },
+    { page: 'moderation', icon: Tag,        label: 'مراجعة الإعلانات', desc: 'موافقة إعلانات السوق' },
+    { page: 'guide',      icon: HelpCircle, label: 'شرح التطبيق',      desc: 'دليل تفاعلي لكل ميزات التطبيق' },
+    { page: 'settings',   icon: Settings,   label: 'الإعدادات',        desc: 'التحكم في كل إعدادات المتجر' },
   ]},
 ];
+
+// Mobile hamburger panel = flattened complete list (with descriptions).
+const SIDEBAR_NAV: NavItem[] = NAV_GROUPS.flatMap(g => g.items);
+// Desktop left sidebar = same grouped structure (descriptions ignored there).
+const DESKTOP_SIDEBAR_GROUPS = NAV_GROUPS;
 
 export default function NavBar() {
   const {
@@ -249,6 +243,12 @@ export default function NavBar() {
             </a>
           )}
 
+          <a href="/market" target="_blank" rel="noreferrer"
+            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 'var(--r-sm)', background: 'var(--ember-soft)', border: '1px solid rgba(255,106,0,.22)', color: 'var(--ember)', fontSize: 12, fontWeight: 700, textDecoration: 'none' }}
+            title="السوق المغربي الموحّد">
+            🏪 السوق
+          </a>
+
           <button onClick={() => setShowSearch(true)}
             style={{ width: 32, height: 32, borderRadius: 'var(--r-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,.05)', border: '1px solid var(--border)', color: 'var(--ink3)', cursor: 'pointer' }}>
             <Search size={14} strokeWidth={2.2} />
@@ -338,6 +338,10 @@ export default function NavBar() {
                 <ExternalLink size={15} /> متجري للزبائن
               </a>
             )}
+            <a href="/market" target="_blank" rel="noreferrer"
+              style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 18px', borderBottom: '1px solid var(--border)', fontSize: 13, fontWeight: 700, color: 'var(--ember)', background: 'var(--ember-soft)', textDecoration: 'none' }}>
+              🏪 السوق المغربي الموحّد
+            </a>
             <nav style={{ flex: 1, overflowY: 'auto', padding: '6px 0' }}>
               {SIDEBAR_NAV.map(item => {
                 const active = currentPage === item.page || (item.page === 'insights' && currentPage === 'analytics');

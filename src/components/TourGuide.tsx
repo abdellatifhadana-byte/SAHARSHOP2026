@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useStore } from '../store';
-import { useT, useLang } from '../i18n';
+import { useT, useLang, isRtlLang } from '../i18n';
 
 interface StepConfig {
   page: string;
@@ -92,7 +92,7 @@ export default function TourGuide() {
   const { currentPage, setPage, user } = useStore();
   const T = useT();
   const lang = useLang();
-  const isRtl = lang === 'ar' || lang === 'darija';
+  const isRtl = isRtlLang(lang);
 
   const [active, setActive] = useState(false);
   const [step, setStep] = useState(0);

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useStore } from '../store';
-import { CheckCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 type Step = 'welcome' | 'brand' | 'type' | 'category' | 'ai' | 'done';
 const ORDER: Step[] = ['welcome', 'brand', 'type', 'category', 'ai', 'done'];

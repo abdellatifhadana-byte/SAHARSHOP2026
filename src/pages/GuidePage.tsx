@@ -1,12 +1,12 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { useStore } from '../store';
 import {
   LayoutDashboard, Package, Layers, ShoppingCart, MessageCircle,
   Users, Bot, Megaphone, Truck, Tag, Sparkles, ChevronLeft,
-  PlayCircle, CheckCircle2, ArrowLeft, ArrowRight, BookOpen,
-  Search, Filter, Clock, Star, Zap, Video, Image, Link2,
-  Smartphone, Globe, Shield, CreditCard, Gift, BarChart3,
-  Wrench, HelpCircle, ExternalLink, Copy, X, ChevronDown,
+  CheckCircle2, ArrowLeft, ArrowRight, BookOpen,
+  Search, Clock, Zap, Link2,
+  Wrench, HelpCircle, X, ChevronDown,
+  Store, Star, ShieldCheck, Smartphone,
 } from 'lucide-react';
 
 // ═══════════════════════════════════════════════════════════
@@ -209,6 +209,54 @@ const SECTIONS: GuideSection[] = [
     ],
     relatedIds: ['connections', 'ai', 'delivery'],
   },
+
+  // ── السوق المغربي الموحّد (ميزات جديدة) ──
+  {
+    id: 'marketplace', icon: Store, title: 'السوق المغربي الموحّد', tagline: 'سوق واحد يجمع منتجات وخدمات كل البائعين 🇲🇦',
+    color: '#FF6A00', category: 'sell', difficulty: 'beginner', timeToLearn: '4 دقائق',
+    page: '/market',
+    steps: [
+      { t: 'ما هو «السوق»؟', d: 'صفحة عامة يدخلها أي زائر بدون حساب، تعرض كل الإعلانات المعتمَدة (منتجات + خدمات) من بائعين محليين، مع فلترة حسب النوع والمدينة.' },
+      { t: 'انشر إعلانك مجاناً', d: 'من زر «+ انشر إعلانك»، يملأ البائع نموذجاً بسيطاً: النوع، الاسم، السعر، المدينة، صورة، واسمه ورقم واتسابه — بدون إنشاء حساب.', tip: 'الصورة تُضغط تلقائياً على جهاز البائع قبل الإرسال — لا تُبطئ الموقع', action: { label: 'افتح السوق', page: '/market' } },
+      { t: 'مراجعة قبل النشر', d: 'كل إعلان يصل بحالة «قيد المراجعة» ولا يظهر للعموم حتى توافق عليه الإدارة — لحماية جودة السوق وثقة الزبائن.' },
+      { t: 'تواصل مباشر مع البائع', d: 'الزبون يضغط «تواصل» فينفتح واتساب البائع برسالة جاهزة عن الإعلان. الطلب يذهب مباشرة للبائع بلا وسيط.' },
+    ],
+    relatedIds: ['reviews', 'moderation', 'otp'],
+  },
+  {
+    id: 'reviews', icon: Star, title: 'التقييمات والنجوم', tagline: 'ثقة الزبائن تُبنى بالنجوم ⭐',
+    color: '#FFB800', category: 'sell', difficulty: 'beginner', timeToLearn: 'دقيقتان',
+    page: '/market',
+    steps: [
+      { t: 'متوسط التقييم بارز', d: 'كل إعلان في السوق يعرض متوسط نجومه وعدد التقييمات مباشرة على البطاقة — يساعد الزبون يقرر بسرعة.' },
+      { t: 'أضف تقييمك', d: 'من نافذة تفاصيل الإعلان، يضغط الزبون «أضف تقييمك»، يختار النجوم (1–5)، يكتب اسمه ورأيه — بدون حساب.', action: { label: 'جرّب في السوق', page: '/market' } },
+      { t: 'تقييمات ذات معنى', d: 'التقييم مسموح على الإعلانات المعتمَدة فقط، ومحمي ضد التكرار المفرط — حتى تبقى النجوم صادقة.' },
+    ],
+    relatedIds: ['marketplace', 'otp'],
+  },
+  {
+    id: 'otp', icon: Smartphone, title: 'تأكيد رقم الهاتف (OTP)', tagline: 'بائع موثَّق = سوق نظيف',
+    color: '#25D366', category: 'sell', difficulty: 'intermediate', timeToLearn: 'دقيقتان',
+    page: '/market',
+    steps: [
+      { t: 'لماذا التأكيد؟', d: 'لمنع الإعلانات الوهمية، يمكن طلب تأكيد رقم هاتف البائع عبر رمز يصله على واتساب قبل نشر إعلانه.' },
+      { t: 'كيف يعمل؟', d: 'بعد ملء النموذج، يصل للبائع رمز من 6 أرقام على واتساب، يُدخِله، فيُرسَل إعلانه للمراجعة. بسيط وسريع.' },
+      { t: 'اختياري وذكي', d: 'الميزة تعمل فقط عند تفعيل مُرسِل واتساب للمنصة؛ وإن لم يُفعَّل يبقى النشر يعمل كالمعتاد دون أي تعطيل.', tip: 'للمشرف: تُضبط عبر متغيّري PLATFORM_WHATSAPP_TOKEN و PLATFORM_WHATSAPP_PHONE_ID' },
+    ],
+    relatedIds: ['marketplace', 'connections'],
+  },
+  {
+    id: 'moderation', icon: ShieldCheck, title: 'مراجعة الإعلانات', tagline: 'أنت حارس بوابة جودة السوق',
+    color: '#7C3AED', category: 'advanced', difficulty: 'intermediate', timeToLearn: '3 دقائق',
+    page: 'moderation',
+    steps: [
+      { t: 'قائمة المراجعة', d: 'صفحة «مراجعة الإعلانات» تعرض الإعلانات الواردة بتبويبات: قيد المراجعة، معتمَدة، مرفوضة، موقوفة.' },
+      { t: 'موافقة أو رفض', d: 'راجِع تفاصيل كل إعلان وصورته، ثم اضغط «اعتماد» لنشره للعموم أو «رفض» مع سبب — يصل قرارك فوراً.', action: { label: 'افتح المراجعة', page: 'moderation' } },
+      { t: 'إيقاف لاحق', d: 'يمكنك إيقاف أي إعلان معتمَد لاحقاً إن خالف الشروط، فيختفي من السوق مباشرة.' },
+      { t: 'من يملك الصلاحية؟', d: 'تُحصر المراجعة في حساب مشرف المنصة (PLATFORM_ADMIN_EMAIL). وإن لم يُحدَّد، فأي حساب تاجر يستطيع المراجعة في وضع التجربة.' },
+    ],
+    relatedIds: ['marketplace', 'reviews', 'settings'],
+  },
 ];
 
 // ═══════════════════════════════════════════════════════════
@@ -225,6 +273,10 @@ const FAQS: FAQ[] = [
   { q: 'هل التطبيق يعمل على الهاتف؟', a: 'نعم، التطبيق مصمم للهاتف أولاً (Mobile-First). كل الصفحات متجاوبة مع كل أحجام الشاشات.', section: 'start' },
   { q: 'كيف أحصل على نسخة احتياطية من بياناتي؟', a: 'اربط Supabase من صفحة الاتصالات للنسخ الاحتياطي التلقائي. أو استخدم زر "تصدير" من الإعدادات.', section: 'advanced' },
   { q: 'هل يمكنني استخدام أكثر من مزود AI في نفس الوقت؟', a: 'نعم! أدخل مفاتيح كل المزودين. النظام يستخدمهم بالترتيب الذي تحدده — إذا فشل الأول ينتقل للثاني تلقائياً.', section: 'advanced' },
+  { q: 'ما الفرق بين «متجري» و«السوق»؟', a: '«متجري» صفحة خاصة بك تعرض منتجاتك أنت فقط. «السوق» صفحة عامة موحّدة تجمع إعلانات كل البائعين المحليين (منتجات وخدمات) بعد مراجعة الإدارة.', section: 'sell' },
+  { q: 'هل يحتاج البائع حساباً لينشر في السوق؟', a: 'لا. يكفي ملء نموذج بسيط (الاسم، السعر، المدينة، صورة، واتساب). الإعلان يصل للمراجعة ثم يظهر للعموم بعد الاعتماد.', section: 'sell' },
+  { q: 'كيف يقيّم الزبائن الإعلانات؟', a: 'من نافذة تفاصيل الإعلان، يختار الزبون عدد النجوم (1–5) ويكتب رأيه بلا حساب. يظهر متوسط النجوم على البطاقة لزيادة الثقة.', section: 'sell' },
+  { q: 'كيف أراجع إعلانات السوق وأوافق عليها؟', a: 'من صفحة «مراجعة الإعلانات» في القائمة الجانبية: راجع الإعلانات قيد الانتظار ثم اعتمِد أو ارفض. الصلاحية لمشرف المنصة.', section: 'advanced' },
 ];
 
 // ═══════════════════════════════════════════════════════════
@@ -406,7 +458,7 @@ export default function GuidePage() {
                   </div>
                 )}
                 {s.action && (
-                  <button onClick={() => s.action!.page && setPage(s.action!.page as any)}
+                  <button onClick={() => { const p = s.action!.page; if (!p) return; p.startsWith('/') ? window.open(p, '_blank') : setPage(p as any); }}
                     style={{
                       marginTop: 10, padding: '8px 16px', borderRadius: 10,
                       background: `${cur.color}15`, border: `1px solid ${cur.color}30`,
@@ -451,7 +503,7 @@ export default function GuidePage() {
 
         {/* CTA */}
         {cur.page && (
-          <button onClick={() => setPage(cur.page as any)}
+          <button onClick={() => { const p = cur.page!; p.startsWith('/') ? window.open(p, '_blank') : setPage(p as any); }}
             style={{
               alignSelf: 'flex-start', padding: '14px 28px', borderRadius: 14,
               background: `linear-gradient(135deg, ${cur.color}, ${cur.color}CC)`,

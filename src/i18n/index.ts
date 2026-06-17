@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useStore } from '../store';
 import { type Lang, t as _t } from './translations';
 
-export { type Lang, translations } from './translations';
+export { type Lang, translations, LANGS, isRtlLang } from './translations';
 export { t } from './translations';
 
 export function useT() {

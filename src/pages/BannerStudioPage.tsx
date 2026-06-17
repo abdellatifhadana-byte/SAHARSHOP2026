@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useStore } from '../store';
-import { Sparkles, Copy, Check, Zap, Hash, MessageCircle, FileText, Video } from 'lucide-react';
+import { Sparkles, Copy, Check, Hash, MessageCircle, FileText, Video } from 'lucide-react';
 
 const TEMPLATES = [
   { id:'new_product', label:'منتج جديد', icon:'🎉', hint:'اكتب اسم المنتج والسعر' },

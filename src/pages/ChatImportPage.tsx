@@ -1,10 +1,9 @@
 import { useState, useRef } from 'react';
 import { useStore } from '../store';
 import {
-  Upload, Bot, Check, X, Users, Phone, MapPin, MessageCircle,
-  Download, Eye, EyeOff, Sparkles, AlertCircle, Plus
+  Upload, Bot, Check, X, Users, Phone, MapPin,
+  Eye
 } from 'lucide-react';
-import * as api from '../services/api';
 
 // ══════════════════════════════════════════════
 // TYPES

@@ -1,5 +1,17 @@
-export type Lang = 'ar' | 'darija' | 'fr' | 'en';
+export type Lang = 'ar' | 'darija' | 'fr' | 'en' | 'zh';
 type T = Record<string, string>;
+
+// ── Single source of truth for the available UI languages ──────
+export const LANGS: { code: Lang; flag: string; label: string; rtl: boolean }[] = [
+  { code: 'ar',     flag: '🇸🇦', label: 'العربية',  rtl: true  },
+  { code: 'darija', flag: '🇲🇦', label: 'الدارجة',  rtl: true  },
+  { code: 'fr',     flag: '🇫🇷', label: 'Français', rtl: false },
+  { code: 'en',     flag: '🇬🇧', label: 'English',  rtl: false },
+  { code: 'zh',     flag: '🇨🇳', label: '中文',      rtl: false },
+];
+export function isRtlLang(lang: Lang): boolean {
+  return LANGS.find(l => l.code === lang)?.rtl ?? true;
+}
 
 // ── Modern Standard Arabic ────────────────────────────────────────────────────
 const ar: T = {
@@ -440,6 +452,14 @@ const fr: T = {
   'landing.merchant.ctaNew': 'Commencer gratuitement', 'landing.merchant.ctaExisting': 'Tableau de bord',
   'landing.merchant.f1': 'Intelligence artificielle', 'landing.merchant.f2': 'Gestion commandes', 'landing.merchant.f3': 'Analytiques',
   'landing.demo': 'Essayer sans inscription',
+  'landing.pillar.products': 'Produits', 'landing.pillar.products.d': 'Vêtements · Chaussures · Accessoires · Déco · Numérique',
+  'landing.pillar.services': 'Services', 'landing.pillar.services.d': 'Électricité · Plomberie · Menuiserie · Ménage · Coiffure · Design · Code',
+  'landing.pillar.booking': 'Rendez-vous & Réservations', 'landing.pillar.booking.d': 'Réservez par date et heure, ou demandez une intervention urgente',
+  'landing.pillar.delivery': 'Livraison & Suivi', 'landing.pillar.delivery.d': 'Livraison dans toutes les villes du Maroc avec suivi en temps réel',
+  'landing.feature.ai': 'IA', 'landing.feature.whatsapp': 'WhatsApp',
+  'landing.feature.delivery': 'Livraison intelligente', 'landing.feature.analytics': 'Analyses',
+  'landing.feature.secure': '100% Sécurisé', 'landing.feature.banner': 'Bannière IA',
+  'landing.stats.merchants': 'Marchands actifs', 'landing.stats.products': 'Produits', 'landing.stats.orders': 'Commandes/jour',
 
   // Pricing
   'pricing.badge': 'Tarifs',
@@ -572,6 +592,14 @@ const en: T = {
   'landing.merchant.ctaNew': 'Start Free', 'landing.merchant.ctaExisting': 'Dashboard',
   'landing.merchant.f1': 'AI-powered', 'landing.merchant.f2': 'Order management', 'landing.merchant.f3': 'Analytics',
   'landing.demo': 'Try without signup',
+  'landing.pillar.products': 'Products', 'landing.pillar.products.d': 'Clothing · Shoes · Accessories · Decor · Digital',
+  'landing.pillar.services': 'Services', 'landing.pillar.services.d': 'Electrical · Plumbing · Carpentry · Cleaning · Barber · Design · Code',
+  'landing.pillar.booking': 'Appointments & Bookings', 'landing.pillar.booking.d': 'Book by date and time, or request urgent on-demand service',
+  'landing.pillar.delivery': 'Delivery & Tracking', 'landing.pillar.delivery.d': 'Delivery to all Moroccan cities with real-time order tracking',
+  'landing.feature.ai': 'AI', 'landing.feature.whatsapp': 'WhatsApp',
+  'landing.feature.delivery': 'Smart delivery', 'landing.feature.analytics': 'Analytics',
+  'landing.feature.secure': '100% Secure', 'landing.feature.banner': 'AI Banner',
+  'landing.stats.merchants': 'Active merchants', 'landing.stats.products': 'Products', 'landing.stats.orders': 'Orders daily',
 
   // Pricing
   'pricing.badge': 'Pricing',
@@ -600,7 +628,146 @@ const en: T = {
   'tour.s9.title': 'Your Store', 'tour.s9.desc': 'Your digital store is ready! Share the link and start receiving orders.',
 };
 
-export const translations: Record<Lang, T> = { ar, darija, fr, en };
+// ── 简体中文 (Chinese) ──────────────────────────────────────────────────────────
+const zh: T = {
+  'lang.ar': 'العربية', 'lang.darija': 'الدارجة', 'lang.fr': 'Français', 'lang.en': 'English', 'lang.zh': '中文',
+
+  'nav.dashboard': '仪表盘', 'nav.products': '产品', 'nav.orders': '订单',
+  'nav.messages': '消息', 'nav.customers': '客户', 'nav.analytics': '分析',
+  'nav.insights': '业绩', 'nav.connections': '连接', 'nav.delivery': '配送',
+  'nav.notifications': '通知', 'nav.settings': '设置', 'nav.myStore': '我的店铺',
+  'nav.studio': '工作室', 'nav.coupons': '优惠券',
+
+  'save': '保存', 'cancel': '取消', 'delete': '删除', 'edit': '编辑',
+  'add': '添加', 'search': '搜索...', 'filter': '筛选', 'export': '导出',
+  'import': '导入', 'close': '关闭', 'back': '返回', 'next': '下一步',
+  'previous': '上一步', 'confirm': '确认', 'reject': '拒绝', 'approve': '批准',
+  'connect': '连接并验证', 'disconnect': '断开连接', 'test': '测试',
+  'refresh': '刷新', 'view': '查看', 'copy': '复制', 'share': '分享',
+  'print': '打印', 'loading': '加载中...', 'saving': '保存中...', 'sending': '发送中...',
+  'testing': '测试中...', 'yes': '是', 'no': '否', 'all': '全部', 'total': '总计',
+  'date': '日期', 'name': '名称', 'price': '价格', 'phone': '电话', 'city': '城市',
+  'address': '地址', 'notes': '备注', 'status': '状态', 'actions': '操作',
+  'details': '详情', 'enable': '启用', 'disable': '停用', 'enabled': '已启用',
+  'disabled': '已停用', 'required': '必填', 'optional': '可选', 'new': '新', 'send': '发送',
+
+  'status.active': '活跃', 'status.inactive': '未激活', 'status.pending': '待处理',
+  'status.approved': '已批准', 'status.rejected': '已拒绝', 'status.processing': '处理中',
+  'status.shipped': '已发货', 'status.delivered': '已送达', 'status.cancelled': '已取消',
+
+  'dashboard.title': '仪表盘', 'dashboard.sub': '一目了然查看店铺业绩',
+  'dashboard.revenue': '总收入', 'dashboard.orders': '订单',
+  'dashboard.customers': '客户', 'dashboard.products': '产品',
+  'dashboard.today': '今天', 'dashboard.week': '本周', 'dashboard.month': '本月',
+  'dashboard.pending': '待处理', 'dashboard.goodMorning': '早上好',
+  'dashboard.goodEvening': '晚上好',
+
+  'products.title': '产品与服务', 'products.sub': '管理你的产品目录',
+  'products.add': '添加产品', 'products.edit': '编辑产品', 'products.name': '产品名称',
+  'products.price': '价格', 'products.oldPrice': '原价', 'products.stock': '库存',
+  'products.category': '类别', 'products.description': '描述', 'products.images': '图片',
+  'products.saved': '✅ “{name}” 保存成功', 'products.updated': '✅ “{name}” 已更新',
+  'products.deleted': '🗑️ “{name}” 已删除', 'products.deleteConfirm': '永久删除 “{name}”？',
+  'products.empty': '尚未添加产品', 'products.addFirst': '立即添加你的第一个产品',
+  'products.validName': '请输入产品名称', 'products.validPrice': '请输入有效价格',
+  'products.addImage': '请至少添加一张图片', 'products.stockAdjusted': '📦 “{name}” 库存已更新',
+  'products.noImages': '⚠️ 无图片 — 产品将不显示图片',
+
+  'orders.title': '订单', 'orders.sub': '跟踪和管理所有订单',
+  'orders.new': '新订单', 'orders.approve': '批准', 'orders.reject': '拒绝',
+  'orders.ship': '发货', 'orders.deliver': '送达',
+  'orders.approved': '✅ 订单 #{id} 已批准', 'orders.rejected': '❌ 订单 #{id} 已拒绝',
+  'orders.shipped': '🚚 订单 #{id} 已发货', 'orders.delivered': '✅ 订单 #{id} 已送达',
+  'orders.customer': '客户', 'orders.tracking': '物流单号', 'orders.empty': '暂无订单',
+
+  'customers.title': '客户', 'customers.sub': '完整的客户数据库',
+  'customers.add': '添加客户', 'customers.name': '全名', 'customers.phone': '电话号码',
+  'customers.saved': '✅ {name} 已保存', 'customers.deleted': '🗑️ {name} 已删除',
+  'customers.madeVip': '⭐ {name} 现在是 VIP', 'customers.empty': '暂无客户',
+  'customers.dupPhone': '⚠️ 该电话号码已登记给 {name}',
+
+  'messages.title': '消息', 'messages.sub': '直接与客户沟通',
+  'messages.placeholder': '输入你的消息...', 'messages.deleted': '🗑️ 对话已删除',
+  'messages.pinned': '📌 对话已置顶', 'messages.empty': '暂无消息',
+  'messages.noConv': '选择一个对话开始',
+
+  'connections.title': '服务连接', 'connections.sub': '一次连接账户 — 其余交给系统',
+  'connections.fillAll': '请填写所有字段', 'connections.connected': '✅ {name} 已连接！{info}',
+  'connections.disconnected': '🔌 {name} 已断开', 'connections.failed': '❌ {name}：{error}',
+
+  'delivery.title': '配送公司', 'delivery.sub': '设置配送服务商以实现自动发货',
+  'delivery.add': '添加公司', 'delivery.saved': '✅ {name} 已添加', 'delivery.deleted': '🗑️ 配送公司已移除',
+  'delivery.empty': '尚未添加配送公司', 'delivery.unsaved': '你有未保存的数据。要退出吗？',
+
+  'settings.title': '设置', 'settings.sub': '配置你的店铺和应用设置',
+  'settings.brand': '品牌', 'settings.storeName': '店铺名称',
+  'settings.language': '语言', 'settings.saved': '✅ 设置已保存',
+
+  'analytics.title': '分析', 'analytics.sub': '详细跟踪你的店铺业绩',
+
+  'notif.title': '通知', 'notif.empty': '暂无通知',
+  'notif.session': '🔒 会话已过期 — 请重新登录',
+
+  'auth.login': '登录', 'auth.loginSub': '欢迎回来 — 管理你的智能店铺',
+  'auth.register': '创建账户', 'auth.registerSub': '今天免费开启你的店铺',
+  'auth.email': '电子邮箱', 'auth.password': '密码',
+  'auth.storeName': '店铺名称（可选）', 'auth.demo': '免注册免费试用',
+  'auth.loginSuccess': '✅ 欢迎回来！', 'auth.registerSuccess': '🎉 欢迎来到 SAHAR shop！',
+  'auth.logoutConfirm': '退出登录？', 'auth.loginBtn': '登录', 'auth.registerBtn': '创建账户',
+
+  'landing.hero.title1': '摩洛哥的智能平台',
+  'landing.hero.title2': '销售 · 服务 · 预约',
+  'landing.hero.sub': '销售产品、提供服务、接受预约和预定 — 全部集于一处，覆盖全摩洛哥配送。',
+  'landing.how.step1': '添加你的产品和服务',
+  'landing.how.step2': '用 AI 管理订单',
+  'landing.how.step3': '配送并收取利润',
+  'onboarding.type.product': '产品', 'onboarding.type.service': '服务', 'onboarding.type.both': '产品与服务', 'onboarding.skip': '跳过',
+  'landing.tagline': '智能商务平台',
+  'landing.subtitle': '开启你的数字店铺，用 AI 卖得更多',
+  'landing.customer.title': '我是顾客', 'landing.customer.desc': '浏览产品并享受快速配送下单',
+  'landing.customer.cta': '立即购买', 'landing.customer.f1': '丰富的产品',
+  'landing.customer.f2': '快速配送', 'landing.customer.f3': '有竞争力的价格',
+  'landing.customer.noLink': '请商家分享他们的店铺链接',
+  'landing.merchant.title': '我是商家', 'landing.merchant.desc': '添加产品并用 AI 管理订单',
+  'landing.merchant.ctaNew': '免费开始', 'landing.merchant.ctaExisting': '仪表盘',
+  'landing.merchant.f1': 'AI 驱动', 'landing.merchant.f2': '订单管理', 'landing.merchant.f3': '数据分析',
+  'landing.demo': '免注册试用',
+  'landing.pillar.products': '产品', 'landing.pillar.products.d': '服装 · 鞋履 · 配饰 · 家居 · 数字产品',
+  'landing.pillar.services': '服务', 'landing.pillar.services.d': '电工 · 水管 · 木工 · 清洁 · 理发 · 设计 · 编程',
+  'landing.pillar.booking': '预约与预定', 'landing.pillar.booking.d': '按日期和时间预约，或即时请求紧急上门服务',
+  'landing.pillar.delivery': '配送与追踪', 'landing.pillar.delivery.d': '配送至摩洛哥所有城市，实时追踪订单状态',
+  'landing.feature.ai': 'AI 智能', 'landing.feature.whatsapp': 'WhatsApp',
+  'landing.feature.delivery': '智能配送', 'landing.feature.analytics': '数据分析',
+  'landing.feature.secure': '100% 安全', 'landing.feature.banner': 'AI 横幅',
+  'landing.stats.merchants': '活跃商家', 'landing.stats.products': '产品', 'landing.stats.orders': '每日订单',
+
+  'pricing.badge': '价格',
+  'pricing.title': '免费开始，随业务成长',
+  'pricing.sub': '无需信用卡 — 永久免费套餐',
+  'pricing.free.name': '免费版', 'pricing.free.price': '0 迪拉姆',
+  'pricing.free.desc': '适合新店铺',
+  'pricing.free.f1': '最多 10 个产品', 'pricing.free.f2': '完整数字店面',
+  'pricing.free.f3': '基础 AI 助手', 'pricing.free.cta': '立即免费开始',
+  'pricing.pro.name': '专业版', 'pricing.pro.price': '即将推出',
+  'pricing.pro.desc': '适合成长中的店铺',
+  'pricing.pro.f1': '无限产品', 'pricing.pro.f2': '高级 AI',
+  'pricing.pro.f3': '分析 + WhatsApp', 'pricing.pro.cta': '免费试用 14 天',
+  'pricing.demo.cta': '👨‍💼 试用演示',
+
+  'tour.skip': '跳过导览', 'tour.next': '下一步', 'tour.prev': '上一步',
+  'tour.finish': '开始使用 ✨', 'tour.step': '{cur} / {total}',
+  'tour.s1.title': '仪表盘', 'tour.s1.desc': '全面了解你的店铺 — 收入、订单和客户一目了然。',
+  'tour.s2.title': '产品', 'tour.s2.desc': '添加带照片、描述和价格的产品。AI 自动生成描述。',
+  'tour.s3.title': '订单', 'tour.s3.desc': '跟踪每一笔订单，从接收到送达。一键批准、拒绝或发货。',
+  'tour.s4.title': '消息', 'tour.s4.desc': '直接与客户聊天。AI 可用阿拉伯语、达里贾语或法语回复。',
+  'tour.s5.title': '客户', 'tour.s5.desc': '完整数据库，含订单历史、积分和 VIP 分级。',
+  'tour.s6.title': '配送', 'tour.s6.desc': '添加配送公司 — 系统自动填写订单数据。',
+  'tour.s7.title': '连接', 'tour.s7.desc': '连接 WhatsApp、OpenAI、Instagram 和 Cloudinary。',
+  'tour.s8.title': '设置', 'tour.s8.desc': '自定义店铺名称、货币、主题和 AI 设置。',
+  'tour.s9.title': '你的店铺', 'tour.s9.desc': '你的数字店铺已就绪！分享链接，开始接收订单。',
+};
+
+export const translations: Record<Lang, T> = { ar, darija, fr, en, zh };
 
 export function t(lang: Lang, key: string, vars?: Record<string, string>): string {
   const map = translations[lang] || translations['ar'];

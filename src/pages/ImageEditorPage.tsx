@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Download, Plus, Trash2, RotateCcw, Type, Image as ImageIcon, Share2 } from 'lucide-react';
+import { Download, Plus, Trash2, RotateCcw, Type, Image as ImageIcon } from 'lucide-react';
 import { useStore } from '../store';
 
 type Layer = { id:string; type:'text'|'logo'|'sticker'; content:string; x:number; y:number; size:number; color?:string; opacity?:number; };

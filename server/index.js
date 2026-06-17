@@ -125,6 +125,7 @@ app.use('/api/coupons',       require('./routes/coupons'));
 app.use('/api/ai',            require('./routes/ai'));
 app.use('/api/delivery-auto', require('./routes/delivery-auto'));
 app.use('/api/push',          require('./routes/push'));
+app.use('/api/listings',      require('./routes/listings'));
 
 // ── Health ───────────────────────────────────────────────────
 app.get('/api/health', (req, res) => {

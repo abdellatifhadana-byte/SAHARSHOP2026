@@ -5,9 +5,11 @@ import AuthPage              from './pages/AuthPage';
 import MainLayout            from './pages/MainLayout';
 import LandingPage           from './pages/LandingPage';
 import Storefront            from './pages/Storefront';
+import Marketplace           from './pages/Marketplace';
 import Onboarding            from './pages/Onboarding';
 import NotificationToast     from './components/NotificationToast';
 import TourGuide             from './components/TourGuide';
+import { isRtlLang } from './i18n';
 
 const PAGE_URLS: Record<string, string> = {
   dashboard:     '/dashboard',
@@ -27,6 +29,7 @@ const PAGE_URLS: Record<string, string> = {
   import:        '/import',
   coupons:       '/coupons',
   guide:         '/guide',
+  moderation:    '/moderation',
 };
 
 const URL_PAGES: Record<string, string> = Object.fromEntries(
@@ -106,6 +109,14 @@ function ThemeManager() {
     if (settings.design?.theme === 'light') html.classList.add('light-theme');
     if (!manual || manual === 'auto') { const s = getSeasonalTheme(); if (s) html.classList.add(s); }
   }, [settings.design?.theme, (settings as any).design?.seasonalTheme]);
+
+  // Global text direction + lang follow the chosen UI language (ar/darija = RTL).
+  const lang = (settings.brand as any)?.language || 'ar';
+  useEffect(() => {
+    const html = document.documentElement;
+    html.dir = isRtlLang(lang) ? 'rtl' : 'ltr';
+    html.lang = lang;
+  }, [lang]);
   return null;
 }
 
@@ -116,6 +127,7 @@ function RouterSync() {
 
   // Public routes that RouterSync must NEVER interfere with
   const isPublicRoute = location.pathname.startsWith('/store') ||
+    location.pathname.startsWith('/market') ||
     location.pathname.startsWith('/landing') ||
     location.pathname === '/';
 
@@ -140,7 +152,7 @@ function AppShell() {
   const isDemoMode = token === 'demo-token-local';
   const isAuthed   = !!token || isDemoMode;
   // الصفحات العامة (واجهة الزبون) لا تتأثر ببوابة التحميل أو الإعداد الأولي
-  const isPublicRoute = location.pathname.startsWith('/store') || location.pathname.startsWith('/landing');
+  const isPublicRoute = location.pathname.startsWith('/store') || location.pathname.startsWith('/market') || location.pathname.startsWith('/landing');
 
   // أثناء أول تحميل للبيانات لا نقرر شيئاً — لا نعرض Onboarding قبل وصول
   // الإعدادات الحقيقية من الخادم، حتى لا يُعاد الإعداد الأولي على جهاز جديد
@@ -186,6 +198,9 @@ function AppShell() {
         <Route path="/store/:userId"  element={<Storefront />} />
         <Route path="/store/*"        element={<Storefront />} />
 
+        {/* ── PUBLIC: Marketplace (unified catalog + quick-seller) ── */}
+        <Route path="/market"         element={<Marketplace />} />
+
         {/* ── PUBLIC: Landing page (choose: merchant or customer) ── */}
         <Route path="/landing" element={<LandingPage />} />
         <Route path="/auth"    element={isAuthed ? <Navigate to="/dashboard" replace /> : <AuthPage />} />
@@ -195,7 +210,7 @@ function AppShell() {
         {/* ── PROTECTED: Merchant dashboard ── */}
         {['/dashboard','/products','/services','/orders','/messages','/customers',
           '/analytics','/insights','/connections','/delivery','/notifications',
-          '/settings','/studio','/editor','/import','/coupons','/guide'].map(path => (
+          '/settings','/studio','/editor','/import','/coupons','/guide','/moderation'].map(path => (
           <Route key={path} path={path}
             element={isAuthed ? <MainLayout /> : <Navigate to="/login" replace />} />
         ))}

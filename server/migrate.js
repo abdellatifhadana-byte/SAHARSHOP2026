@@ -258,6 +258,44 @@ async function migrate() {
     )`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_store_events_user ON store_events(user_id, created_at DESC)`);
 
+    // ── Marketplace listings (additive — separate from products) ──
+    await client.query(`CREATE TABLE IF NOT EXISTS listings (
+      id TEXT PRIMARY KEY,
+      vendor_id TEXT,
+      type TEXT NOT NULL DEFAULT 'product',
+      name TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      price NUMERIC DEFAULT 0,
+      category TEXT DEFAULT '',
+      city TEXT DEFAULT '',
+      images JSONB DEFAULT '[]',
+      duration TEXT DEFAULT '',
+      work_area TEXT DEFAULT '',
+      seller_name TEXT DEFAULT '',
+      seller_phone TEXT DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'pending',
+      reject_reason TEXT DEFAULT '',
+      promoted BOOLEAN DEFAULT FALSE,
+      views INTEGER DEFAULT 0,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_listings_status ON listings(status)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_listings_type   ON listings(type)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_listings_city   ON listings(city)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_listings_vendor ON listings(vendor_id)`);
+
+    // ── Marketplace reviews (trust) ──
+    await client.query(`CREATE TABLE IF NOT EXISTS reviews (
+      id TEXT PRIMARY KEY,
+      listing_id TEXT NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+      rating INTEGER NOT NULL DEFAULT 5,
+      comment TEXT DEFAULT '',
+      reviewer_name TEXT DEFAULT '',
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_reviews_listing ON reviews(listing_id)`);
+
     // FK fixes: loyalty_points.customer_id → customers(id) ON DELETE CASCADE
     await client.query(`
       DO $$ BEGIN

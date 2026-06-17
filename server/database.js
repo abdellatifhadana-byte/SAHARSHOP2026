@@ -851,4 +851,91 @@ db.notifications = {
   add: (n) => db.addNotification(n),
 };
 
+// ── Marketplace listings (additive — separate table, does not touch products) ──
+function _mapListing(l) {
+  if (!l) return null;
+  return {
+    id: l.id, vendorId: l.vendor_id || null,
+    type: l.type || 'product', name: l.name, description: l.description || '',
+    price: +l.price || 0, category: l.category || '', city: l.city || '',
+    images: Array.isArray(l.images) ? l.images : [],
+    duration: l.duration || '', workArea: l.work_area || '',
+    sellerName: l.seller_name || '', sellerPhone: l.seller_phone || '',
+    status: l.status || 'pending', rejectReason: l.reject_reason || '',
+    promoted: !!l.promoted, views: +l.views || 0,
+    ratingAvg: +l.rating_avg || 0, ratingCount: +l.rating_count || 0,
+    createdAt: l.created_at ? new Date(l.created_at).toISOString() : now(),
+  };
+}
+db.createListing = async (l) => {
+  const id = uid();
+  const { rows } = await pool.query(
+    `INSERT INTO listings
+      (id,vendor_id,type,name,description,price,category,city,images,duration,work_area,seller_name,seller_phone,status)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'pending') RETURNING *`,
+    [id, l.vendorId || null, l.type === 'service' ? 'service' : 'product',
+     l.name, l.description || '', +l.price || 0, l.category || '', l.city || '',
+     JSON.stringify(Array.isArray(l.images) ? l.images : []),
+     l.duration || '', l.workArea || '', l.sellerName || '', l.sellerPhone || '']
+  );
+  return _mapListing(rows[0]);
+};
+db.getListing = async (id) => {
+  const { rows } = await pool.query('SELECT * FROM listings WHERE id = $1', [id]);
+  return _mapListing(rows[0]) || null;
+};
+db.getPublicListings = async ({ city, type, limit = 60 } = {}) => {
+  const conds = ["status = 'approved'"]; const vals = []; let i = 1;
+  if (city) { conds.push(`city = $${i++}`); vals.push(city); }
+  if (type) { conds.push(`type = $${i++}`); vals.push(type); }
+  vals.push(Math.min(+limit || 60, 200));
+  const { rows } = await pool.query(
+    `SELECT l.*,
+       COALESCE((SELECT ROUND(AVG(rating),1) FROM reviews r WHERE r.listing_id = l.id),0) AS rating_avg,
+       COALESCE((SELECT COUNT(*) FROM reviews r WHERE r.listing_id = l.id),0) AS rating_count
+     FROM listings l WHERE ${conds.join(' AND ')}
+     ORDER BY l.promoted DESC, l.created_at DESC LIMIT $${i}`,
+    vals
+  );
+  return rows.map(_mapListing);
+};
+db.getListingsForModeration = async (status) => {
+  const { rows } = status
+    ? await pool.query('SELECT * FROM listings WHERE status = $1 ORDER BY created_at DESC LIMIT 500', [status])
+    : await pool.query('SELECT * FROM listings ORDER BY created_at DESC LIMIT 500');
+  return rows.map(_mapListing);
+};
+db.setListingStatus = async (id, status, reason = '') => {
+  const { rows } = await pool.query(
+    'UPDATE listings SET status = $1, reject_reason = $2, updated_at = NOW() WHERE id = $3 RETURNING *',
+    [status, reason, id]
+  );
+  return _mapListing(rows[0]) || null;
+};
+db.incrementListingViews = async (id) => {
+  await pool.query('UPDATE listings SET views = COALESCE(views,0)+1 WHERE id = $1', [id]).catch(() => {});
+};
+// ── Reviews (trust signals on listings) ──
+db.addReview = async (r) => {
+  const id = uid();
+  const { rows } = await pool.query(
+    'INSERT INTO reviews (id,listing_id,rating,comment,reviewer_name) VALUES ($1,$2,$3,$4,$5) RETURNING *',
+    [id, r.listingId, Math.min(5, Math.max(1, Math.round(+r.rating) || 5)), r.comment || '', r.reviewerName || '']
+  );
+  const x = rows[0];
+  return { id: x.id, rating: +x.rating, comment: x.comment, reviewerName: x.reviewer_name, createdAt: x.created_at ? new Date(x.created_at).toISOString() : now() };
+};
+db.getListingReviews = async (listingId) => {
+  const { rows } = await pool.query(
+    'SELECT id,rating,comment,reviewer_name,created_at FROM reviews WHERE listing_id = $1 ORDER BY created_at DESC LIMIT 100',
+    [listingId]
+  );
+  return rows.map(r => ({ id: r.id, rating: +r.rating, comment: r.comment, reviewerName: r.reviewer_name, createdAt: r.created_at ? new Date(r.created_at).toISOString() : now() }));
+};
+db.getListingRating = async (listingId) => {
+  const { rows } = await pool.query('SELECT COALESCE(ROUND(AVG(rating),1),0) AS avg, COUNT(*)::int AS count FROM reviews WHERE listing_id = $1', [listingId]);
+  const r = rows[0] || {};
+  return { avg: +r.avg || 0, count: +r.count || 0 };
+};
+
 module.exports = { db };

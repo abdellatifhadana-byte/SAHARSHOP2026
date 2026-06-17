@@ -33,6 +33,7 @@ const ImageEditorPage   = lazy(() => import('./ImageEditorPage'));
 const ChatImportPage    = lazy(() => import('./ChatImportPage'));
 const CouponsPage       = lazy(() => import('./CouponsPage'));
 const GuidePage         = lazy(() => import('./GuidePage'));
+const ModerationPage    = lazy(() => import('./ModerationPage'));
 
 function PageContent() {
   const { currentPage } = useStore();
@@ -54,6 +55,7 @@ function PageContent() {
     case 'guide':         return <GuidePage />;
     case 'insights':      return <AnalyticsPage />;
     case 'services':      return <ProductsPage />;
+    case 'moderation':    return <ModerationPage />;
     default:              return <DashboardPage />;
   }
 }
