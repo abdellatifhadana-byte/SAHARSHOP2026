@@ -316,6 +316,14 @@ const darija: T = {
   'landing.merchant.ctaNew': 'ابدأ بالمجان', 'landing.merchant.ctaExisting': 'الداشبور',
   'landing.merchant.f1': 'ذكاء اصطناعي', 'landing.merchant.f2': 'سيّر الكوماندات', 'landing.merchant.f3': 'إحصائيات',
   'landing.demo': 'جرّب بدون تسجيل',
+  'landing.pillar.products': 'منتجات', 'landing.pillar.products.d': 'حوايج · صبابط · إكسسوارات · ديكور · منتجات رقمية',
+  'landing.pillar.services': 'خدمات', 'landing.pillar.services.d': 'تريسيتي · سباكة · نجارة · تنظيف · حلاقة · تصميم · برمجة',
+  'landing.pillar.booking': 'مواعيد وحجوزات', 'landing.pillar.booking.d': 'حجز موعدك بالتاريخ والساعة، ولا طلب تدخّل مستعجل دغيا',
+  'landing.pillar.delivery': 'توصيل وتتبع', 'landing.pillar.delivery.d': 'توصيل لكل مدن المغرب مع تتبع حالة الطلب لحظة بلحظة',
+  'landing.feature.ai': 'ذكاء اصطناعي', 'landing.feature.whatsapp': 'واتساب',
+  'landing.feature.delivery': 'توصيل ذكي', 'landing.feature.analytics': 'إحصائيات',
+  'landing.feature.secure': 'آمن 100٪', 'landing.feature.banner': 'بنر AI',
+  'landing.stats.merchants': 'تاجر نشيط', 'landing.stats.products': 'منتج', 'landing.stats.orders': 'طلب فاليوم',
 
   // Pricing
   'pricing.badge': 'الأثمنة',
