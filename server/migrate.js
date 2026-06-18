@@ -277,9 +277,12 @@ async function migrate() {
       reject_reason TEXT DEFAULT '',
       promoted BOOLEAN DEFAULT FALSE,
       views INTEGER DEFAULT 0,
+      details JSONB DEFAULT '{}',
       created_at TIMESTAMPTZ DEFAULT NOW(),
       updated_at TIMESTAMPTZ DEFAULT NOW()
     )`);
+    // بيانات مرنة للخدمة (تخصّصات، طرق الطلب، نموذج التسعير، حقول مخصّصة) — للقواعد القائمة
+    await client.query(`ALTER TABLE listings ADD COLUMN IF NOT EXISTS details JSONB DEFAULT '{}'`).catch(() => {});
     await client.query(`CREATE INDEX IF NOT EXISTS idx_listings_status ON listings(status)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_listings_type   ON listings(type)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_listings_city   ON listings(city)`);

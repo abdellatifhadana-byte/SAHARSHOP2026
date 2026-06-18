@@ -22,8 +22,13 @@ interface Listing {
   id: string; type: 'product' | 'service'; name: string; description: string; price: number;
   category: string; city: string; images: string[]; duration?: string; workArea?: string;
   sellerName: string; sellerPhone: string; ratingAvg?: number; ratingCount?: number;
+  details?: ServiceDetails;
 }
+interface ServiceDetails { specialties?: string[]; serviceModes?: string[]; pricingModel?: string; customFields?: { label: string; value: string }[]; }
 interface Review { id: string; rating: number; comment: string; reviewerName: string; createdAt: string; }
+
+// اقتراحات تخصّصات شائعة (قابلة للإضافة) — للنموذج الذكي للخدمة
+const SPEC_SUGGEST = ['شبكات', 'كاميرات مراقبة', 'بارابول', 'إصلاح حواسيب', 'برمجة', 'تطبيقات', 'كهرباء', 'سباكة', 'نجارة', 'صباغة', 'تكييف', 'تنظيف', 'حلاقة', 'تصوير', 'تصميم'];
 
 // أسماء المدن أسماء عَلَم — تبقى عربية لأن الخادم يفلتر بها حرفياً
 const CITIES = ['الدار البيضاء', 'الرباط', 'مراكش', 'فاس', 'طنجة', 'أكادير', 'مكناس', 'وجدة', 'سلا', 'تطوان', 'القنيطرة', 'الجديدة'];
@@ -258,6 +263,31 @@ function DetailModal({ l, lang, rtl, onClose }: { l: Listing; lang: Lang; rtl: b
               {l.workArea && <span>📐 {l.workArea}</span>}
             </div>
           )}
+          {isSvc && l.details && (
+            <div style={{ marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {!!l.details.specialties?.length && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {l.details.specialties.map(s => <span key={s} style={{ padding: '4px 10px', borderRadius: 99, background: C.emberSoft, border: `1px solid ${C.ember}40`, color: '#FF9A55', fontSize: 11.5, fontWeight: 700 }}>{s}</span>)}
+                </div>
+              )}
+              {!!l.details.serviceModes?.length && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {l.details.serviceModes.map(m => <span key={m} style={{ padding: '4px 10px', borderRadius: 99, background: 'rgba(124,58,237,0.14)', border: '1px solid rgba(124,58,237,0.3)', color: '#a78bfa', fontSize: 11.5, fontWeight: 700 }}>{m}</span>)}
+                </div>
+              )}
+              {l.details.pricingModel && <div style={{ fontSize: 12.5, color: C.ink2, fontWeight: 700 }}>💰 {l.details.pricingModel}</div>}
+              {!!l.details.customFields?.length && (
+                <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 12, padding: '10px 13px', display: 'flex', flexDirection: 'column', gap: 7 }}>
+                  {l.details.customFields.map((cf, i) => (
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12 }}>
+                      <span style={{ color: C.ink3, flexShrink: 0 }}>{cf.label}</span>
+                      <span style={{ color: C.ink1, fontWeight: 700, textAlign: rtl ? 'left' : 'right' }}>{cf.value}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           {wa && <a href={`https://wa.me/${wa}?text=${encodeURIComponent(msg)}`} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '13px', borderRadius: 12, background: '#25D366', color: '#fff', fontSize: 14, fontWeight: 800, textDecoration: 'none', marginBottom: 8 }}>{pt(lang, 'mk.contactWith', { name: l.sellerName || pt(lang, 'mk.seller') })}</a>}
 
           {/* قسم التقييمات */}
@@ -317,6 +347,19 @@ function SellModal({ lang, rtl, onClose, onDone }: { lang: Lang; rtl: boolean; o
   const [img, setImg] = useState('');
   const set = (k: string, v: string) => setF(s => ({ ...s, [k]: v }));
 
+  // ── النموذج الذكي للخدمة: تخصّصات متعددة + طرق الطلب + تسعير + حقول مخصّصة ──
+  const [specialties, setSpecialties] = useState<string[]>([]);
+  const [specInput, setSpecInput] = useState('');
+  const [modes, setModes] = useState<string[]>([]);
+  const [pricing, setPricing] = useState('');
+  const [fields, setFields] = useState<{ label: string; value: string }[]>([]);
+  const addSpec = (v: string) => { const s = (v || '').trim(); if (s && !specialties.includes(s) && specialties.length < 12) setSpecialties(a => [...a, s]); setSpecInput(''); };
+  const toggleMode = (m: string) => setModes(a => a.includes(m) ? a.filter(x => x !== m) : [...a, m]);
+  const setFieldAt = (i: number, k: 'label' | 'value', v: string) => setFields(a => a.map((f, j) => j === i ? { ...f, [k]: v } : f));
+  const buildDetails = () => ({ specialties, serviceModes: modes, pricingModel: pricing, customFields: fields.filter(x => x.label.trim() && x.value.trim()) });
+  // توليد وصف ذكي محليًا (مجاني، بلا أي تكلفة) من التخصّصات ومنطقة العمل
+  const smartDescribe = () => { if (!specialties.length && !f.name) return; set('description', (specialties.length ? specialties.join(' · ') : f.name) + (f.workArea ? `  ·  📍 ${f.workArea}` : '')); };
+
   // تأكيد رقم الهاتف عبر واتساب (يُفعَّل فقط إن كان مُهيّأً على الخادم)
   const [otpEnabled, setOtpEnabled] = useState(false);
   const [otpStep, setOtpStep] = useState(false);
@@ -348,7 +391,7 @@ function SellModal({ lang, rtl, onClose, onDone }: { lang: Lang; rtl: boolean; o
     try {
       const r = await fetch('/api/listings/public', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...f, type, price: parseFloat(f.price) || 0, images: img ? [img] : [], otpToken: token }),
+        body: JSON.stringify({ ...f, type, price: parseFloat(f.price) || 0, images: img ? [img] : [], otpToken: token, details: type === 'service' ? buildDetails() : {} }),
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || pt(lang, 'mk.errSend'));
@@ -434,6 +477,7 @@ function SellModal({ lang, rtl, onClose, onDone }: { lang: Lang; rtl: boolean; o
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
             <input style={inp} placeholder={type === 'service' ? pt(lang, 'mk.nameService') : pt(lang, 'mk.nameProduct')} value={f.name} onChange={e => set('name', e.target.value)} />
             <textarea style={{ ...inp, resize: 'none' } as any} rows={2} placeholder={pt(lang, 'mk.shortDesc')} value={f.description} onChange={e => set('description', e.target.value)} />
+            {type === 'service' && <button onClick={smartDescribe} style={{ alignSelf: 'flex-start', marginTop: -3, padding: '6px 12px', borderRadius: 9, background: 'rgba(124,58,237,0.12)', border: `1px solid ${C.purple}55`, color: '#a78bfa', fontSize: 11.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>{pt(lang, 'mk.smartDescribe')}</button>}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 9 }}>
               <input style={inp} placeholder={pt(lang, 'mk.priceField')} value={f.price} onChange={e => set('price', e.target.value)} dir="ltr" type="number" />
               <select style={inp} value={f.city} onChange={e => set('city', e.target.value)}>
@@ -442,12 +486,66 @@ function SellModal({ lang, rtl, onClose, onDone }: { lang: Lang; rtl: boolean; o
               </select>
             </div>
             <input style={inp} placeholder={pt(lang, 'mk.categoryField')} value={f.category} onChange={e => set('category', e.target.value)} />
-            {type === 'service' && (
+            {type === 'service' && (<>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 9 }}>
                 <input style={inp} placeholder={pt(lang, 'mk.durationField')} value={f.duration} onChange={e => set('duration', e.target.value)} />
                 <input style={inp} placeholder={pt(lang, 'mk.workAreaField')} value={f.workArea} onChange={e => set('workArea', e.target.value)} />
               </div>
-            )}
+
+              {/* التخصّصات المتعددة (اختر أو أضِف) */}
+              <div>
+                <div style={{ fontSize: 11.5, color: C.ink2, fontWeight: 800, marginBottom: 6 }}>{pt(lang, 'mk.specialties')}</div>
+                {specialties.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 7 }}>
+                    {specialties.map(s => (
+                      <span key={s} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 99, background: C.emberSoft, border: `1px solid ${C.ember}55`, color: '#FF9A55', fontSize: 11.5, fontWeight: 700 }}>
+                        {s}<button onClick={() => setSpecialties(a => a.filter(x => x !== s))} style={{ background: 'none', border: 'none', color: '#FF9A55', cursor: 'pointer', fontSize: 13, lineHeight: 1, padding: 0 }}>✕</button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <input style={{ ...inp, flex: 1 }} placeholder={pt(lang, 'mk.specialtiesHint')} value={specInput} onChange={e => setSpecInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addSpec(specInput); } }} />
+                  <button onClick={() => addSpec(specInput)} style={{ padding: '0 16px', borderRadius: 10, background: C.input, border: `1px solid ${C.border}`, color: C.ink1, fontSize: 12.5, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>{pt(lang, 'mk.addChip')}</button>
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 7 }}>
+                  {SPEC_SUGGEST.filter(s => !specialties.includes(s)).slice(0, 8).map(s => (
+                    <button key={s} onClick={() => addSpec(s)} style={{ padding: '4px 10px', borderRadius: 99, background: 'transparent', border: `1px dashed ${C.border}`, color: C.ink3, fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>+ {s}</button>
+                  ))}
+                </div>
+              </div>
+
+              {/* طرق الطلب */}
+              <div>
+                <div style={{ fontSize: 11.5, color: C.ink2, fontWeight: 800, marginBottom: 6 }}>{pt(lang, 'mk.serviceModes')}</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {(['mk.modeBooking', 'mk.modeRequest', 'mk.modeUrgent', 'mk.modeOnsite', 'mk.modeInshop', 'mk.modeRemote'] as const).map(k => { const label = pt(lang, k); const on = modes.includes(label); return (
+                    <button key={k} onClick={() => toggleMode(label)} style={{ padding: '7px 12px', borderRadius: 10, background: on ? C.emberSoft : 'transparent', border: `1px solid ${on ? C.ember : C.border}`, color: on ? '#FF9A55' : C.ink2, fontSize: 11.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>{label}</button>
+                  ); })}
+                </div>
+              </div>
+
+              {/* نموذج التسعير */}
+              <select style={inp} value={pricing} onChange={e => setPricing(e.target.value)}>
+                <option value="">{pt(lang, 'mk.pricingModel')}</option>
+                {(['mk.priceFixed', 'mk.priceHourly', 'mk.priceProject', 'mk.priceFrom', 'mk.priceQuote'] as const).map(k => <option key={k} value={pt(lang, k)}>{pt(lang, k)}</option>)}
+              </select>
+
+              {/* حقول مخصّصة — أضِف ما تريد */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <span style={{ fontSize: 11.5, color: C.ink2, fontWeight: 800 }}>{pt(lang, 'mk.customFields')}</span>
+                  <button onClick={() => setFields(a => a.length < 12 ? [...a, { label: '', value: '' }] : a)} style={{ padding: '5px 10px', borderRadius: 8, background: C.input, border: `1px solid ${C.border}`, color: C.ink1, fontSize: 11, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>{pt(lang, 'mk.addField')}</button>
+                </div>
+                {fields.map((cf, i) => (
+                  <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
+                    <input style={{ ...inp, flex: 1 }} placeholder={pt(lang, 'mk.cfLabel')} value={cf.label} onChange={e => setFieldAt(i, 'label', e.target.value)} />
+                    <input style={{ ...inp, flex: 1 }} placeholder={pt(lang, 'mk.cfValue')} value={cf.value} onChange={e => setFieldAt(i, 'value', e.target.value)} />
+                    <button onClick={() => setFields(a => a.filter((_, j) => j !== i))} style={{ width: 36, borderRadius: 10, background: 'rgba(239,68,68,0.12)', border: 'none', color: '#EF4444', cursor: 'pointer', fontSize: 12 }}>✕</button>
+                  </div>
+                ))}
+              </div>
+            </>)}
             <div>
               <div style={{ fontSize: 11, color: C.ink3, fontWeight: 700, marginBottom: 6 }}>{pt(lang, 'mk.imageOptional')}</div>
               {img ? (

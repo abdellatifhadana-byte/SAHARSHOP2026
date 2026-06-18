@@ -864,6 +864,7 @@ function _mapListing(l) {
     status: l.status || 'pending', rejectReason: l.reject_reason || '',
     promoted: !!l.promoted, views: +l.views || 0,
     ratingAvg: +l.rating_avg || 0, ratingCount: +l.rating_count || 0,
+    details: (l.details && typeof l.details === 'object') ? l.details : {},
     createdAt: l.created_at ? new Date(l.created_at).toISOString() : now(),
   };
 }
@@ -871,12 +872,13 @@ db.createListing = async (l) => {
   const id = uid();
   const { rows } = await pool.query(
     `INSERT INTO listings
-      (id,vendor_id,type,name,description,price,category,city,images,duration,work_area,seller_name,seller_phone,status)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'pending') RETURNING *`,
+      (id,vendor_id,type,name,description,price,category,city,images,duration,work_area,seller_name,seller_phone,details,status)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'pending') RETURNING *`,
     [id, l.vendorId || null, l.type === 'service' ? 'service' : 'product',
      l.name, l.description || '', +l.price || 0, l.category || '', l.city || '',
      JSON.stringify(Array.isArray(l.images) ? l.images : []),
-     l.duration || '', l.workArea || '', l.sellerName || '', l.sellerPhone || '']
+     l.duration || '', l.workArea || '', l.sellerName || '', l.sellerPhone || '',
+     JSON.stringify(l.details && typeof l.details === 'object' ? l.details : {})]
   );
   return _mapListing(rows[0]);
 };

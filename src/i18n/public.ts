@@ -47,6 +47,11 @@ const ar: Dict = {
   'mk.otpPublishing': '⟳ جارٍ النشر...', 'mk.otpResend': 'إعادة إرسال الرمز',
   'mk.otpEnterCode': 'أدخل الرمز المُرسَل',
   'mk.errCodeWrong': 'الرمز غير صحيح', 'mk.errSendCode': 'تعذّر إرسال الرمز',
+  // Smart service form
+  'mk.specialties':'التخصّصات (اختر أو أضِف)','mk.specialtiesHint':'اكتب تخصّصك ثم اضغط «أضِف» — يمكنك إضافة أكثر من تخصّص','mk.addChip':'أضِف',
+  'mk.serviceModes':'كيف يُطلب منك؟ (اختر ما يناسبك)','mk.modeBooking':'📅 حجز موعد','mk.modeRequest':'🧾 طلب الخدمة','mk.modeUrgent':'⚡ طلب عاجل','mk.modeOnsite':'🏠 عند الزبون','mk.modeInshop':'🏢 في محلّي','mk.modeRemote':'💻 عن بُعد',
+  'mk.pricingModel':'نموذج التسعير','mk.priceFixed':'سعر ثابت','mk.priceHourly':'بالساعة','mk.priceProject':'حسب المشروع','mk.priceFrom':'يبدأ من','mk.priceQuote':'حسب الطلب',
+  'mk.customFields':'تفاصيل إضافية — أضِف ما تريد','mk.cfLabel':'العنوان (مثلاً: الماركات المدعومة)','mk.cfValue':'القيمة (مثلاً: Hikvision, Dahua)','mk.addField':'+ أضِف حقلاً','mk.smartDescribe':'✨ اكتب لي الوصف',
   // Storefront — browsing surface
   'sf.welcome': 'مرحباً بك 👋',
   'sf.loading1': 'جاري تحميل المتجر...', 'sf.loading2': 'نجهّز لك المنتجات والخدمات المتاحة',
@@ -121,6 +126,11 @@ const darija: Dict = {
   'mk.otpPublishing': '⟳ كيتنشر...', 'mk.otpResend': 'عاود صيفط الكود',
   'mk.otpEnterCode': 'دخّل الكود اللي توصلتي بيه',
   'mk.errCodeWrong': 'الكود ماشي صحيح', 'mk.errSendCode': 'ماتصيفطش الكود',
+  // Smart service form
+  'mk.specialties':'التخصّصات (ختار ولا زيد)','mk.specialtiesHint':'كتب تخصّصك ومن بعد دوس «زيد» — تقدر تزيد أكثر من تخصّص','mk.addChip':'زيد',
+  'mk.serviceModes':'كيفاش كيتطلب منك؟ (ختار اللي يناسبك)','mk.modeBooking':'📅 حجز موعد','mk.modeRequest':'🧾 طلب الخدمة','mk.modeUrgent':'⚡ طلب مستعجل','mk.modeOnsite':'🏠 عند الزبون','mk.modeInshop':'🏢 ف المحل ديالي','mk.modeRemote':'💻 عن بُعد',
+  'mk.pricingModel':'نموذج الثمن','mk.priceFixed':'ثمن ثابت','mk.priceHourly':'بالساعة','mk.priceProject':'حسب المشروع','mk.priceFrom':'كيبدا من','mk.priceQuote':'حسب الطلب',
+  'mk.customFields':'تفاصيل إضافية — زيد اللي بغيتي','mk.cfLabel':'العنوان (مثلا: الماركات المدعومة)','mk.cfValue':'القيمة (مثلا: Hikvision, Dahua)','mk.addField':'+ زيد حقل','mk.smartDescribe':'✨ كتب ليا الوصف',
   // Storefront — browsing surface
   'sf.welcome': 'مرحبا بيك 👋',
   'sf.loading1': 'كيتحمّل المتجر...', 'sf.loading2': 'كنوجدو ليك السلع والخدمات',
@@ -195,6 +205,11 @@ const fr: Dict = {
   'mk.otpPublishing': '⟳ Publication...', 'mk.otpResend': 'Renvoyer le code',
   'mk.otpEnterCode': 'Entrez le code reçu',
   'mk.errCodeWrong': 'Code incorrect', 'mk.errSendCode': "Impossible d'envoyer le code",
+  // Smart service form
+  'mk.specialties':'Spécialités (choisir ou ajouter)','mk.specialtiesHint':'Saisissez votre spécialité puis « Ajouter » — vous pouvez en ajouter plusieurs','mk.addChip':'Ajouter',
+  'mk.serviceModes':'Comment vous commander ?','mk.modeBooking':'📅 Rendez-vous','mk.modeRequest':'🧾 Demande','mk.modeUrgent':'⚡ Urgent','mk.modeOnsite':'🏠 Chez le client','mk.modeInshop':'🏢 Dans mon local','mk.modeRemote':'💻 À distance',
+  'mk.pricingModel':'Modèle de prix','mk.priceFixed':'Prix fixe','mk.priceHourly':'Par heure','mk.priceProject':'Au projet','mk.priceFrom':'À partir de','mk.priceQuote':'Sur devis',
+  'mk.customFields':'Détails supplémentaires — ajoutez ce que vous voulez','mk.cfLabel':'Intitulé (ex : marques prises en charge)','mk.cfValue':'Valeur (ex : Hikvision, Dahua)','mk.addField':'+ Ajouter un champ','mk.smartDescribe':'✨ Rédiger la description',
   // Storefront — browsing surface
   'sf.welcome': 'Bienvenue 👋',
   'sf.loading1': 'Chargement de la boutique...', 'sf.loading2': 'Nous préparons les produits et services',
@@ -269,6 +284,11 @@ const en: Dict = {
   'mk.otpPublishing': '⟳ Publishing...', 'mk.otpResend': 'Resend code',
   'mk.otpEnterCode': 'Enter the code sent',
   'mk.errCodeWrong': 'Incorrect code', 'mk.errSendCode': 'Could not send code',
+  // Smart service form
+  'mk.specialties':'Specialties (pick or add)','mk.specialtiesHint':'Type your specialty then “Add” — you can add several','mk.addChip':'Add',
+  'mk.serviceModes':'How can you be booked?','mk.modeBooking':'📅 Appointment','mk.modeRequest':'🧾 Request','mk.modeUrgent':'⚡ Urgent','mk.modeOnsite':'🏠 At customer','mk.modeInshop':'🏢 At my place','mk.modeRemote':'💻 Remote',
+  'mk.pricingModel':'Pricing model','mk.priceFixed':'Fixed price','mk.priceHourly':'Hourly','mk.priceProject':'Per project','mk.priceFrom':'Starting from','mk.priceQuote':'On request',
+  'mk.customFields':'Extra details — add what you want','mk.cfLabel':'Label (e.g. supported brands)','mk.cfValue':'Value (e.g. Hikvision, Dahua)','mk.addField':'+ Add a field','mk.smartDescribe':'✨ Write my description',
   // Storefront — browsing surface
   'sf.welcome': 'Welcome 👋',
   'sf.loading1': 'Loading the store...', 'sf.loading2': 'Preparing the available products and services',
@@ -343,6 +363,11 @@ const zh: Dict = {
   'mk.otpPublishing': '⟳ 发布中...', 'mk.otpResend': '重新发送验证码',
   'mk.otpEnterCode': '输入收到的验证码',
   'mk.errCodeWrong': '验证码错误', 'mk.errSendCode': '无法发送验证码',
+  // Smart service form
+  'mk.specialties':'专长（选择或添加）','mk.specialtiesHint':'输入你的专长再点「添加」 — 可添加多个','mk.addChip':'添加',
+  'mk.serviceModes':'如何预订你的服务？','mk.modeBooking':'📅 预约','mk.modeRequest':'🧾 申请','mk.modeUrgent':'⚡ 紧急','mk.modeOnsite':'🏠 上门','mk.modeInshop':'🏢 到店','mk.modeRemote':'💻 远程',
+  'mk.pricingModel':'定价方式','mk.priceFixed':'固定价','mk.priceHourly':'按小时','mk.priceProject':'按项目','mk.priceFrom':'起价','mk.priceQuote':'面议',
+  'mk.customFields':'更多细节 — 添加你想要的','mk.cfLabel':'标题（例如：支持的品牌）','mk.cfValue':'内容（例如：Hikvision, Dahua）','mk.addField':'+ 添加字段','mk.smartDescribe':'✨ 帮我写描述',
   // Storefront — browsing surface
   'sf.welcome': '欢迎 👋',
   'sf.loading1': '正在加载店铺...', 'sf.loading2': '正在为你准备可用的产品和服务',
