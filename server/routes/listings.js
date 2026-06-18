@@ -111,6 +111,13 @@ router.get('/public/catalog', async (req, res) => {
   } catch (e) { res.status(500).json({ error: 'Server error' }); }
 });
 
+// GET /api/listings/public/stats — real platform stats for the landing page
+// (defined BEFORE /public/:id so "stats" isn't captured as an :id)
+router.get('/public/stats', async (_req, res) => {
+  try { res.json(await db.getPublicStats()); }
+  catch (e) { res.status(500).json({ error: 'Server error' }); }
+});
+
 // GET /api/listings/public/:id  — single approved listing (+view count)
 router.get('/public/:id', async (req, res) => {
   try {

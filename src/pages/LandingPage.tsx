@@ -1,14 +1,18 @@
 import { useState, useEffect, useRef } from 'react';
 import { useStore } from '../store';
 import { t, type Lang, LANGS, isRtlLang } from '../i18n/translations';
+import ErrorBoundary from '../components/ErrorBoundary';
 import {
   Bot, MessageCircle, Truck, BarChart3, Check, Star, ChevronDown,
-  ArrowRight, ArrowLeft, ShoppingBag, Wrench, Calendar, Store, Globe, Gift, Image as ImageIcon, Languages,
+  ArrowRight, ArrowLeft, ShoppingBag, Wrench, Calendar, Store, Globe, Gift,
+  Image as ImageIcon, Languages, Sparkles, Zap, MapPin, TrendingUp,
 } from 'lucide-react';
 
 // ════════════════════════════════════════════════════════════════
-// صفحة الهبوط — تصميم فاتح عصري نظيف (Light SaaS) يعرض كل ميزات التطبيق.
-// نصوص موجودة مسبقاً عبر t() (5 لغات) + قاموس محلّي L للمحتوى الجديد.
+// صفحة الهبوط — "Premium Commerce OS"
+// تصميم فاتح فاخر · التجارة أولاً (لا الذكاء الاصطناعي كبطل)
+// بيانات حقيقية من قاعدة البيانات + Early-stage positioning ذكي
+// (لا أرقام وهمية مضخّمة — عند قلّة البيانات نغيّر الرسالة لا الأرقام)
 // ════════════════════════════════════════════════════════════════
 
 const L: Record<Lang, Record<string, string>> = {
@@ -28,20 +32,12 @@ const L: Record<Lang, Record<string, string>> = {
     'cap.analytics': 'التحليلات', 'cap.analytics.d': 'تابع الزيارات والمبيعات والأرباح ومصادر الزوار بأرقام حيّة.',
     'cap.banner': 'استوديو البانر', 'cap.banner.d': 'صمّم بانرات وإعلانات احترافية بالذكاء الاصطناعي وانشرها بضغطة.',
     'cap.langs': 'متعدّد اللغات', 'cap.langs.d': 'متجرك بخمس لغات: العربية، الدارجة، الفرنسية، الإنجليزية، والصينية.',
-    pillarsTitle: 'منصّة واحدة لكل أعمالك', pillarsSub: 'بِع، قدّم خدماتك، استقبل الحجوزات، ووصّل — من نفس المكان',
     howTitle: 'كيف يعمل؟', howSub: 'ثلاث خطوات بسيطة من الصفر إلى أول عملية بيع',
     how1d: 'سجّل مجاناً وأضف منتجاتك وخدماتك في دقائق — بدون أي خبرة تقنية.',
     how2d: 'استقبل الطلبات والحجوزات والرسائل، ودع المساعد الذكي يرد على زبائنك تلقائياً.',
     how3d: 'وصّل لكل مدن المغرب مع تتبع تلقائي، واستلم أرباحك عند الاستلام.',
-    whoTitle: 'مناسب لك مهما كان نشاطك',
-    who1: 'بائع منتجات', who2: 'مقدّم خدمات', who3: 'حرفي (كهربائي/سباك)', who4: 'مصمم / مبرمج', who5: 'بوتيك أزياء', who6: 'تاجر جملة',
-    testiTitle: 'تجّار يثقون بنا', testiSub: 'انضم لمئات التجار الذين ينمّون أعمالهم مع SAHAR',
-    t1: 'ضاعفتُ مبيعاتي في شهر واحد. الذكاء الاصطناعي يرد على الزبائن أفضل مني!',
-    t2: 'كنت أضيّع وقتاً طويلاً في بيانات التوصيل. الآن كل شيء تلقائي.',
-    t3: 'الربط مع واتساب غيّر كل شيء. الزبون يطلب والطلب يصلني فوراً.',
     ctaTitle: 'متجرك الذكي على بُعد دقائق', ctaSub: 'ابدأ مجاناً اليوم — بدون بطاقة بنكية وبدون أي التزام.',
     footTagline: 'منصّة المغرب الذكية للبيع والخدمات والحجوزات', footRights: 'كل الحقوق محفوظة', creditPrefix: 'تطوير',
-    previewHint: 'هكذا يبدو متجرك',
   },
   darija: {
     market: '🏪 السوق', login: 'دخول', dashboard: 'لوحة التحكم', browseMarket: '🏪 تصفّح السوق',
@@ -59,20 +55,12 @@ const L: Record<Lang, Record<string, string>> = {
     'cap.analytics': 'التحليلات', 'cap.analytics.d': 'تبّع الزيارات والمبيعات والأرباح ومصادر الزوار بأرقام حية.',
     'cap.banner': 'استوديو البانر', 'cap.banner.d': 'صمّم بانرات وإعلانات احترافية بالذكاء الاصطناعي ونشرها بضغطة.',
     'cap.langs': 'متعدّد اللغات', 'cap.langs.d': 'متجرك بخمس لغات: العربية، الدارجة، الفرنسية، الإنجليزية، والصينية.',
-    pillarsTitle: 'بلاتفورم وحدة لكل خدمتك', pillarsSub: 'بيع، قدّم خدماتك، استقبل الحجوزات، ووصّل — من نفس البلاصة',
     howTitle: 'كيفاش خدّام؟', howSub: 'ثلاثة خطوات ساهلة من الصفر حتى أول بيعة',
     how1d: 'سجّل بلاش وزيد منتجاتك وخدماتك ف دقايق — بلا أي خبرة تقنية.',
     how2d: 'استقبل الطلبات والحجوزات والرسائل، وخلي المساعد الذكي يجاوب زبناءك أوتوماتيك.',
     how3d: 'وصّل لكل مدن المغرب مع تتبع أوتوماتيك، وخود رِبحك عند الاستلام.',
-    whoTitle: 'مناسب ليك مهما كان نشاطك',
-    who1: 'بائع منتجات', who2: 'مقدّم خدمات', who3: 'صنايعي (طوبيس/سباك)', who4: 'مصمم / مبرمج', who5: 'بوتيك ديال الموضة', who6: 'تاجر بالجملة',
-    testiTitle: 'تجار كيثقو فينا', testiSub: 'انضم لمئات التجار اللي كينمّيو خدمتهم مع SAHAR',
-    t1: 'ضاعفت مبيعاتي ف شهر. الذكاء الاصطناعي كيجاوب الزبناء حسن مني!',
-    t2: 'كنت كنضيّع بزاف ديال الوقت ف بيانات التوصيل. دابا كلشي أوتوماتيك.',
-    t3: 'الربط مع واتساب بدّل كلشي. الزبون كيطلب والطلب كيوصلني دغيا.',
     ctaTitle: 'متجرك الذكي على بعد دقايق', ctaSub: 'بدا بلاش اليوم — بلا كارط بانكير وبلا أي التزام.',
     footTagline: 'منصة المغرب الذكية للبيع والخدمات والحجوزات', footRights: 'كل الحقوق محفوظة', creditPrefix: 'تطوير',
-    previewHint: 'هكذا يبان متجرك',
   },
   fr: {
     market: '🏪 Le Souk', login: 'Connexion', dashboard: 'Tableau de bord', browseMarket: '🏪 Explorer Le Souk',
@@ -90,20 +78,12 @@ const L: Record<Lang, Record<string, string>> = {
     'cap.analytics': 'Analytique', 'cap.analytics.d': 'Suivez visites, ventes, bénéfices et sources de trafic en temps réel.',
     'cap.banner': 'Studio de bannières', 'cap.banner.d': 'Créez des bannières et publicités professionnelles avec l’IA, en un clic.',
     'cap.langs': 'Multilingue', 'cap.langs.d': 'Votre boutique en 5 langues : arabe, darija, français, anglais et chinois.',
-    pillarsTitle: 'Une seule plateforme pour tout votre business', pillarsSub: 'Vendez, proposez des services, prenez des réservations et livrez — au même endroit',
     howTitle: 'Comment ça marche ?', howSub: 'Trois étapes simples, de zéro à votre première vente',
     how1d: 'Inscrivez-vous gratuitement et ajoutez vos produits et services en quelques minutes — sans compétences techniques.',
     how2d: 'Recevez commandes, réservations et messages, et laissez l’IA répondre à vos clients automatiquement.',
     how3d: 'Livrez dans toutes les villes du Maroc avec suivi automatique, et encaissez à la livraison.',
-    whoTitle: 'Fait pour vous, quel que soit votre métier',
-    who1: 'Vendeur de produits', who2: 'Prestataire de services', who3: 'Artisan (électricien/plombier)', who4: 'Designer / développeur', who5: 'Boutique de mode', who6: 'Grossiste',
-    testiTitle: 'Des marchands qui nous font confiance', testiSub: 'Rejoignez des centaines de marchands qui développent leur activité avec SAHAR',
-    t1: 'J’ai doublé mes ventes en un mois. L’IA répond aux clients mieux que moi !',
-    t2: 'Je perdais beaucoup de temps sur les livraisons. Maintenant tout est automatique.',
-    t3: 'L’intégration WhatsApp a tout changé. Le client commande et je reçois aussitôt.',
     ctaTitle: 'Votre boutique intelligente à quelques minutes', ctaSub: 'Commencez gratuitement aujourd’hui — sans carte bancaire ni engagement.',
     footTagline: 'La plateforme marocaine intelligente pour la vente, les services et les réservations', footRights: 'Tous droits réservés', creditPrefix: 'Développé par',
-    previewHint: 'Voici votre boutique',
   },
   en: {
     market: '🏪 Market', login: 'Sign in', dashboard: 'Dashboard', browseMarket: '🏪 Browse the market',
@@ -121,20 +101,12 @@ const L: Record<Lang, Record<string, string>> = {
     'cap.analytics': 'Analytics', 'cap.analytics.d': 'Track visits, sales, profits and traffic sources with live numbers.',
     'cap.banner': 'Banner studio', 'cap.banner.d': 'Design professional banners and ads with AI and publish in one click.',
     'cap.langs': 'Multilingual', 'cap.langs.d': 'Your store in 5 languages: Arabic, Darija, French, English and Chinese.',
-    pillarsTitle: 'One platform for your entire business', pillarsSub: 'Sell, offer services, take bookings and deliver — all in one place',
     howTitle: 'How it works', howSub: 'Three simple steps from zero to your first sale',
     how1d: 'Sign up free and add your products and services in minutes — no technical skills needed.',
     how2d: 'Receive orders, bookings and messages, and let the AI reply to your customers automatically.',
     how3d: 'Deliver to every Moroccan city with automatic tracking, and get paid on delivery.',
-    whoTitle: 'Built for you, whatever your business',
-    who1: 'Product seller', who2: 'Service provider', who3: 'Craftsman (electrician/plumber)', who4: 'Designer / developer', who5: 'Fashion boutique', who6: 'Wholesaler',
-    testiTitle: 'Merchants who trust us', testiSub: 'Join hundreds of merchants growing their business with SAHAR',
-    t1: 'I doubled my sales in one month. The AI answers customers better than me!',
-    t2: 'I used to waste so much time on delivery data. Now it’s all automatic.',
-    t3: 'WhatsApp integration changed everything. The customer orders and it reaches me instantly.',
     ctaTitle: 'Your smart store is minutes away', ctaSub: 'Start free today — no credit card, no commitment.',
     footTagline: 'Morocco’s smart platform for selling, services and bookings', footRights: 'All rights reserved', creditPrefix: 'Developed by',
-    previewHint: 'This is how your store looks',
   },
   zh: {
     market: '🏪 市场', login: '登录', dashboard: '控制台', browseMarket: '🏪 浏览市场',
@@ -152,65 +124,129 @@ const L: Record<Lang, Record<string, string>> = {
     'cap.analytics': '数据分析', 'cap.analytics.d': '用实时数据追踪访问、销售、利润和流量来源。',
     'cap.banner': '横幅工作室', 'cap.banner.d': '用 AI 一键设计并发布专业横幅和广告。',
     'cap.langs': '多语言', 'cap.langs.d': '你的店铺支持 5 种语言：阿拉伯语、达里贾语、法语、英语和中文。',
-    pillarsTitle: '一个平台，搞定你的全部业务', pillarsSub: '销售、提供服务、接受预约并配送 — 全部一处完成',
     howTitle: '如何运作', howSub: '三个简单步骤，从零到第一笔订单',
     how1d: '免费注册，几分钟内添加你的产品和服务 — 无需任何技术。',
     how2d: '接收订单、预约和消息，让 AI 助手自动回复你的客户。',
     how3d: '配送至摩洛哥所有城市，自动追踪，货到收款。',
-    whoTitle: '无论你做什么生意，都适合你',
-    who1: '产品卖家', who2: '服务提供者', who3: '工匠（电工/水管工）', who4: '设计师 / 开发者', who5: '时尚精品店', who6: '批发商',
-    testiTitle: '信赖我们的商家', testiSub: '加入数百位用 SAHAR 发展业务的商家',
-    t1: '我一个月内销售额翻倍。AI 回复客户比我还好！',
-    t2: '以前我在配送信息上浪费很多时间。现在全自动了。',
-    t3: 'WhatsApp 集成改变了一切。客户下单我立即收到。',
     ctaTitle: '你的智能店铺，几分钟即可拥有', ctaSub: '今天免费开始 — 无需银行卡，无任何约束。',
     footTagline: '摩洛哥智能销售、服务与预约平台', footRights: '版权所有', creditPrefix: '开发',
-    previewHint: '你的店铺长这样',
   },
 };
 
-const CAPS = [
-  { Icon: ShoppingBag, k: 'products', c: '#FF6A00' },
-  { Icon: Wrench, k: 'services', c: '#00B89C' },
-  { Icon: Calendar, k: 'bookings', c: '#7C3AED' },
-  { Icon: Store, k: 'store', c: '#3B82F6' },
-  { Icon: Globe, k: 'market', c: '#FF8533' },
-  { Icon: Bot, k: 'ai', c: '#FF6A00' },
-  { Icon: MessageCircle, k: 'messages', c: '#16A34A' },
-  { Icon: Truck, k: 'delivery', c: '#00B89C' },
-  { Icon: Gift, k: 'coupons', c: '#EC4899' },
-  { Icon: BarChart3, k: 'analytics', c: '#FF8533' },
-  { Icon: ImageIcon, k: 'banner', c: '#7C3AED' },
-  { Icon: Languages, k: 'langs', c: '#3B82F6' },
-];
-
-const WHO = [
-  { icon: '🛍️', k: 'who1' }, { icon: '🛠️', k: 'who2' }, { icon: '⚡', k: 'who3' },
-  { icon: '🎨', k: 'who4' }, { icon: '👗', k: 'who5' }, { icon: '📦', k: 'who6' },
-];
-
-const STATS = [
-  { to: 500, suffix: '+', k: 'landing.stats.merchants' },
-  { to: 15, suffix: 'K+', k: 'landing.stats.products' },
-  { to: 50, suffix: 'K+', k: 'landing.stats.orders' },
-];
-
-const TESTI = [
-  { q: 't1', name: 'أحمد', city: 'الدار البيضاء', c: '#FF6A00' },
-  { q: 't2', name: 'فاطمة', city: 'مراكش', c: '#7C3AED' },
-  { q: 't3', name: 'يوسف', city: 'طنجة', c: '#00B89C' },
-];
-
-// ألوان النظام الفاتح
-const C = {
-  bg: '#FBFBFD', surface: '#FFFFFF', alt: '#F4F5F9',
-  ink1: '#0F1320', ink2: '#525B72', ink3: '#8A93AC',
-  border: 'rgba(15,19,32,0.08)', borderH: 'rgba(15,19,32,0.16)',
-  shadow: '0 10px 40px rgba(20,24,60,0.07)', shadowH: '0 22px 60px rgba(20,24,60,0.13)',
-  ember: '#FF6A00', emberD: '#E85D00', teal: '#00B89C', purple: '#7C3AED',
+// مفاتيح المحتوى الجديدة لهذا التصميم (منفصلة للحفاظ على نظافة القاموس الأصلي)
+const LX: Record<Lang, Record<string, string>> = {
+  ar: {
+    osBadge: 'Commerce OS · نظام تجارة متكامل', sample: 'مثال', byStore: 'بواسطة', dh: 'د.م.',
+    liveTitle: '🛍️ منتجات وخدمات حيّة من السوق', liveSub: 'إعلانات حقيقية نشرها تجّار SAHAR الآن', liveViewAll: 'تصفّح كل السوق',
+    citiesTitle: '🇲🇦 متاجر في كل المغرب', citiesSub: 'تجّار ينمّون أعمالهم من كل المدن', cityUnit: 'إعلان', cityBeFirst: 'كن الأول هنا',
+    statMerchants: 'تاجر', statProducts: 'منتج', statOrders: 'طلب', statListings: 'إعلان في السوق',
+    earlyBadge: '🚀 منصّة جديدة في الانطلاق', earlyTitle: 'كن من أوائل التجّار في SAHAR', earlySub: 'نبني السوق المغربي الذكي معاً من البداية — مكانك في المقدّمة محجوز الآن.',
+    bentoTitle: 'منظومة تجارة كاملة', bentoSub: 'كل أدوات نجاحك في مكان واحد — والذكاء الاصطناعي يدعمها لا يحلّ محلّها.',
+    storesTitle: '⭐ لماذا التجّار يختارون SAHAR', previewHint: 'هكذا يبدو متجرك',
+    why1: 'إطلاق في دقائق', why1d: 'متجر جاهز برابط خاص دون أي خبرة تقنية.',
+    why2: 'يعمل 24/7', why2d: 'المساعد الذكي يرد ويجمع الطلبات حتى وأنت نائم.',
+    why3: 'وصول أوسع', why3d: 'السوق الموحّد + كل قنوات التواصل في مكان واحد.',
+    seoTitle: 'SAHAR shop — منصّة المغرب الذكية للبيع والخدمات', seoDesc: 'أنشئ متجرك الإلكتروني، اعرض خدماتك، وبِع في السوق المغربي الموحّد — مع ذكاء اصطناعي وتوصيل آلي. مجاني للبدء.',
+  },
+  darija: {
+    osBadge: 'Commerce OS · نظام تجارة كامل', sample: 'مثال', byStore: 'ديال', dh: 'د.م.',
+    liveTitle: '🛍️ منتجات وخدمات حيّة من السوق', liveSub: 'إعلانات حقيقية نشروهم تجّار SAHAR دابا', liveViewAll: 'تصفّح السوق كامل',
+    citiesTitle: '🇲🇦 متاجر ف كل المغرب', citiesSub: 'تجّار كينمّيو خدمتهم من كل المدن', cityUnit: 'إعلان', cityBeFirst: 'كن الأول هنا',
+    statMerchants: 'تاجر', statProducts: 'منتج', statOrders: 'طلب', statListings: 'إعلان ف السوق',
+    earlyBadge: '🚀 منصّة جديدة ف الانطلاق', earlyTitle: 'كن من أوائل التجّار ف SAHAR', earlySub: 'كنبنيو السوق المغربي الذكي مع بعضياتنا من البداية — بلاصتك ف المقدّمة محجوزة دابا.',
+    bentoTitle: 'منظومة تجارة كاملة', bentoSub: 'كل أدوات النجاح ف بلاصة وحدة — والذكاء الاصطناعي كيدعمها ماشي كيعوّضها.',
+    storesTitle: '⭐ علاش التجّار كيختارو SAHAR', previewHint: 'هكذا كيبان متجرك',
+    why1: 'إطلاق ف دقايق', why1d: 'متجر واجد برابط ديالك بلا أي خبرة تقنية.',
+    why2: 'خدّام 24/7', why2d: 'المساعد الذكي كيجاوب وكيجمع الطلبات حتى وانت نعسان.',
+    why3: 'وصول كثر', why3d: 'السوق الموحّد + كل قنوات التواصل ف بلاصة وحدة.',
+    seoTitle: 'SAHAR shop — منصّة المغرب الذكية للبيع والخدمات', seoDesc: 'دير متجرك، قدّم خدماتك، وبيع ف السوق المغربي الموحّد — مع ذكاء اصطناعي وتوصيل أوتوماتيك. بلاش باش تبدا.',
+  },
+  fr: {
+    osBadge: 'Commerce OS · plateforme tout-en-un', sample: 'Exemple', byStore: 'par', dh: 'DH',
+    liveTitle: '🛍️ Produits & services en direct du Souk', liveSub: 'De vraies annonces publiées par les marchands SAHAR', liveViewAll: 'Explorer tout le Souk',
+    citiesTitle: '🇲🇦 Des boutiques partout au Maroc', citiesSub: 'Des marchands qui se développent dans chaque ville', cityUnit: 'annonces', cityBeFirst: 'Soyez le premier ici',
+    statMerchants: 'marchands', statProducts: 'produits', statOrders: 'commandes', statListings: 'annonces au Souk',
+    earlyBadge: '🚀 Nouvelle plateforme en lancement', earlyTitle: 'Soyez parmi les premiers marchands SAHAR', earlySub: 'Construisons ensemble le souk marocain intelligent dès le départ — votre place en tête est réservée maintenant.',
+    bentoTitle: 'Un écosystème commerce complet', bentoSub: 'Tous vos outils de réussite au même endroit — l’IA les soutient, sans les remplacer.',
+    storesTitle: '⭐ Pourquoi les marchands choisissent SAHAR', previewHint: 'Voici votre boutique',
+    why1: 'Lancement en minutes', why1d: 'Une boutique prête avec votre lien, sans compétences techniques.',
+    why2: 'Actif 24/7', why2d: 'L’assistant IA répond et collecte les commandes même la nuit.',
+    why3: 'Plus de portée', why3d: 'Le Souk unifié + tous vos canaux au même endroit.',
+    seoTitle: 'SAHAR shop — la plateforme commerce intelligente du Maroc', seoDesc: 'Créez votre boutique, proposez vos services et vendez sur le Souk marocain unifié — avec IA et livraison automatique. Gratuit pour démarrer.',
+  },
+  en: {
+    osBadge: 'Commerce OS · all-in-one platform', sample: 'Example', byStore: 'by', dh: 'DH',
+    liveTitle: '🛍️ Live products & services from the Market', liveSub: 'Real ads posted by SAHAR merchants', liveViewAll: 'Browse the whole market',
+    citiesTitle: '🇲🇦 Stores across Morocco', citiesSub: 'Merchants growing in every city', cityUnit: 'ads', cityBeFirst: 'Be the first here',
+    statMerchants: 'merchants', statProducts: 'products', statOrders: 'orders', statListings: 'market ads',
+    earlyBadge: '🚀 New platform launching', earlyTitle: 'Be among the first SAHAR merchants', earlySub: 'Let’s build Morocco’s smart marketplace together from day one — your front-row spot is reserved now.',
+    bentoTitle: 'A complete commerce ecosystem', bentoSub: 'All your success tools in one place — AI supports them, never replaces them.',
+    storesTitle: '⭐ Why merchants choose SAHAR', previewHint: 'This is how your store looks',
+    why1: 'Launch in minutes', why1d: 'A ready store with your own link, no technical skills.',
+    why2: 'Always on 24/7', why2d: 'The AI assistant replies and collects orders even while you sleep.',
+    why3: 'Wider reach', why3d: 'The unified market + all your channels in one place.',
+    seoTitle: 'SAHAR shop — Morocco’s smart commerce platform', seoDesc: 'Create your online store, offer services and sell on Morocco’s unified market — with AI and automatic delivery. Free to start.',
+  },
+  zh: {
+    osBadge: 'Commerce OS · 一体化平台', sample: '示例', byStore: '来自', dh: 'DH',
+    liveTitle: '🛍️ 来自市场的实时产品与服务', liveSub: 'SAHAR 商家发布的真实广告', liveViewAll: '浏览整个市场',
+    citiesTitle: '🇲🇦 遍布摩洛哥的店铺', citiesSub: '在每座城市成长的商家', cityUnit: '条广告', cityBeFirst: '成为这里的第一个',
+    statMerchants: '商家', statProducts: '产品', statOrders: '订单', statListings: '市场广告',
+    earlyBadge: '🚀 全新平台正在启动', earlyTitle: '成为首批 SAHAR 商家', earlySub: '从第一天起一起打造摩洛哥智能市场 — 你的前排席位现已为你保留。',
+    bentoTitle: '完整的商业生态系统', bentoSub: '所有成功工具集于一处 — AI 是助力，而非替代。',
+    storesTitle: '⭐ 商家为何选择 SAHAR', previewHint: '你的店铺长这样',
+    why1: '几分钟上线', why1d: '拥有专属链接的现成店铺，无需技术。',
+    why2: '全天候 24/7', why2d: 'AI 助手在你睡觉时也能回复并收集订单。',
+    why3: '更广触达', why3d: '统一市场 + 你的所有渠道集于一处。',
+    seoTitle: 'SAHAR shop — 摩洛哥智能商业平台', seoDesc: '创建在线店铺、提供服务并在摩洛哥统一市场销售 — 配备 AI 与自动配送。免费开始。',
+  },
 };
 
-// كشف الظهور عند التمرير
+// القدرات — التجارة أولاً، والذكاء الاصطناعي عنصر داعم (بترتيب Bento)
+const CAPS = [
+  { Icon: ShoppingBag, k: 'products', c: '#FF6B35', feat: true },
+  { Icon: Bot, k: 'ai', c: '#0EA5E9', wide: true },
+  { Icon: Globe, k: 'market', c: '#7C3AED', wide: true },
+  { Icon: Wrench, k: 'services', c: '#10B981' },
+  { Icon: Store, k: 'store', c: '#F59E0B' },
+  { Icon: Truck, k: 'delivery', c: '#3B82F6' },
+  { Icon: MessageCircle, k: 'messages', c: '#16A34A' },
+  { Icon: Calendar, k: 'bookings', c: '#8B5CF6' },
+  { Icon: Gift, k: 'coupons', c: '#EC4899' },
+  { Icon: BarChart3, k: 'analytics', c: '#F97316' },
+  { Icon: ImageIcon, k: 'banner', c: '#A855F7' },
+  { Icon: Languages, k: 'langs', c: '#06B6D4' },
+];
+
+// عناصر توضيحية (احتياط بصري فقط — مُعلَّمة بوضوح "مثال"، لا تُعرض كبيانات حقيقية)
+type Listing = { id: string; type?: string; name: string; price: number; city?: string; images?: string[]; sellerName?: string; ratingAvg?: number; emoji?: string; sample?: boolean };
+const SAMPLES: Listing[] = [
+  { id: 's1', type: 'product', name: 'حذاء رياضي', price: 299, city: 'الدار البيضاء', sellerName: 'FootZone', ratingAvg: 4.8, emoji: '👟', sample: true },
+  { id: 's2', type: 'product', name: 'فستان أنيق', price: 459, city: 'مراكش', sellerName: 'ModaChic', ratingAvg: 4.9, emoji: '👗', sample: true },
+  { id: 's3', type: 'service', name: 'إصلاح كهربائي', price: 150, city: 'الرباط', sellerName: 'ProFix', ratingAvg: 5.0, emoji: '🛠️', sample: true },
+  { id: 's4', type: 'product', name: 'ساعة ذكية', price: 849, city: 'طنجة', sellerName: 'TechVibe', ratingAvg: 4.7, emoji: '⌚', sample: true },
+  { id: 's5', type: 'product', name: 'حقيبة جلدية', price: 599, city: 'فاس', sellerName: 'Artisan', ratingAvg: 4.9, emoji: '👜', sample: true },
+  { id: 's6', type: 'service', name: 'تصميم شعار', price: 400, city: 'أكادير', sellerName: 'StudioX', ratingAvg: 5.0, emoji: '🎨', sample: true },
+];
+const CITY_FALLBACK = ['الدار البيضاء', 'الرباط', 'مراكش', 'طنجة', 'أكادير', 'فاس'];
+
+// ألوان النظام — فاتح فاخر
+const C = {
+  bg: '#F8FAFC', surface: '#FFFFFF', alt: '#F1F5F9',
+  ink: '#0F172A', ink2: '#475569', ink3: '#94A3B8',
+  border: 'rgba(15,23,42,0.08)', borderH: 'rgba(15,23,42,0.16)',
+  shadow: '0 12px 40px rgba(15,23,42,0.08)', shadowH: '0 24px 60px rgba(15,23,42,0.14)',
+  orange: '#FF6B35', orangeD: '#E8551F', blue: '#0EA5E9', green: '#10B981', purple: '#7C3AED',
+};
+
+function apiBase() {
+  if (typeof window !== 'undefined') {
+    if (window.location.port === '5173' || window.location.port === '4173') return 'http://localhost:3001/api';
+    return `${window.location.origin}/api`;
+  }
+  return '/api';
+}
+
 function Reveal({ children, delay = 0, style }: { children: React.ReactNode; delay?: number; style?: React.CSSProperties }) {
   const ref = useRef<HTMLDivElement>(null);
   const [vis, setVis] = useState(false);
@@ -222,8 +258,7 @@ function Reveal({ children, delay = 0, style }: { children: React.ReactNode; del
   return <div ref={ref} style={{ opacity: vis ? 1 : 0, transform: vis ? 'none' : 'translateY(24px)', transition: `opacity .7s ease ${delay}ms, transform .7s cubic-bezier(.16,1,.3,1) ${delay}ms`, ...style }}>{children}</div>;
 }
 
-// عدّاد متحرك يبدأ عند ظهوره
-function CountUp({ to, suffix = '', dur = 1500 }: { to: number; suffix?: string; dur?: number }) {
+function CountUp({ to, suffix = '', dur = 1600 }: { to: number; suffix?: string; dur?: number }) {
   const ref = useRef<HTMLSpanElement>(null);
   const [val, setVal] = useState(0);
   const done = useRef(false);
@@ -238,64 +273,51 @@ function CountUp({ to, suffix = '', dur = 1500 }: { to: number; suffix?: string;
     }, { threshold: 0.5 });
     o.observe(el); return () => o.disconnect();
   }, [to, dur]);
-  return <span ref={ref}>{val}{suffix}</span>;
+  return <span ref={ref}>{val.toLocaleString()}{suffix}</span>;
 }
 
-// معاينة المنتج (mockup مرسوم بالـCSS) — يعطي مصداقية بلا حاجة لصور
-function StorePreview({ rtl }: { rtl: boolean }) {
+// بطاقة منتج/خدمة (تعرض صورة حقيقية إن وُجدت، وإلا رمز تعبيري)
+function ProductCard({ it, tx, big }: { it: Listing; tx: (k: string) => string; big?: boolean }) {
+  const [imgOk, setImgOk] = useState(true);
+  const img = it.images && it.images[0];
+  const emoji = it.emoji || (it.type === 'service' ? '🛠️' : '🛍️');
   return (
-    <div style={{ background: C.surface, borderRadius: 20, border: `1px solid ${C.border}`, boxShadow: C.shadowH, overflow: 'hidden', maxWidth: 380, width: '100%' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 14px', borderBottom: `1px solid ${C.border}`, background: C.alt }}>
-        <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#FF5F57' }} />
-        <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#FEBC2E' }} />
-        <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#28C840' }} />
-        <span style={{ marginInlineStart: 'auto', fontSize: 10, color: C.ink3, fontWeight: 700 }}>sahar.shop/store</span>
+    <div className="lpcard" style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, overflow: 'hidden', boxShadow: C.shadow, height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ position: 'relative', height: big ? 150 : 110, background: C.alt, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: big ? 52 : 40 }}>
+        {img && imgOk
+          ? <img src={img} alt={it.name} loading="lazy" onError={() => setImgOk(false)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          : <span>{emoji}</span>}
+        {it.sample && <span style={{ position: 'absolute', top: 8, insetInlineStart: 8, fontSize: 9.5, fontWeight: 800, color: '#fff', background: 'rgba(15,23,42,0.55)', borderRadius: 99, padding: '3px 9px' } as any}>{tx('sample')}</span>}
+        {it.ratingAvg ? <span style={{ position: 'absolute', top: 8, insetInlineEnd: 8, fontSize: 10, fontWeight: 800, color: '#B45309', background: 'rgba(255,255,255,0.92)', borderRadius: 99, padding: '3px 8px', display: 'flex', alignItems: 'center', gap: 3 } as any}><Star size={9} fill="#F59E0B" color="#F59E0B" />{it.ratingAvg.toFixed(1)}</span> : null}
       </div>
-      <div style={{ padding: 14 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-          <div style={{ width: 30, height: 30, borderRadius: 9, background: `linear-gradient(135deg, ${C.ember}, ${C.purple})` }} />
-          <div>
-            <div style={{ height: 8, width: 90, borderRadius: 4, background: 'rgba(15,19,32,0.14)' }} />
-            <div style={{ height: 6, width: 60, borderRadius: 4, background: 'rgba(15,19,32,0.07)', marginTop: 5 }} />
-          </div>
-          <div style={{ marginInlineStart: 'auto', fontSize: 9, fontWeight: 800, color: '#16A34A', background: 'rgba(22,163,74,0.1)', borderRadius: 99, padding: '3px 8px' }}>🟢</div>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-          {[C.ember, C.teal, C.purple, '#3B82F6'].map((col, i) => (
-            <div key={i} style={{ border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden' }}>
-              <div style={{ height: 56, background: `linear-gradient(135deg, ${col}22, ${col}0d)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>{['🛍️', '👗', '🛠️', '📱'][i]}</div>
-              <div style={{ padding: '7px 9px' }}>
-                <div style={{ height: 6, width: '70%', borderRadius: 4, background: 'rgba(15,19,32,0.12)' }} />
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 7 }}>
-                  <span style={{ fontSize: 10, fontWeight: 900, color: C.ember }}>{[120, 240, 90, 350][i]} DH</span>
-                  <span style={{ fontSize: 11 }}>🛒</span>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-        <div style={{ marginTop: 12, height: 38, borderRadius: 11, background: `linear-gradient(135deg, ${C.ember}, ${C.emberD})`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 12, fontWeight: 800, boxShadow: `0 8px 20px ${C.ember}44` }}>
-          {rtl ? '🛒 إتمام الطلب' : '🛒 Checkout'}
+      <div style={{ padding: '12px 13px', display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
+        <div style={{ fontSize: 13.5, fontWeight: 800, color: C.ink, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.name}</div>
+        <div style={{ fontSize: 10.5, color: C.ink3, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tx('byStore')} {it.sellerName || 'SAHAR'}{it.city ? ` · ${it.city}` : ''}</div>
+        <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 6 }}>
+          <span style={{ fontWeight: 900, color: C.orange, fontSize: big ? 17 : 15 }}>{it.price} {tx('dh')}</span>
+          <span style={{ fontSize: 14 }}>🛒</span>
         </div>
       </div>
     </div>
   );
 }
 
-export default function LandingPage() {
+function LandingInner() {
   const { token, user, settings, updateSettings } = useStore();
   const [lang, setLang] = useState<Lang>(() => ((settings.brand as any)?.language || 'ar') as Lang);
   const [loaded, setLoaded] = useState(false);
   const [showLangMenu, setShowLangMenu] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [prog, setProg] = useState(0);
+  const [stats, setStats] = useState<null | { merchants: number; products: number; services: number; orders: number; listings: number; cities: { city: string; count: number }[] }>(null);
+  const [listings, setListings] = useState<Listing[]>([]);
   const langRef = useRef<HTMLDivElement>(null);
 
   const userId = user?.id || (() => { try { const u = localStorage.getItem('ai_commerce_user'); return u ? JSON.parse(u)?.id : null; } catch { return null; } })();
   const storeUrl = userId ? `/store/${userId}` : null;
   const isAuthed = !!token || token === 'demo-token-local';
   const isRtl = isRtlLang(lang);
-  const tx = (k: string) => (L[lang] || L.ar)[k] || L.ar[k] || k;
+  const tx = (k: string) => (LX[lang]?.[k] ?? L[lang]?.[k] ?? LX.ar[k] ?? L.ar[k] ?? k);
   const Arrow = isRtl ? ArrowLeft : ArrowRight;
 
   useEffect(() => { const t = setTimeout(() => setLoaded(true), 50); return () => clearTimeout(t); }, []);
@@ -307,22 +329,45 @@ export default function LandingPage() {
     const onScroll = () => { const el = document.documentElement; setScrolled(el.scrollTop > 16); setProg(el.scrollTop / ((el.scrollHeight - el.clientHeight) || 1)); };
     window.addEventListener('scroll', onScroll, { passive: true }); return () => window.removeEventListener('scroll', onScroll);
   }, []);
+  // جلب البيانات الحقيقية (عام، بلا مصادقة) — مع فشل صامت رشيق
+  useEffect(() => {
+    const base = apiBase();
+    fetch(`${base}/listings/public/stats`).then(r => r.ok ? r.json() : null).then(d => { if (d) setStats(d); }).catch(() => {});
+    fetch(`${base}/listings/public/catalog`).then(r => r.ok ? r.json() : null).then(d => { if (d?.listings) setListings(d.listings); }).catch(() => {});
+  }, []);
+  // SEO ديناميكي حسب اللغة
+  useEffect(() => {
+    document.title = tx('seoTitle');
+    const m = document.querySelector('meta[name="description"]'); if (m) m.setAttribute('content', tx('seoDesc'));
+    document.documentElement.lang = lang === 'darija' ? 'ar' : lang;
+    document.documentElement.dir = isRtl ? 'rtl' : 'ltr';
+  }, [lang]); // eslint-disable-line
 
   const switchLang = (code: Lang) => { setLang(code); setShowLangMenu(false); updateSettings('brand', { ...(settings.brand as any), language: code }); };
   const curLang = LANGS.find(l => l.code === lang) || LANGS[0];
   const startDemo = () => { try { localStorage.setItem('ai_commerce_token', 'demo-token-local'); } catch {} window.location.href = '/dashboard'; };
   const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
 
-  const btnPrimary: React.CSSProperties = { position: 'relative', overflow: 'hidden', display: 'inline-flex', alignItems: 'center', gap: 9, padding: '14px 30px', borderRadius: 13, background: `linear-gradient(135deg, ${C.ember}, ${C.emberD})`, color: '#fff', fontSize: 15, fontWeight: 800, textDecoration: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', boxShadow: `0 10px 30px ${C.ember}3d` };
-  const btnOutline: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 9, padding: '14px 26px', borderRadius: 13, background: C.surface, color: C.ink1, fontSize: 15, fontWeight: 800, textDecoration: 'none', border: `1px solid ${C.borderH}`, cursor: 'pointer', fontFamily: 'inherit' };
+  // منطق Early-stage: لا نكذب — نعرض الحقيقي، ونغيّر الرسالة عند القلّة
+  const established = !!stats && stats.merchants >= 12 && (stats.products + stats.listings) >= 30;
+  const realList = listings.slice(0, 8);
+  const heroItems = realList.length >= 2 ? realList.slice(0, 4) : [...realList, ...SAMPLES].slice(0, 4);
+  const gridItems = realList.length >= 3 ? realList.slice(0, 6) : [...realList, ...SAMPLES].slice(0, 6);
+  const cityItems = (stats?.cities && stats.cities.length)
+    ? stats.cities.slice(0, 6)
+    : CITY_FALLBACK.map(c => ({ city: c, count: 0 }));
+
+  const btnPrimary: React.CSSProperties = { position: 'relative', overflow: 'hidden', display: 'inline-flex', alignItems: 'center', gap: 9, padding: '15px 30px', borderRadius: 14, background: `linear-gradient(135deg, ${C.orange}, ${C.orangeD})`, color: '#fff', fontSize: 15.5, fontWeight: 800, textDecoration: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', boxShadow: `0 14px 30px ${C.orange}40` };
+  const btnGhost: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 9, padding: '15px 26px', borderRadius: 14, background: C.surface, color: C.ink, fontSize: 15.5, fontWeight: 800, textDecoration: 'none', border: `1px solid ${C.borderH}`, cursor: 'pointer', fontFamily: 'inherit' };
 
   return (
-    <div dir={isRtl ? 'rtl' : 'ltr'} style={{ minHeight: '100dvh', overflowX: 'hidden', background: C.bg, color: C.ink1, fontFamily: 'Tajawal, system-ui, sans-serif' }}>
+    <div dir={isRtl ? 'rtl' : 'ltr'} style={{ minHeight: '100dvh', overflowX: 'hidden', background: C.bg, color: C.ink, fontFamily: 'Tajawal, system-ui, sans-serif' }}>
       <style>{`
-        @keyframes lpUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
         @keyframes lpIn { from{opacity:0} to{opacity:1} }
+        @keyframes lpUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
         @keyframes lpShimmer { 0%,100%{opacity:.5} 50%{opacity:1} }
-        @keyframes lpFloat { 0%,100%{transform:translate(0,0)} 50%{transform:translate(0,-14px)} }
+        @keyframes lpFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-12px)} }
+        @keyframes lpFloat2 { 0%,100%{transform:translateY(0)} 50%{transform:translateY(9px)} }
         @keyframes lpBounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(7px)} }
         @keyframes lpGrad { 0%{background-position:0% 50%} 100%{background-position:200% 50%} }
         @keyframes lpShine { 0%{transform:translateX(-220%) skewX(-18deg)} 60%,100%{transform:translateX(320%) skewX(-18deg)} }
@@ -332,117 +377,193 @@ export default function LandingPage() {
         .lpico { transition: transform .3s cubic-bezier(.16,1,.3,1); }
         .lpbtn .sh { position:absolute; top:0; bottom:0; width:34%; background:linear-gradient(90deg,transparent,rgba(255,255,255,.5),transparent); transform:translateX(-220%) skewX(-18deg); animation:lpShine 4.5s ease-in-out infinite; pointer-events:none; }
         .lpmenu::-webkit-scrollbar { width:6px } .lpmenu::-webkit-scrollbar-thumb { background:rgba(0,0,0,.14); border-radius:3px }
+        .bento { display:grid; grid-template-columns:repeat(2,1fr); gap:14px; }
+        @media(min-width:780px){ .bento{ grid-template-columns:repeat(4,1fr); grid-auto-rows:1fr } .bento .feat{ grid-column:span 2; grid-row:span 2 } .bento .wide{ grid-column:span 2 } }
         html { scroll-behavior: smooth; }
       `}</style>
 
-      {/* شريط تقدّم التمرير */}
-      <div style={{ position: 'fixed', top: 0, insetInlineStart: 0, height: 3, width: `${Math.round(prog * 100)}%`, background: `linear-gradient(90deg, ${C.ember}, ${C.teal}, ${C.purple})`, zIndex: 60, transition: 'width .1s linear' }} />
+      {/* شريط تقدّم */}
+      <div style={{ position: 'fixed', top: 0, insetInlineStart: 0, height: 3, width: `${Math.round(prog * 100)}%`, background: `linear-gradient(90deg, ${C.orange}, ${C.blue}, ${C.purple})`, zIndex: 60, transition: 'width .1s linear' }} />
 
       {/* ══ HEADER ══ */}
-      <header style={{ position: 'sticky', top: 0, zIndex: 50, height: 62, padding: '0 clamp(14px,4vw,40px)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: scrolled ? 'rgba(255,255,255,0.86)' : 'transparent', backdropFilter: scrolled ? 'blur(16px)' : 'none', WebkitBackdropFilter: scrolled ? 'blur(16px)' : 'none', borderBottom: `1px solid ${scrolled ? C.border : 'transparent'}`, transition: 'background .3s ease, border-color .3s ease', animation: loaded ? 'lpIn .5s ease both' : 'none' }}>
+      <header style={{ position: 'sticky', top: 0, zIndex: 50, height: 64, padding: '0 clamp(14px,4vw,40px)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: scrolled ? 'rgba(248,250,252,0.85)' : 'transparent', backdropFilter: scrolled ? 'blur(16px)' : 'none', WebkitBackdropFilter: scrolled ? 'blur(16px)' : 'none', borderBottom: `1px solid ${scrolled ? C.border : 'transparent'}`, transition: 'background .3s, border-color .3s', animation: loaded ? 'lpIn .5s ease both' : 'none' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 36, height: 36, borderRadius: 11, overflow: 'hidden', background: `linear-gradient(135deg, ${C.ember}1a, ${C.purple}14)`, border: `1px solid ${C.ember}33`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <img src="/sahar-logo-text.png" alt="SAHAR" style={{ width: '80%', height: '80%', objectFit: 'contain' }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; (e.currentTarget.parentElement as HTMLElement).innerHTML = '<span style="font-size:16px;font-weight:900;color:#FF6A00">S</span>'; }} />
+          <div style={{ width: 38, height: 38, borderRadius: 11, background: `linear-gradient(135deg, ${C.orange}, ${C.orangeD})`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 8px 18px ${C.orange}44`, overflow: 'hidden' }}>
+            <img src="/sahar-logo-text.png" alt="SAHAR" style={{ width: '78%', height: '78%', objectFit: 'contain' }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; (e.currentTarget.parentElement as HTMLElement).innerHTML = '<span style="font-size:17px;font-weight:900;color:#fff">S</span>'; }} />
           </div>
-          <span style={{ fontWeight: 900, fontSize: 16, letterSpacing: '-0.02em', color: C.ink1 }}><span style={{ color: C.ember }}>SAHAR</span> shop</span>
+          <span style={{ fontWeight: 900, fontSize: 16.5, letterSpacing: '-0.02em', color: C.ink }}><span style={{ color: C.orange }}>SAHAR</span> shop</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div ref={langRef} style={{ position: 'relative' }}>
-            <button onClick={() => setShowLangMenu(v => !v)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 11px', borderRadius: 9, background: C.surface, border: `1px solid ${C.border}`, color: C.ink2, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+            <button onClick={() => setShowLangMenu(v => !v)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '8px 11px', borderRadius: 10, background: C.surface, border: `1px solid ${C.border}`, color: C.ink2, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
               {curLang.flag} <span className="hide-xs">{curLang.label}</span>
-              <ChevronDown size={10} style={{ transform: showLangMenu ? 'rotate(180deg)' : 'none', transition: '0.2s' }} />
+              <ChevronDown size={10} style={{ transform: showLangMenu ? 'rotate(180deg)' : 'none', transition: '.2s' }} />
             </button>
             {showLangMenu && (
               <div className="lpmenu" style={{ position: 'absolute', top: '120%', [isRtl ? 'right' : 'left']: 0, minWidth: 150, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, overflow: 'hidden', boxShadow: C.shadowH, zIndex: 100 } as any}>
                 {LANGS.map(l => (
-                  <button key={l.code} onClick={() => switchLang(l.code)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '11px 16px', background: l.code === lang ? `${C.ember}12` : 'transparent', border: 'none', color: l.code === lang ? C.emberD : C.ink2, fontSize: 13, fontWeight: l.code === lang ? 800 : 500, cursor: 'pointer', fontFamily: 'inherit', textAlign: isRtl ? 'right' : 'left' }}>
-                    {l.flag} {l.label}
-                  </button>
+                  <button key={l.code} onClick={() => switchLang(l.code)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '11px 16px', background: l.code === lang ? `${C.orange}12` : 'transparent', border: 'none', color: l.code === lang ? C.orangeD : C.ink2, fontSize: 13, fontWeight: l.code === lang ? 800 : 500, cursor: 'pointer', fontFamily: 'inherit', textAlign: isRtl ? 'right' : 'left' }}>{l.flag} {l.label}</button>
                 ))}
               </div>
             )}
           </div>
-          <a href="/market" className="hide-xs" style={{ padding: '8px 14px', borderRadius: 9, background: `${C.ember}12`, border: `1px solid ${C.ember}33`, color: C.emberD, fontSize: 12.5, fontWeight: 800, textDecoration: 'none', whiteSpace: 'nowrap' }}>{tx('market')}</a>
+          <a href="/market" className="hide-xs" style={{ padding: '9px 14px', borderRadius: 10, background: `${C.orange}12`, border: `1px solid ${C.orange}33`, color: C.orangeD, fontSize: 12.5, fontWeight: 800, textDecoration: 'none', whiteSpace: 'nowrap' }}>{tx('market')}</a>
           {isAuthed
-            ? <a href="/dashboard" style={{ padding: '8px 16px', borderRadius: 9, background: `linear-gradient(135deg, ${C.ember}, ${C.emberD})`, color: '#fff', fontSize: 12.5, fontWeight: 800, textDecoration: 'none' }}>{tx('dashboard')}</a>
-            : <a href="/login" style={{ padding: '8px 16px', borderRadius: 9, background: C.ink1, color: '#fff', fontSize: 12.5, fontWeight: 800, textDecoration: 'none' }}>{tx('login')}</a>}
+            ? <a href="/dashboard" style={{ padding: '9px 16px', borderRadius: 10, background: `linear-gradient(135deg, ${C.orange}, ${C.orangeD})`, color: '#fff', fontSize: 12.5, fontWeight: 800, textDecoration: 'none' }}>{tx('dashboard')}</a>
+            : <a href="/login" style={{ padding: '9px 16px', borderRadius: 10, background: C.ink, color: '#fff', fontSize: 12.5, fontWeight: 800, textDecoration: 'none' }}>{tx('login')}</a>}
         </div>
       </header>
 
       <main>
         {/* ══ HERO ══ */}
-        <section style={{ position: 'relative', overflow: 'hidden', padding: 'clamp(36px,6vh,72px) clamp(16px,5vw,40px) clamp(28px,5vh,56px)' }}>
-          {/* خلفية ناعمة */}
-          <div style={{ position: 'absolute', top: '-20%', insetInlineEnd: '-10%', width: 480, height: 480, borderRadius: '50%', background: `radial-gradient(circle, ${C.ember}14, transparent 70%)`, pointerEvents: 'none' }} />
-          <div style={{ position: 'absolute', bottom: '-30%', insetInlineStart: '-10%', width: 460, height: 460, borderRadius: '50%', background: `radial-gradient(circle, ${C.teal}12, transparent 70%)`, pointerEvents: 'none' }} />
-          <div style={{ position: 'relative', maxWidth: 1140, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%,340px), 1fr))', gap: 'clamp(28px,5vw,56px)', alignItems: 'center' }}>
+        <section style={{ position: 'relative', overflow: 'hidden', padding: 'clamp(34px,6vh,68px) clamp(16px,5vw,40px) clamp(26px,5vh,52px)' }}>
+          <div style={{ position: 'absolute', top: '-18%', insetInlineEnd: '-8%', width: 460, height: 460, borderRadius: '50%', background: `radial-gradient(circle, ${C.orange}16, transparent 70%)`, pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', bottom: '-26%', insetInlineStart: '-10%', width: 440, height: 440, borderRadius: '50%', background: `radial-gradient(circle, ${C.blue}12, transparent 70%)`, pointerEvents: 'none' }} />
+          <div style={{ position: 'relative', maxWidth: 1160, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%,360px), 1fr))', gap: 'clamp(28px,5vw,56px)', alignItems: 'center' }}>
             {/* نص */}
             <div style={{ textAlign: isRtl ? 'right' : 'left', animation: loaded ? 'lpUp .6s .05s ease both' : 'none' }}>
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 14px', borderRadius: 99, background: `${C.ember}10`, border: `1px solid ${C.ember}26` }}>
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: C.ember, animation: 'lpShimmer 2s ease infinite' }} />
-                <span style={{ fontSize: 12, fontWeight: 800, color: C.emberD }}>{t(lang, 'landing.tagline')}</span>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '7px 15px', borderRadius: 99, background: C.surface, border: `1px solid ${C.border}`, boxShadow: C.shadow }}>
+                <Sparkles size={14} color={C.orange} />
+                <span style={{ fontSize: 12, fontWeight: 800, color: C.ink2 }}>{tx('osBadge')}</span>
               </div>
-              <h1 style={{ fontSize: 'clamp(30px, 5.4vw, 54px)', fontWeight: 900, lineHeight: 1.1, margin: '16px 0 0', letterSpacing: '-0.03em', color: C.ink1 }}>
+              <h1 style={{ fontSize: 'clamp(31px, 5.4vw, 55px)', fontWeight: 900, lineHeight: 1.08, margin: '16px 0 0', letterSpacing: '-0.03em', color: C.ink }}>
                 {t(lang, 'landing.hero.title1')}
-                <span style={{ display: 'block', background: `linear-gradient(90deg, ${C.ember}, ${C.teal}, ${C.purple}, ${C.ember})`, backgroundSize: '200% auto', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', animation: 'lpGrad 6s linear infinite' }}>{t(lang, 'landing.hero.title2')}</span>
+                <span style={{ display: 'block', background: `linear-gradient(90deg, ${C.orange}, ${C.purple}, ${C.blue}, ${C.orange})`, backgroundSize: '200% auto', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', animation: 'lpGrad 6s linear infinite' }}>{t(lang, 'landing.hero.title2')}</span>
               </h1>
               <p style={{ fontSize: 'clamp(14px,1.7vw,18px)', color: C.ink2, lineHeight: 1.7, margin: '16px 0 0', maxWidth: 540 }}>{t(lang, 'landing.hero.sub')}</p>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 24, justifyContent: isRtl ? 'flex-start' : 'flex-start' }}>
-                <a href={isAuthed ? '/dashboard' : '/login'} className="lpbtn" style={btnPrimary}><span className="sh" />{isAuthed ? t(lang, 'landing.merchant.ctaExisting') : t(lang, 'landing.merchant.ctaNew')} <Arrow size={17} /></a>
-                <a href={storeUrl || '/market'} style={{ ...btnOutline, color: C.teal, borderColor: `${C.teal}4d` }}>🛍️ {t(lang, 'landing.customer.cta')}</a>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 24 }}>
+                <a href={isAuthed ? '/dashboard' : '/login'} className="lpbtn" style={btnPrimary}><span className="sh" /><Zap size={17} /> {isAuthed ? t(lang, 'landing.merchant.ctaExisting') : t(lang, 'landing.merchant.ctaNew')} <Arrow size={17} /></a>
+                <a href={storeUrl || '/market'} style={btnGhost}>🛍️ {t(lang, 'landing.customer.cta')}</a>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 16, fontSize: 12.5, color: C.ink3, fontWeight: 600, justifyContent: isRtl ? 'flex-start' : 'flex-start' }}>
-                <Check size={14} color={C.teal} /> {tx('heroNote')}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 16, fontSize: 12.5, color: C.ink3, fontWeight: 600 }}>
+                <Check size={14} color={C.green} /> {tx('heroNote')}
               </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'clamp(20px,4vw,40px)', marginTop: 26 }}>
-                {STATS.map(s => (
-                  <div key={s.k}>
-                    <div style={{ fontSize: 'clamp(22px,3.6vw,30px)', fontWeight: 900, color: C.ink1 }}><CountUp to={s.to} suffix={s.suffix} /></div>
-                    <div style={{ fontSize: 11.5, color: C.ink3, fontWeight: 700, marginTop: 1 }}>{t(lang, s.k)}</div>
+            </div>
+            {/* معاينة المتجر التجارية */}
+            <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', animation: loaded ? 'lpUp .7s .2s ease both' : 'none' }}>
+              <div style={{ animation: 'lpFloat 6s ease-in-out infinite', width: '100%', maxWidth: 400 }}>
+                <div style={{ background: C.surface, borderRadius: 22, border: `1px solid ${C.border}`, boxShadow: C.shadowH, overflow: 'hidden' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 15px', borderBottom: `1px solid ${C.border}`, background: C.alt }}>
+                    <div style={{ width: 28, height: 28, borderRadius: 8, background: `linear-gradient(135deg, ${C.orange}, ${C.purple})` }} />
+                    <div>
+                      <div style={{ fontSize: 11.5, fontWeight: 900, color: C.ink }}>{tx('previewHint')}</div>
+                      <div style={{ fontSize: 9, color: C.ink3, fontWeight: 700 }}>sahar.shop/store</div>
+                    </div>
+                    <span style={{ marginInlineStart: 'auto', display: 'flex', alignItems: 'center', gap: 4, fontSize: 9.5, fontWeight: 800, color: C.green, background: `${C.green}1a`, borderRadius: 99, padding: '3px 9px' }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: C.green, animation: 'lpShimmer 2s ease infinite' }} /> online</span>
+                  </div>
+                  <div style={{ padding: 13, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                    {heroItems.map(it => <ProductCard key={it.id} it={it} tx={tx} />)}
+                  </div>
+                  <div style={{ padding: '0 13px 14px' }}>
+                    <div style={{ height: 40, borderRadius: 12, background: `linear-gradient(135deg, ${C.orange}, ${C.orangeD})`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 12.5, fontWeight: 800, boxShadow: `0 10px 22px ${C.orange}44` }}>🛒 {isRtl ? 'إتمام الطلب' : 'Checkout'}</div>
+                  </div>
+                </div>
+              </div>
+              {/* شريحتان عائمتان (عناصر واجهة) */}
+              <div style={{ position: 'absolute', top: 6, insetInlineStart: -6, animation: 'lpFloat2 5s ease-in-out infinite', background: C.surface, border: `1px solid ${C.border}`, boxShadow: C.shadow, borderRadius: 13, padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ width: 26, height: 26, borderRadius: 8, background: `${C.green}1a`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>🔔</div>
+                <div><div style={{ fontSize: 11, fontWeight: 900, color: C.ink }}>+1</div><div style={{ fontSize: 8.5, color: C.ink3, fontWeight: 700 }}>{isRtl ? 'طلب جديد' : 'new order'}</div></div>
+              </div>
+              <div style={{ position: 'absolute', bottom: 14, insetInlineEnd: -6, animation: 'lpFloat 6.5s ease-in-out infinite', background: C.surface, border: `1px solid ${C.border}`, boxShadow: C.shadow, borderRadius: 13, padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ width: 26, height: 26, borderRadius: 8, background: `${C.blue}1a`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Bot size={15} color={C.blue} /></div>
+                <div><div style={{ fontSize: 10, fontWeight: 900, color: C.ink }}>AI</div><div style={{ fontSize: 8.5, color: C.ink3, fontWeight: 700 }}>24/7</div></div>
+              </div>
+            </div>
+          </div>
+
+          {/* شريط الأرقام / Early-stage */}
+          <div style={{ position: 'relative', maxWidth: 1000, margin: 'clamp(26px,4vh,44px) auto 0', animation: loaded ? 'lpUp .7s .3s ease both' : 'none' }}>
+            {established ? (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px,1fr))', gap: 14, padding: '22px', background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20, boxShadow: C.shadow }}>
+                {[
+                  { n: stats!.merchants, l: t(lang, 'landing.stats.merchants') },
+                  { n: stats!.products, l: t(lang, 'landing.stats.products') },
+                  { n: stats!.orders, l: t(lang, 'landing.stats.orders') },
+                  { n: stats!.listings, l: tx('statListings') },
+                ].map((s, i) => (
+                  <div key={i} style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: 'clamp(22px,3.4vw,32px)', fontWeight: 900, color: C.ink }}><CountUp to={s.n} /></div>
+                    <div style={{ fontSize: 11.5, color: C.ink3, fontWeight: 700, marginTop: 2 }}>{s.l}</div>
                   </div>
                 ))}
               </div>
-            </div>
-            {/* معاينة */}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, animation: loaded ? 'lpUp .7s .2s ease both' : 'none' }}>
-              <div style={{ animation: 'lpFloat 6s ease-in-out infinite', width: '100%', display: 'flex', justifyContent: 'center' }}><StorePreview rtl={isRtl} /></div>
-              <span style={{ fontSize: 11.5, color: C.ink3, fontWeight: 700 }}>👆 {tx('previewHint')}</span>
-            </div>
+            ) : (
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 14, padding: '20px 24px', background: `linear-gradient(135deg, ${C.orange}0d, ${C.blue}0d)`, border: `1px solid ${C.orange}26`, borderRadius: 20, textAlign: 'center' }}>
+                <span style={{ fontSize: 11.5, fontWeight: 900, color: C.orangeD, background: C.surface, border: `1px solid ${C.orange}33`, borderRadius: 99, padding: '6px 14px', whiteSpace: 'nowrap' }}>{tx('earlyBadge')}</span>
+                <div style={{ flex: 1, minWidth: 220 }}>
+                  <div style={{ fontSize: 15, fontWeight: 900, color: C.ink }}>{tx('earlyTitle')}</div>
+                  <div style={{ fontSize: 12, color: C.ink2, marginTop: 2 }}>{tx('earlySub')}</div>
+                </div>
+                <a href={isAuthed ? '/dashboard' : '/login'} style={{ ...btnPrimary, padding: '11px 22px', fontSize: 14 }}>{t(lang, 'landing.merchant.ctaNew')} <Arrow size={15} /></a>
+              </div>
+            )}
           </div>
-          <div style={{ textAlign: 'center', marginTop: 'clamp(20px,4vh,40px)' }}>
-            <button onClick={() => scrollTo('caps')} style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 4, background: 'none', border: 'none', color: C.ink3, cursor: 'pointer', fontFamily: 'inherit', fontSize: 11, fontWeight: 700 }}>{tx('scrollHint')} <ChevronDown size={18} style={{ animation: 'lpBounce 1.8s ease infinite' }} /></button>
+
+          <div style={{ textAlign: 'center', marginTop: 'clamp(18px,3vh,32px)' }}>
+            <button onClick={() => scrollTo('live')} style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 4, background: 'none', border: 'none', color: C.ink3, cursor: 'pointer', fontFamily: 'inherit', fontSize: 11, fontWeight: 700 }}>{tx('scrollHint')} <ChevronDown size={18} style={{ animation: 'lpBounce 1.8s ease infinite' }} /></button>
           </div>
         </section>
 
-        {/* ══ CAPABILITIES ══ */}
-        <Section id="caps" alt>
-          <Reveal><SecHead title={tx('capTitle')} sub={tx('capSub')} /></Reveal>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%,260px), 1fr))', gap: 16, marginTop: 34 }}>
-            {CAPS.map((cp, i) => { const CIcon = cp.Icon; return (
-              <Reveal key={cp.k} delay={(i % 3) * 80}>
-                <div className="lpcard" style={{ height: '100%', padding: '24px 22px', borderRadius: 18, background: C.surface, border: `1px solid ${C.border}`, boxShadow: C.shadow, textAlign: isRtl ? 'right' : 'left' }}>
-                  <div className="lpico" style={{ width: 52, height: 52, borderRadius: 15, background: `${cp.c}14`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: cp.c, marginBottom: 15 }}><CIcon size={24} /></div>
-                  <h3 style={{ fontSize: 16.5, fontWeight: 800, margin: '0 0 7px', color: C.ink1 }}>{tx('cap.' + cp.k)}</h3>
-                  <p style={{ fontSize: 12.5, color: C.ink2, lineHeight: 1.7, margin: 0 }}>{tx('cap.' + cp.k + '.d')}</p>
+        {/* ══ LIVE MARKETPLACE ══ */}
+        <Section id="live" alt>
+          <Reveal><SecHead title={tx('liveTitle')} sub={tx('liveSub')} /></Reveal>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%,200px), 1fr))', gap: 16, marginTop: 30 }}>
+            {gridItems.map((it, i) => <Reveal key={it.id} delay={(i % 4) * 70}><ProductCard it={it} tx={tx} big /></Reveal>)}
+          </div>
+          <div style={{ textAlign: 'center', marginTop: 26 }}>
+            <a href="/market" style={{ ...btnGhost, display: 'inline-flex' }}>{tx('liveViewAll')} <Arrow size={16} /></a>
+          </div>
+        </Section>
+
+        {/* ══ CITIES (المغرب) ══ */}
+        <Section>
+          <Reveal><SecHead title={tx('citiesTitle')} sub={tx('citiesSub')} /></Reveal>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%,150px), 1fr))', gap: 14, marginTop: 30 }}>
+            {cityItems.map((c, i) => (
+              <Reveal key={c.city + i} delay={(i % 3) * 70}>
+                <div className="lpcard" style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, boxShadow: C.shadow, padding: '20px 16px', textAlign: 'center' }}>
+                  <div className="lpico" style={{ width: 42, height: 42, borderRadius: 12, background: `${C.orange}12`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 10px', color: C.orange }}><MapPin size={20} /></div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: C.ink }}>{c.city}</div>
+                  <div style={{ fontSize: 11.5, color: c.count > 0 ? C.ink3 : C.orangeD, fontWeight: 700, marginTop: 3 }}>{c.count > 0 ? `${c.count} ${tx('cityUnit')}` : tx('cityBeFirst')}</div>
                 </div>
               </Reveal>
-            ); })}
+            ))}
+          </div>
+        </Section>
+
+        {/* ══ BENTO CAPABILITIES ══ */}
+        <Section alt>
+          <Reveal><SecHead title={tx('bentoTitle')} sub={tx('bentoSub')} /></Reveal>
+          <div className="bento" style={{ marginTop: 32 }}>
+            {CAPS.map((cp, i) => {
+              const CIcon = cp.Icon;
+              const featured = cp.feat || cp.wide;
+              return (
+                <Reveal key={cp.k} delay={(i % 4) * 60} style={{ height: '100%' }}>
+                  <div className={`lpcard ${cp.feat ? 'feat' : cp.wide ? 'wide' : ''}`} style={{ height: '100%', minHeight: cp.feat ? 200 : 0, padding: cp.feat ? 26 : '20px 18px', borderRadius: 18, background: featured ? `linear-gradient(135deg, ${cp.c}, ${cp.c}cc)` : C.surface, border: featured ? 'none' : `1px solid ${C.border}`, boxShadow: C.shadow, color: featured ? '#fff' : C.ink, display: 'flex', flexDirection: 'column', textAlign: isRtl ? 'right' : 'left' }}>
+                    <div className="lpico" style={{ width: cp.feat ? 56 : 46, height: cp.feat ? 56 : 46, borderRadius: 14, background: featured ? 'rgba(255,255,255,0.2)' : `${cp.c}14`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: featured ? '#fff' : cp.c, marginBottom: 13 }}><CIcon size={cp.feat ? 28 : 22} /></div>
+                    <h3 style={{ fontSize: cp.feat ? 20 : 15.5, fontWeight: 800, margin: '0 0 6px' }}>{tx('cap.' + cp.k)}</h3>
+                    <p style={{ fontSize: cp.feat ? 13.5 : 12, color: featured ? 'rgba(255,255,255,0.92)' : C.ink2, lineHeight: 1.65, margin: 0 }}>{tx('cap.' + cp.k + '.d')}</p>
+                  </div>
+                </Reveal>
+              );
+            })}
           </div>
         </Section>
 
         {/* ══ HOW IT WORKS ══ */}
-        <Section id="how">
+        <Section>
           <Reveal><SecHead title={tx('howTitle')} sub={tx('howSub')} /></Reveal>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%,260px), 1fr))', gap: 18, marginTop: 30 }}>
             {[
-              { n: '1', t: 'landing.how.step1', d: 'how1d', color: C.ember },
-              { n: '2', t: 'landing.how.step2', d: 'how2d', color: C.purple },
-              { n: '3', t: 'landing.how.step3', d: 'how3d', color: C.teal },
+              { n: '1', t: 'landing.how.step1', d: 'how1d', color: C.orange },
+              { n: '2', t: 'landing.how.step2', d: 'how2d', color: C.blue },
+              { n: '3', t: 'landing.how.step3', d: 'how3d', color: C.green },
             ].map((s, i) => (
               <Reveal key={s.n} delay={i * 100}>
                 <div className="lpcard" style={{ height: '100%', padding: '28px 24px', borderRadius: 18, background: C.surface, border: `1px solid ${C.border}`, boxShadow: C.shadow, textAlign: isRtl ? 'right' : 'left' }}>
                   <div style={{ width: 46, height: 46, borderRadius: '50%', background: `${s.color}14`, color: s.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, fontWeight: 900, marginBottom: 16, border: `1.5px solid ${s.color}55` }}>{s.n}</div>
-                  <h3 style={{ fontSize: 17, fontWeight: 800, margin: '0 0 8px', color: C.ink1 }}>{t(lang, s.t)}</h3>
+                  <h3 style={{ fontSize: 17, fontWeight: 800, margin: '0 0 8px', color: C.ink }}>{t(lang, s.t)}</h3>
                   <p style={{ fontSize: 13, color: C.ink2, lineHeight: 1.7, margin: 0 }}>{tx(s.d)}</p>
                 </div>
               </Reveal>
@@ -450,14 +571,20 @@ export default function LandingPage() {
           </div>
         </Section>
 
-        {/* ══ WHO ══ */}
+        {/* ══ WHY SAHAR (trust) ══ */}
         <Section alt>
-          <Reveal><SecHead title={tx('whoTitle')} /></Reveal>
-          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 12, marginTop: 26 }}>
-            {WHO.map((w, i) => (
-              <Reveal key={w.k} delay={i * 50}>
-                <div className="lpcard" style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '11px 18px', borderRadius: 99, background: C.surface, border: `1px solid ${C.border}`, boxShadow: C.shadow, fontSize: 13.5, fontWeight: 700, color: C.ink1 }}>
-                  <span style={{ fontSize: 17 }}>{w.icon}</span> {tx(w.k)}
+          <Reveal><SecHead title={tx('storesTitle')} /></Reveal>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%,260px), 1fr))', gap: 18, marginTop: 30 }}>
+            {[
+              { icon: <Zap size={22} />, t: 'why1', d: 'why1d', c: C.orange },
+              { icon: <Bot size={22} />, t: 'why2', d: 'why2d', c: C.blue },
+              { icon: <TrendingUp size={22} />, t: 'why3', d: 'why3d', c: C.green },
+            ].map((w, i) => (
+              <Reveal key={w.t} delay={i * 90}>
+                <div className="lpcard" style={{ height: '100%', padding: '26px 22px', borderRadius: 18, background: C.surface, border: `1px solid ${C.border}`, boxShadow: C.shadow, textAlign: isRtl ? 'right' : 'left' }}>
+                  <div className="lpico" style={{ width: 50, height: 50, borderRadius: 14, background: `${w.c}14`, color: w.c, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>{w.icon}</div>
+                  <h3 style={{ fontSize: 17, fontWeight: 800, margin: '0 0 7px', color: C.ink }}>{tx(w.t)}</h3>
+                  <p style={{ fontSize: 13, color: C.ink2, lineHeight: 1.7, margin: 0 }}>{tx(w.d)}</p>
                 </div>
               </Reveal>
             ))}
@@ -468,65 +595,46 @@ export default function LandingPage() {
         <Section>
           <Reveal>
             <div style={{ textAlign: 'center', marginBottom: 8 }}>
-              <span style={{ fontSize: 11, fontWeight: 800, color: C.emberD, background: `${C.ember}12`, border: `1px solid ${C.ember}26`, borderRadius: 99, padding: '5px 15px', letterSpacing: '.05em', textTransform: 'uppercase' }}>{t(lang, 'pricing.badge')}</span>
+              <span style={{ fontSize: 11, fontWeight: 800, color: C.orangeD, background: `${C.orange}12`, border: `1px solid ${C.orange}26`, borderRadius: 99, padding: '5px 15px', letterSpacing: '.05em', textTransform: 'uppercase' }}>{t(lang, 'pricing.badge')}</span>
             </div>
             <SecHead title={t(lang, 'pricing.title')} sub={t(lang, 'pricing.sub')} />
           </Reveal>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%,260px), 1fr))', gap: 18, marginTop: 30, maxWidth: 720, marginInline: 'auto' }}>
             <Reveal>
               <div className="lpcard" style={{ height: '100%', background: C.surface, border: `1px solid ${C.border}`, boxShadow: C.shadow, borderRadius: 20, padding: '28px 24px', display: 'flex', flexDirection: 'column', gap: 11, textAlign: isRtl ? 'right' : 'left' }}>
-                <div style={{ fontSize: 13, fontWeight: 800, color: C.teal }}>{t(lang, 'pricing.free.name')}</div>
-                <div style={{ fontSize: 32, fontWeight: 900, color: C.ink1 }}>{t(lang, 'pricing.free.price')}</div>
+                <div style={{ fontSize: 13, fontWeight: 800, color: C.green }}>{t(lang, 'pricing.free.name')}</div>
+                <div style={{ fontSize: 32, fontWeight: 900, color: C.ink }}>{t(lang, 'pricing.free.price')}</div>
                 <div style={{ fontSize: 12, color: C.ink3 }}>{t(lang, 'pricing.free.desc')}</div>
                 {(['pricing.free.f1', 'pricing.free.f2', 'pricing.free.f3'] as const).map(k => (
-                  <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: C.ink2 }}><Check size={14} color={C.teal} /> {t(lang, k)}</div>
+                  <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: C.ink2 }}><Check size={14} color={C.green} /> {t(lang, k)}</div>
                 ))}
-                <a href="/login" style={{ marginTop: 'auto', textAlign: 'center', padding: '13px', borderRadius: 13, background: `${C.teal}14`, border: `1px solid ${C.teal}40`, color: C.teal, fontWeight: 800, fontSize: 14, textDecoration: 'none' }}>{t(lang, 'pricing.free.cta')}</a>
+                <a href="/login" style={{ marginTop: 'auto', textAlign: 'center', padding: '13px', borderRadius: 13, background: `${C.green}14`, border: `1px solid ${C.green}40`, color: C.green, fontWeight: 800, fontSize: 14, textDecoration: 'none' }}>{t(lang, 'pricing.free.cta')}</a>
               </div>
             </Reveal>
             <Reveal delay={90}>
-              <div className="lpcard" style={{ height: '100%', position: 'relative', background: C.surface, border: `2px solid ${C.ember}`, boxShadow: `0 18px 50px ${C.ember}26`, borderRadius: 20, padding: '28px 24px', display: 'flex', flexDirection: 'column', gap: 11, textAlign: isRtl ? 'right' : 'left' }}>
-                <span style={{ position: 'absolute', top: 14, insetInlineEnd: 16, fontSize: 10, fontWeight: 800, color: '#fff', background: C.ember, borderRadius: 99, padding: '4px 11px' } as any}>⭐ Pro</span>
-                <div style={{ fontSize: 13, fontWeight: 800, color: C.emberD }}>{t(lang, 'pricing.pro.name')}</div>
-                <div style={{ fontSize: 32, fontWeight: 900, color: C.ink1 }}>{t(lang, 'pricing.pro.price')}</div>
+              <div className="lpcard" style={{ height: '100%', position: 'relative', background: C.surface, border: `2px solid ${C.orange}`, boxShadow: `0 18px 50px ${C.orange}26`, borderRadius: 20, padding: '28px 24px', display: 'flex', flexDirection: 'column', gap: 11, textAlign: isRtl ? 'right' : 'left' }}>
+                <span style={{ position: 'absolute', top: 14, insetInlineEnd: 16, fontSize: 10, fontWeight: 800, color: '#fff', background: C.orange, borderRadius: 99, padding: '4px 11px' } as any}>⭐ Pro</span>
+                <div style={{ fontSize: 13, fontWeight: 800, color: C.orangeD }}>{t(lang, 'pricing.pro.name')}</div>
+                <div style={{ fontSize: 32, fontWeight: 900, color: C.ink }}>{t(lang, 'pricing.pro.price')}</div>
                 <div style={{ fontSize: 12, color: C.ink3 }}>{t(lang, 'pricing.pro.desc')}</div>
                 {(['pricing.pro.f1', 'pricing.pro.f2', 'pricing.pro.f3'] as const).map(k => (
-                  <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: C.ink2 }}><Check size={14} color={C.ember} /> {t(lang, k)}</div>
+                  <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: C.ink2 }}><Check size={14} color={C.orange} /> {t(lang, k)}</div>
                 ))}
-                <a href="/login" className="lpbtn" style={{ marginTop: 'auto', position: 'relative', overflow: 'hidden', textAlign: 'center', padding: '13px', borderRadius: 13, background: `linear-gradient(135deg, ${C.ember}, ${C.emberD})`, color: '#fff', fontWeight: 800, fontSize: 14, textDecoration: 'none' }}><span className="sh" />{t(lang, 'pricing.pro.cta')}</a>
+                <a href="/login" className="lpbtn" style={{ marginTop: 'auto', position: 'relative', overflow: 'hidden', textAlign: 'center', padding: '13px', borderRadius: 13, background: `linear-gradient(135deg, ${C.orange}, ${C.orangeD})`, color: '#fff', fontWeight: 800, fontSize: 14, textDecoration: 'none' }}><span className="sh" />{t(lang, 'pricing.pro.cta')}</a>
               </div>
             </Reveal>
-          </div>
-        </Section>
-
-        {/* ══ TESTIMONIALS ══ */}
-        <Section alt>
-          <Reveal><SecHead title={tx('testiTitle')} sub={tx('testiSub')} /></Reveal>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%,240px), 1fr))', gap: 16, marginTop: 30 }}>
-            {TESTI.map((tm, i) => (
-              <Reveal key={tm.q} delay={i * 90}>
-                <div className="lpcard" style={{ height: '100%', padding: '24px 22px', borderRadius: 18, background: C.surface, border: `1px solid ${C.border}`, boxShadow: C.shadow, textAlign: isRtl ? 'right' : 'left' }}>
-                  <div style={{ display: 'flex', gap: 2, marginBottom: 12 }}>{[1, 2, 3, 4, 5].map(s => <Star key={s} size={13} fill="#F59E0B" color="#F59E0B" />)}</div>
-                  <p style={{ fontSize: 13.5, color: C.ink2, lineHeight: 1.7, marginBottom: 14 }}>“{tx(tm.q)}”</p>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div style={{ width: 36, height: 36, borderRadius: '50%', background: `linear-gradient(135deg, ${tm.c}, ${tm.c}aa)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 900, color: '#fff' }}>{tm.name[0]}</div>
-                    <div><div style={{ fontSize: 13, fontWeight: 800, color: C.ink1 }}>{tm.name}</div><div style={{ fontSize: 11, color: C.ink3 }}>📍 {tm.city}</div></div>
-                  </div>
-                </div>
-              </Reveal>
-            ))}
           </div>
         </Section>
 
         {/* ══ FINAL CTA ══ */}
         <Section>
           <Reveal>
-            <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 28, padding: 'clamp(36px,6vw,64px) clamp(20px,5vw,40px)', textAlign: 'center', background: `linear-gradient(135deg, ${C.ember}, ${C.purple})`, boxShadow: `0 24px 70px ${C.ember}33` }}>
+            <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 28, padding: 'clamp(36px,6vw,64px) clamp(20px,5vw,40px)', textAlign: 'center', background: `linear-gradient(135deg, ${C.orange}, ${C.purple})`, boxShadow: `0 24px 70px ${C.orange}33` }}>
               <div style={{ position: 'absolute', top: '-40%', insetInlineStart: '50%', transform: 'translateX(-50%)', width: 460, height: 460, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,255,255,0.18), transparent 65%)', pointerEvents: 'none' }} />
               <h2 style={{ position: 'relative', fontSize: 'clamp(24px,4.5vw,40px)', fontWeight: 900, margin: '0 0 12px', letterSpacing: '-0.02em', color: '#fff' }}>{tx('ctaTitle')}</h2>
               <p style={{ position: 'relative', fontSize: 'clamp(13px,1.8vw,16px)', color: 'rgba(255,255,255,0.92)', maxWidth: 520, margin: '0 auto 26px', lineHeight: 1.7 }}>{tx('ctaSub')}</p>
               <div style={{ position: 'relative', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
-                <a href={isAuthed ? '/dashboard' : '/login'} className="lpbtn" style={{ position: 'relative', overflow: 'hidden', display: 'inline-flex', alignItems: 'center', gap: 9, padding: '15px 34px', borderRadius: 14, background: '#fff', color: C.emberD, fontSize: 15.5, fontWeight: 800, textDecoration: 'none', boxShadow: '0 12px 30px rgba(0,0,0,0.18)' }}><span className="sh" />{isAuthed ? t(lang, 'landing.merchant.ctaExisting') : t(lang, 'landing.merchant.ctaNew')} <Arrow size={18} /></a>
+                <a href={isAuthed ? '/dashboard' : '/login'} className="lpbtn" style={{ position: 'relative', overflow: 'hidden', display: 'inline-flex', alignItems: 'center', gap: 9, padding: '15px 34px', borderRadius: 14, background: '#fff', color: C.orangeD, fontSize: 15.5, fontWeight: 800, textDecoration: 'none', boxShadow: '0 12px 30px rgba(0,0,0,0.18)' }}><span className="sh" />{isAuthed ? t(lang, 'landing.merchant.ctaExisting') : t(lang, 'landing.merchant.ctaNew')} <Arrow size={18} /></a>
                 <button onClick={startDemo} style={{ padding: '15px 28px', borderRadius: 14, background: 'rgba(255,255,255,0.16)', border: '1px solid rgba(255,255,255,0.4)', color: '#fff', fontSize: 14.5, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>{t(lang, 'landing.demo')}</button>
                 <a href="/market" style={{ padding: '15px 24px', borderRadius: 14, background: 'rgba(255,255,255,0.16)', border: '1px solid rgba(255,255,255,0.4)', color: '#fff', fontSize: 14.5, fontWeight: 800, textDecoration: 'none' }}>{tx('browseMarket')}</a>
               </div>
@@ -538,10 +646,10 @@ export default function LandingPage() {
       {/* ══ FOOTER ══ */}
       <footer style={{ borderTop: `1px solid ${C.border}`, background: C.surface, padding: 'clamp(30px,5vw,44px) clamp(16px,5vw,40px)', textAlign: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 12 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 9, overflow: 'hidden', background: `${C.ember}14`, border: `1px solid ${C.ember}33`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <img src="/sahar-logo-text.png" alt="SAHAR" style={{ width: '80%', height: '80%', objectFit: 'contain' }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; (e.currentTarget.parentElement as HTMLElement).innerHTML = '<span style="font-size:13px;font-weight:900;color:#FF6A00">S</span>'; }} />
+          <div style={{ width: 32, height: 32, borderRadius: 9, background: `linear-gradient(135deg, ${C.orange}, ${C.orangeD})`, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+            <img src="/sahar-logo-text.png" alt="SAHAR" style={{ width: '78%', height: '78%', objectFit: 'contain' }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; (e.currentTarget.parentElement as HTMLElement).innerHTML = '<span style="font-size:13px;font-weight:900;color:#fff">S</span>'; }} />
           </div>
-          <span style={{ fontWeight: 900, fontSize: 15, color: C.ink1 }}><span style={{ color: C.ember }}>SAHAR</span> shop</span>
+          <span style={{ fontWeight: 900, fontSize: 15, color: C.ink }}><span style={{ color: C.orange }}>SAHAR</span> shop</span>
         </div>
         <p style={{ fontSize: 12.5, color: C.ink2, maxWidth: 460, margin: '0 auto 16px', lineHeight: 1.7 }}>{tx('footTagline')}</p>
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, flexWrap: 'wrap', fontSize: 12, marginBottom: 14 }}>
@@ -554,21 +662,25 @@ export default function LandingPage() {
           <span style={{ opacity: 0.4 }}>·</span>
           <span>{tx('footRights')}</span>
           <span style={{ opacity: 0.4 }}>·</span>
-          <span>{tx('creditPrefix')}: <a href="https://wa.me/212649200188" target="_blank" rel="noreferrer" style={{ color: C.emberD, fontWeight: 700, textDecoration: 'none' }}>Alloservix · Abdellatif hadana</a></span>
+          <span>{tx('creditPrefix')}: <a href="https://wa.me/212649200188" target="_blank" rel="noreferrer" style={{ color: C.orangeD, fontWeight: 700, textDecoration: 'none' }}>Alloservix · Abdellatif hadana</a></span>
         </div>
       </footer>
     </div>
   );
 }
 
+export default function LandingPage() {
+  return <ErrorBoundary><LandingInner /></ErrorBoundary>;
+}
+
 function Section({ children, id, alt }: { children: React.ReactNode; id?: string; alt?: boolean }) {
-  return <section id={id} style={{ padding: 'clamp(44px,8vh,90px) clamp(16px,5vw,40px)', background: alt ? C.alt : 'transparent' }}><div style={{ maxWidth: 1080, margin: '0 auto' }}>{children}</div></section>;
+  return <section id={id} style={{ padding: 'clamp(44px,8vh,88px) clamp(16px,5vw,40px)', background: alt ? C.alt : 'transparent' }}><div style={{ maxWidth: 1100, margin: '0 auto' }}>{children}</div></section>;
 }
 
 function SecHead({ title, sub }: { title: string; sub?: string }) {
   return (
     <div style={{ textAlign: 'center' }}>
-      <h2 style={{ fontSize: 'clamp(22px,3.6vw,34px)', fontWeight: 900, margin: 0, letterSpacing: '-0.02em', lineHeight: 1.2, color: C.ink1 }}>{title}</h2>
+      <h2 style={{ fontSize: 'clamp(22px,3.6vw,34px)', fontWeight: 900, margin: 0, letterSpacing: '-0.02em', lineHeight: 1.2, color: C.ink }}>{title}</h2>
       {sub && <p style={{ fontSize: 'clamp(13px,1.6vw,16px)', color: C.ink2, maxWidth: 580, margin: '12px auto 0', lineHeight: 1.7 }}>{sub}</p>}
     </div>
   );

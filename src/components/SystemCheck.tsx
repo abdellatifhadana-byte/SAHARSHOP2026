@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useStore } from '../store';
-import { CheckCircle, XCircle, AlertCircle, RefreshCw, Wifi, WifiOff, Database, Bot, Shield } from 'lucide-react';
+import { CheckCircle, XCircle, AlertCircle, RefreshCw, Wifi, WifiOff } from 'lucide-react';
 
 interface Check {
   id: string;

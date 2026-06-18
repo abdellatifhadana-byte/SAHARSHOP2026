@@ -1,29 +1,29 @@
 'use strict';
 const jwt = require('jsonwebtoken');
 const { JWT_SECRET: SECRET } = require('../lib/config');
+const logger = require('../lib/logger');
 
+// Bearer-only authentication: token read strictly from the Authorization
+// header (frontend localStorage), so auth is tied to the current login and
+// can't fall back to a stale `token` cookie pointing at another account.
+// (Trade-off: relies on localStorage Bearer; the long-term hardening is
+//  HttpOnly-cookie-only auth. WS auth keeps its own cookie/token path.)
 module.exports = function auth(req, res, next) {
-  // قراءة التوكن فقط من Authorization header
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    console.log('[auth] No Bearer token provided');
     return res.status(401).json({ error: 'Authentication required' });
   }
-  
-  const token = authHeader.slice(7); // إلة 'Bearer '
-  if (!token) {
-    console.log('[auth] Empty token');
-    return res.status(401).json({ error: 'Authentication required' });
-  }
-  
+  const token = authHeader.slice(7); // strip 'Bearer '
+  if (!token) return res.status(401).json({ error: 'Authentication required' });
+
   try {
     req.user = jwt.verify(token, SECRET);
-    console.log('[auth] User authenticated:', req.user.id);
+    logger.debug('auth ok', { userId: req.user.id }); // silent in production
     next();
   } catch (e) {
-    console.log('[auth] Token verification failed:', e.name);
-    const msg = e.name === 'TokenExpiredError' 
-      ? 'Session expired — please login again' 
+    logger.debug('auth failed', { error: e.name });
+    const msg = e.name === 'TokenExpiredError'
+      ? 'Session expired — please login again'
       : 'Invalid token';
     return res.status(401).json({ error: msg });
   }

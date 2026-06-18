@@ -901,6 +901,33 @@ db.getPublicListings = async ({ city, type, limit = 60 } = {}) => {
   );
   return rows.map(_mapListing);
 };
+// إحصائيات عامة حقيقية لصفحة الهبوط — كل استعلام معزول بأمان (لا 500 عند نقص عمود)
+db.getPublicStats = async () => {
+  const one = async (sql) => {
+    try { const { rows } = await pool.query(sql); return +(rows[0]?.n) || 0; }
+    catch { return 0; }
+  };
+  const many = async (sql) => {
+    try { const { rows } = await pool.query(sql); return rows; }
+    catch { return []; }
+  };
+  const [merchants, products, services, orders, listings] = await Promise.all([
+    one(`SELECT COUNT(*) AS n FROM users`),
+    one(`SELECT COUNT(*) AS n FROM products WHERE status = 'published'`),
+    one(`SELECT COUNT(*) AS n FROM products WHERE status = 'published' AND type = 'service'`),
+    one(`SELECT COUNT(*) AS n FROM orders`),
+    one(`SELECT COUNT(*) AS n FROM listings WHERE status = 'approved'`),
+  ]);
+  const cityRows = await many(
+    `SELECT city, COUNT(*) AS n FROM listings
+     WHERE status = 'approved' AND city IS NOT NULL AND city <> ''
+     GROUP BY city ORDER BY n DESC LIMIT 8`
+  );
+  return {
+    merchants, products, services, orders, listings,
+    cities: cityRows.map(c => ({ city: c.city, count: +c.n || 0 })),
+  };
+};
 db.getListingsForModeration = async (status) => {
   const { rows } = status
     ? await pool.query('SELECT * FROM listings WHERE status = $1 ORDER BY created_at DESC LIMIT 500', [status])

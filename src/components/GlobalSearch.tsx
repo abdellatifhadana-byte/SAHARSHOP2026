@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useStore } from '../store';
-import { Search, Package, ShoppingCart, Users, MessageCircle, X, Settings, Zap, ArrowLeft } from 'lucide-react';
+import { Search, Package, ShoppingCart, Users, MessageCircle, X, Settings, Zap } from 'lucide-react';
 import type { Page } from '../types';
 
 interface Result {
