@@ -91,12 +91,6 @@ function getDeliveryCost(city:string, costs?:Record<string,number>):number {
   return allCosts['default']||40;
 }
 
-function minDeliveryCost(costs?:Record<string,number>):number {
-  const all={ ...DEFAULT_COSTS, ...(costs||{}) };
-  const vals=Object.entries(all).filter(([k])=>k!=='default').map(([,v])=>v).filter(v=>v>0);
-  return vals.length?Math.min(...vals):0;
-}
-
 function storeOpenStatus(workStart?:string,workEnd?:string):{open:boolean;workStart:string;workEnd:string}|null {
   if(!workStart||!workEnd) return null;
   const now=new Date();const cur=now.getHours()*60+now.getMinutes();
@@ -463,7 +457,6 @@ function useBackToClose(open:boolean,onClose:()=>void){
 function ProductModal({p,cart,onClose,currency,userId}:{p:SProduct;cart:ReturnType<typeof useCart>;onClose:()=>void;currency:string;userId:string}) {
   const [size,setSize]=useState(p.sizes?.[0]||'');
   const [color,setColor]=useState(p.colors?.[0]||'');
-  const [qty,setQty]=useState(1);
   const [added,setAdded]=useState(false);
   const [giftWrap,setGiftWrap]=useState(false);
   const [giftMsg,setGiftMsgLocal]=useState('');

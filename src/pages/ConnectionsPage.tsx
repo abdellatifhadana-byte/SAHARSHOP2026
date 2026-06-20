@@ -165,17 +165,6 @@ const SERVICES = [
   },
 ];
 
-// Service IDs that store directly in settings (not in settings.social)
-const DIRECT_FIELDS = new Set(['supabase', 'cloudinary']);
-
-const FIELD_KEY_MAP: Record<string, string> = {
-  'supabase.supabaseUrl': 'supabaseUrl',
-  'supabase.supabaseKey': 'supabaseKey',
-  'cloudinary.cloudinaryCloudName': 'cloudinaryCloudName',
-  'cloudinary.cloudinaryApiKey': 'cloudinaryApiKey',
-  'cloudinary.cloudinaryApiSecret': 'cloudinaryApiSecret',
-};
-
 export default function ConnectionsPage() {
   const { settings, updateSettings, notify } = useStore();
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -357,7 +346,6 @@ export default function ConnectionsPage() {
         const ak = val('cloudinary', 'cloudinaryApiKey');
         const as_ = val('cloudinary', 'cloudinaryApiSecret');
         try {
-          const auth64 = btoa(`${ak}:${as_}`);
           const r = await fetch(`/api/settings/verify-connection`, {
             method: 'POST', signal: AbortSignal.timeout(10000),
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },

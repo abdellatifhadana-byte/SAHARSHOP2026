@@ -246,7 +246,7 @@ export default function DashboardPage() {
             <span style={{ fontWeight: 700, fontSize: 14 }}>آخر الطلبات</span>
             <button onClick={() => setPage('orders')} style={{ background: 'none', border: 'none', color: '#FF6A00', cursor: 'pointer', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>عرض الكل <ChevronRight size={13} /></button>
           </div>
-          {recentOrders.map((o, i) => {
+          {recentOrders.map((o) => {
             const initials = (o.customerName || '؟').slice(0, 1);
             return (
               <div key={o.id} style={{ padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,0.02)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }} onClick={() => setPage('orders')}>

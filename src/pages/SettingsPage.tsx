@@ -154,8 +154,8 @@ function ServerBackups() {
 
 export default function SettingsPage() {
   const {
-    settings, updateSettings, notify, logout, isOnline, setPage,
-    refreshData, addTemplate, updateTemplate, deleteTemplate,
+    settings, updateSettings, notify, setPage,
+    addTemplate, updateTemplate, deleteTemplate,
     auditLogs, exportData, importData, resetToDemo,
   } = useStore();
 

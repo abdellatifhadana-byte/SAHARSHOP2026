@@ -37,8 +37,6 @@ const CATS = [
   { id: 'other',   icon: '📦', label: 'أخرى',         color: '#6B7280', type: 'product' },
 ] as const;
 
-type CatId = typeof CATS[number]['id'];
-
 // الحقول التفصيلية لكل فئة تأتي من الخريطة الكاملة في src/data/categoryFields.ts
 const CAT_CFG: Record<string, {
   emoji: string;

@@ -18,9 +18,4 @@ createRoot(root).render(
 // Dismiss splash
 try { (window as any).hideSplash?.(); } catch {}
 
-// Register service worker for PWA / push notifications
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
-  });
-}
+// Service worker is registered once in index.html (avoids double registration).

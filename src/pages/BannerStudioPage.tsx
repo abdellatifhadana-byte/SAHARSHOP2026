@@ -40,7 +40,6 @@ export default function BannerStudioPage() {
   const [prompt, setPrompt]     = useState('');
   const [loading, setLoading]   = useState(false);
   const [result, setResult]     = useState<any>(null);
-  const [selectedProductId, setSelectedProductId] = useState('');
   const [publishState, setPublishState] = useState<Record<string, 'idle'|'loading'|'success'|'error'>>({});
   const [publishResults, setPublishResults] = useState<Record<string, string>>({});
   const [error, setError]       = useState('');

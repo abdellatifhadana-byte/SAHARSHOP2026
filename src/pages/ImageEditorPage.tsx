@@ -15,7 +15,7 @@ const EXPORT_SIZES: ExportSize[] = [
 const STICKERS = ['🔥','⭐','💎','🎉','✅','🚚','🏷️','💯','🤑','📦','🇲🇦','❤️'];
 
 export default function ImageEditorPage() {
-  const { settings, products, notify } = useStore();
+  const { settings, products } = useStore();
   const canvasRef  = useRef<HTMLCanvasElement>(null);
   const fileRef    = useRef<HTMLInputElement>(null);
   const logoRef    = useRef<HTMLInputElement>(null);
@@ -25,7 +25,7 @@ export default function ImageEditorPage() {
   const [layers, setLayers] = useState<Layer[]>([]);
   const [selected,setSelected] = useState<string|null>(null);
   const [exportSize,setExportSize] = useState<ExportSize>(EXPORT_SIZES[1]);
-  const [dragging, setDragging] = useState<{id:string;ox:number;oy:number}|null>(null);
+  const [dragging] = useState<{id:string;ox:number;oy:number}|null>(null);
   const [text, setText]     = useState('');
   const [textColor,setTextColor] = useState('#ffffff');
   const [fontSize,setFontSize]   = useState(36);
@@ -193,7 +193,6 @@ export default function ImageEditorPage() {
     canvas.width  = exportSize.w;
     canvas.height = exportSize.h;
     const ctx = canvas.getContext('2d')!;
-    const s   = exportSize.w / previewW;
 
     const finish = () => {
       layers.forEach(layer => {
@@ -226,8 +225,6 @@ export default function ImageEditorPage() {
     }
   };
 
-  const selLayer = layers.find(l => l.id === selected);
-
   return (
     <div style={{ display:'flex',flexDirection:'column',gap:16 }}>
       <div style={{ display:'flex',alignItems:'center',gap:12 }}>
@@ -255,8 +252,7 @@ export default function ImageEditorPage() {
 
           {/* Canvas preview */}
           <div style={{ position:'relative',width:previewW,height:previewH,borderRadius:'var(--r)',overflow:'hidden',border:'1px solid var(--border2)',cursor:'crosshair',userSelect:'none' }}
-            onClick={e => {
-              const rect = (e.target as HTMLElement).getBoundingClientRect();
+            onClick={() => {
               if (dragging) return;
               setSelected(null);
             }}

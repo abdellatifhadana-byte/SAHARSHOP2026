@@ -89,7 +89,7 @@ const STEPS: StepConfig[] = [
 const TOUR_KEY = (userId: string) => `tour_done_${userId}`;
 
 export default function TourGuide() {
-  const { currentPage, setPage, user } = useStore();
+  const { setPage, user } = useStore();
   const T = useT();
   const lang = useLang();
   const isRtl = isRtlLang(lang);
