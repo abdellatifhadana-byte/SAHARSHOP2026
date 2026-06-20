@@ -2,11 +2,13 @@ import ErrorBoundary from '../../components/ErrorBoundary';
 import { C } from './theme';
 import { useScrollProgress } from './hooks';
 import { LandingProvider, useLanding } from './context';
-import { BackToTop } from './components';
+import { BackToTop, Zellige } from './components';
 import PromoBanner from './sections/PromoBanner';
 import Header from './sections/Header';
 import Hero from './sections/Hero';
+import LiveTicker from './sections/LiveTicker';
 import LiveMarketplace from './sections/LiveMarketplace';
+import OSPreview from './sections/OSPreview';
 import Cities from './sections/Cities';
 import Bento from './sections/Bento';
 import HowItWorks from './sections/HowItWorks';
@@ -33,6 +35,11 @@ const GLOBAL_CSS = `
   .lpmenu::-webkit-scrollbar { width:6px } .lpmenu::-webkit-scrollbar-thumb { background:rgba(0,0,0,.14); border-radius:3px }
   .bento { display:grid; grid-template-columns:repeat(2,1fr); gap:14px; }
   @media(min-width:780px){ .bento{ grid-template-columns:repeat(4,1fr); grid-auto-rows:1fr } .bento .feat{ grid-column:span 2; grid-row:span 2 } .bento .wide{ grid-column:span 2 } }
+  @keyframes lpZellige { to { background-position: 460px 0, -920px 460px } }
+  @keyframes lpTicker { to { transform: translateX(-50%) } }
+  .osdesk { position:relative }
+  @media(min-width:861px){ .osdesk{ height:470px } .oswin{ position:absolute } .osw1{ width:380px; top:0; inset-inline-end:0; z-index:3 } .osw2{ width:330px; top:120px; inset-inline-start:0; z-index:2 } .osw3{ width:330px; top:248px; inset-inline-end:56px; z-index:4 } }
+  @media(max-width:860px){ .oswin{ position:relative; margin-bottom:14px } }
   html { scroll-behavior: smooth; }
 `;
 
@@ -42,21 +49,26 @@ function Shell() {
   return (
     <div dir={isRtl ? 'rtl' : 'ltr'} style={{ minHeight: '100dvh', overflowX: 'hidden', background: C.bg, color: C.ink, fontFamily: 'Tajawal, system-ui, sans-serif' }}>
       <style>{GLOBAL_CSS}</style>
-      <div style={{ position: 'fixed', top: 0, insetInlineStart: 0, height: 3, width: `${Math.round(prog * 100)}%`, background: `linear-gradient(90deg, ${C.orange}, ${C.blue}, ${C.purple})`, zIndex: 60, transition: 'width .1s linear' }} />
-      <PromoBanner />
-      <Header />
-      <main>
-        <Hero />
-        <LiveMarketplace />
-        <Cities />
-        <Bento />
-        <HowItWorks />
-        <WhySahar />
-        <Pricing />
-        <FAQ />
-        <FinalCTA />
-      </main>
-      <Footer />
+      <Zellige />
+      <div style={{ position: 'relative', zIndex: 1 }}>
+        <div style={{ position: 'fixed', top: 0, insetInlineStart: 0, height: 3, width: `${Math.round(prog * 100)}%`, background: `linear-gradient(90deg, ${C.orange}, ${C.purple}, ${C.blue})`, zIndex: 60, transition: 'width .1s linear' }} />
+        <PromoBanner />
+        <Header />
+        <main>
+          <Hero />
+          <LiveTicker />
+          <LiveMarketplace />
+          <OSPreview />
+          <Cities />
+          <Bento />
+          <HowItWorks />
+          <WhySahar />
+          <Pricing />
+          <FAQ />
+          <FinalCTA />
+        </main>
+        <Footer />
+      </div>
       <BackToTop />
     </div>
   );

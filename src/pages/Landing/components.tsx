@@ -93,3 +93,17 @@ export function BackToTop() {
     </button>
   );
 }
+
+// خلفية زليج مغربية متحرّكة (العنصر التوقيعي) — نقوش هندسية لطيفة خلف كل الصفحة
+export function Zellige() {
+  return (
+    <div aria-hidden style={{
+      position: 'fixed', inset: 0, zIndex: 0, opacity: 0.07, pointerEvents: 'none',
+      backgroundImage:
+        `radial-gradient(circle at 50% 50%, ${C.orange} 0 2px, transparent 3px),` +
+        `conic-gradient(from 0deg at 50% 50%, ${C.orange} 0 12.5%, transparent 0 25%, ${C.blue} 0 37.5%, transparent 0 50%, ${C.orange} 0 62.5%, transparent 0 75%, ${C.blue} 0 87.5%, transparent 0)`,
+      backgroundSize: '46px 46px, 92px 92px',
+      animation: 'lpZellige 42s linear infinite',
+    }} />
+  );
+}

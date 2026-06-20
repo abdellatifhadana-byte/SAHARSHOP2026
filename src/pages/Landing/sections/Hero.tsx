@@ -1,17 +1,19 @@
-import { Sparkles, Zap, Check, ChevronDown, Bot, Shield, Headphones } from 'lucide-react';
+import { Zap, Check, ChevronDown, Bot, Shield, Headphones } from 'lucide-react';
 import { t } from '../../../i18n/translations';
 import { C } from '../theme';
 import { useLanding } from '../context';
+import { useMagnetic } from '../hooks';
 import { CountUp, ProductCard } from '../components';
 import { SAMPLES } from '../data';
 
 export default function Hero() {
   const { lang, isRtl, tx, isAuthed, storeUrl, stats, listings, established, Arrow, scrollTo } = useLanding();
+  const magRef = useMagnetic<HTMLAnchorElement>(0.3);
 
   const realList = listings.slice(0, 8);
   const heroItems = realList.length >= 2 ? realList.slice(0, 4) : [...realList, ...SAMPLES].slice(0, 4);
 
-  const btnPrimary: React.CSSProperties = { position: 'relative', overflow: 'hidden', display: 'inline-flex', alignItems: 'center', gap: 9, padding: '15px 30px', borderRadius: 14, background: `linear-gradient(135deg, ${C.orange}, ${C.orangeD})`, color: '#fff', fontSize: 15.5, fontWeight: 800, textDecoration: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', boxShadow: `0 14px 30px ${C.orange}40` };
+  const btnPrimary: React.CSSProperties = { position: 'relative', overflow: 'hidden', display: 'inline-flex', alignItems: 'center', gap: 9, padding: '15px 30px', borderRadius: 14, background: `linear-gradient(135deg, ${C.orange}, ${C.orangeD})`, color: '#fff', fontSize: 15.5, fontWeight: 800, textDecoration: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', boxShadow: `0 14px 30px ${C.orange}40`, transition: 'transform .15s ease, box-shadow .3s ease' };
   const btnGhost: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 9, padding: '15px 26px', borderRadius: 14, background: C.surface, color: C.ink, fontSize: 15.5, fontWeight: 800, textDecoration: 'none', border: `1px solid ${C.borderH}`, cursor: 'pointer', fontFamily: 'inherit' };
 
   const trust = [
@@ -22,28 +24,28 @@ export default function Hero() {
 
   return (
     <section style={{ position: 'relative', overflow: 'hidden', padding: 'clamp(34px,6vh,68px) clamp(16px,5vw,40px) clamp(26px,5vh,52px)' }}>
-      <div style={{ position: 'absolute', top: '-18%', insetInlineEnd: '-8%', width: 460, height: 460, borderRadius: '50%', background: `radial-gradient(circle, ${C.orange}16, transparent 70%)`, pointerEvents: 'none' }} />
-      <div style={{ position: 'absolute', bottom: '-26%', insetInlineStart: '-10%', width: 440, height: 440, borderRadius: '50%', background: `radial-gradient(circle, ${C.blue}12, transparent 70%)`, pointerEvents: 'none' }} />
+      {/* وهج طيني + نعناعي */}
+      <div style={{ position: 'absolute', top: '-18%', insetInlineEnd: '-8%', width: 460, height: 460, borderRadius: '50%', background: `radial-gradient(circle, ${C.orange}1f, transparent 70%)`, pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', bottom: '-26%', insetInlineStart: '-10%', width: 440, height: 440, borderRadius: '50%', background: `radial-gradient(circle, ${C.blue}1a, transparent 70%)`, pointerEvents: 'none' }} />
       <div style={{ position: 'relative', maxWidth: 1160, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%,360px), 1fr))', gap: 'clamp(28px,5vw,56px)', alignItems: 'center' }}>
         {/* نص */}
         <div style={{ textAlign: isRtl ? 'right' : 'left', animation: 'lpUp .6s .05s ease both' }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '7px 15px', borderRadius: 99, background: C.surface, border: `1px solid ${C.border}`, boxShadow: C.shadow }}>
-            <Sparkles size={14} color={C.orange} />
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: C.blue, boxShadow: `0 0 0 4px ${C.blue}2e`, animation: 'lpShimmer 2s ease infinite' }} />
             <span style={{ fontSize: 12, fontWeight: 800, color: C.ink2 }}>{tx('osBadge')}</span>
           </div>
-          <h1 style={{ fontSize: 'clamp(31px, 5.4vw, 55px)', fontWeight: 900, lineHeight: 1.08, margin: '16px 0 0', letterSpacing: '-0.03em', color: C.ink }}>
+          <h1 style={{ fontSize: 'clamp(32px, 5.6vw, 58px)', fontWeight: 900, lineHeight: 1.06, margin: '16px 0 0', letterSpacing: '-0.03em', color: C.ink }}>
             {t(lang, 'landing.hero.title1')}
             <span style={{ display: 'block', background: `linear-gradient(90deg, ${C.orange}, ${C.purple}, ${C.blue}, ${C.orange})`, backgroundSize: '200% auto', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', animation: 'lpGrad 6s linear infinite' }}>{t(lang, 'landing.hero.title2')}</span>
           </h1>
           <p style={{ fontSize: 'clamp(14px,1.7vw,18px)', color: C.ink2, lineHeight: 1.7, margin: '16px 0 0', maxWidth: 540 }}>{t(lang, 'landing.hero.sub')}</p>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 24 }}>
-            <a href={isAuthed ? '/dashboard' : '/login'} className="lpbtn" style={btnPrimary}><span className="sh" /><Zap size={17} /> {isAuthed ? t(lang, 'landing.merchant.ctaExisting') : t(lang, 'landing.merchant.ctaNew')} <Arrow size={17} /></a>
+            <a ref={magRef} href={isAuthed ? '/dashboard' : '/login'} className="lpbtn" style={btnPrimary}><span className="sh" /><Zap size={17} /> {isAuthed ? t(lang, 'landing.merchant.ctaExisting') : t(lang, 'landing.merchant.ctaNew')} <Arrow size={17} /></a>
             <a href={storeUrl || '/market'} style={btnGhost}>🛍️ {t(lang, 'landing.customer.cta')}</a>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 16, fontSize: 12.5, color: C.ink3, fontWeight: 600 }}>
             <Check size={14} color={C.green} /> {tx('heroNote')}
           </div>
-          {/* شارات الثقة */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, marginTop: 18 }}>
             {trust.map(({ Icon, k, c }) => (
               <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: C.ink2, fontWeight: 700 }}><Icon size={15} color={c} /> {tx(k)}</div>
@@ -51,11 +53,13 @@ export default function Hero() {
           </div>
         </div>
 
-        {/* معاينة المتجر */}
+        {/* معاينة المتجر — بقوس مغربي */}
         <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', animation: 'lpUp .7s .2s ease both' }}>
+          {/* حجر القوس (keystone) */}
+          <div style={{ position: 'absolute', top: -9, zIndex: 2, width: 18, height: 18, background: `linear-gradient(135deg, ${C.orange}, ${C.purple})`, transform: 'rotate(45deg)', borderRadius: 4, boxShadow: C.shadow }} />
           <div style={{ animation: 'lpFloat 6s ease-in-out infinite', width: '100%', maxWidth: 400 }}>
-            <div style={{ background: C.surface, borderRadius: 22, border: `1px solid ${C.border}`, boxShadow: C.shadowH, overflow: 'hidden' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 15px', borderBottom: `1px solid ${C.border}`, background: C.alt }}>
+            <div style={{ background: C.surface, border: `1px solid ${C.border}`, boxShadow: C.shadowH, overflow: 'hidden', borderRadius: '130px 130px 22px 22px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '16px 16px 12px', borderBottom: `1px solid ${C.border}`, background: `linear-gradient(${C.alt}, ${C.surface})` }}>
                 <div style={{ width: 28, height: 28, borderRadius: 8, background: `linear-gradient(135deg, ${C.orange}, ${C.purple})` }} />
                 <div>
                   <div style={{ fontSize: 11.5, fontWeight: 900, color: C.ink }}>{tx('previewHint')}</div>
@@ -67,12 +71,12 @@ export default function Hero() {
                 {heroItems.map(it => <ProductCard key={it.id} it={it} />)}
               </div>
               <div style={{ padding: '0 13px 14px' }}>
-                <div style={{ height: 40, borderRadius: 12, background: `linear-gradient(135deg, ${C.orange}, ${C.orangeD})`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 12.5, fontWeight: 800, boxShadow: `0 10px 22px ${C.orange}44` }}>🛒 {isRtl ? 'إتمام الطلب' : 'Checkout'}</div>
+                <div style={{ height: 40, borderRadius: 12, background: `linear-gradient(135deg, ${C.blue}, #16715b)`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 12.5, fontWeight: 800, boxShadow: `0 10px 22px ${C.blue}44` }}>🛒 {isRtl ? 'إتمام الطلب' : 'Checkout'}</div>
               </div>
             </div>
           </div>
           {/* شريحتان عائمتان */}
-          <div style={{ position: 'absolute', top: 6, insetInlineStart: -6, animation: 'lpFloat2 5s ease-in-out infinite', background: C.surface, border: `1px solid ${C.border}`, boxShadow: C.shadow, borderRadius: 13, padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ position: 'absolute', top: 18, insetInlineStart: -6, animation: 'lpFloat2 5s ease-in-out infinite', background: C.surface, border: `1px solid ${C.border}`, boxShadow: C.shadow, borderRadius: 13, padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={{ width: 26, height: 26, borderRadius: 8, background: `${C.green}1a`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>🔔</div>
             <div><div style={{ fontSize: 11, fontWeight: 900, color: C.ink }}>+1</div><div style={{ fontSize: 8.5, color: C.ink3, fontWeight: 700 }}>{isRtl ? 'طلب جديد' : 'new order'}</div></div>
           </div>

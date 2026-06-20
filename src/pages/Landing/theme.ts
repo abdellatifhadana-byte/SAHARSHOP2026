@@ -1,10 +1,12 @@
-// نظام الألوان — فاتح فاخر (Premium Commerce OS) + كاشف عنوان الـAPI
+// نظام الألوان — «طين وزليج» (هوية مغربية دافئة) + كاشف عنوان الـAPI.
+// الأسماء الدلالية محفوظة (orange/blue/purple/green) لكن قيمها مغربية:
+//   orange=طين (أساسي) · purple=زعفران (لمسة) · blue=نعناع أطلسي · green=نجاح.
 export const C = {
-  bg: '#F8FAFC', surface: '#FFFFFF', alt: '#F1F5F9',
-  ink: '#0F172A', ink2: '#475569', ink3: '#94A3B8',
-  border: 'rgba(15,23,42,0.08)', borderH: 'rgba(15,23,42,0.16)',
-  shadow: '0 12px 40px rgba(15,23,42,0.08)', shadowH: '0 24px 60px rgba(15,23,42,0.14)',
-  orange: '#FF6B35', orangeD: '#E8551F', blue: '#0EA5E9', green: '#10B981', purple: '#7C3AED',
+  bg: '#FBF7F0', surface: '#FFFFFF', alt: '#F4EDE2',
+  ink: '#1A130D', ink2: '#6B5D4F', ink3: '#A99C8B',
+  border: 'rgba(26,19,13,0.10)', borderH: 'rgba(26,19,13,0.18)',
+  shadow: '0 14px 44px rgba(120,72,43,0.10)', shadowH: '0 26px 64px rgba(120,72,43,0.16)',
+  orange: '#C75B39', orangeD: '#A8482B', blue: '#1F8A70', green: '#2E8B57', purple: '#E8A317',
 } as const;
 
 // نفس منطق كشف العنوان في services/api.ts (يعمل في dev والإنتاج)
