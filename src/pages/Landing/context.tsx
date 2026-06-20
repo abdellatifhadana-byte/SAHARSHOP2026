@@ -45,10 +45,19 @@ export function LandingProvider({ children }: { children: ReactNode }) {
   const startDemo = () => { try { localStorage.setItem('ai_commerce_token', 'demo-token-local'); } catch {} window.location.href = '/dashboard'; };
   const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
 
-  // جلب البيانات الحقيقية مرّة واحدة
+  // جلب البيانات الحقيقية + تحديث حيّ آمن كل 30 ثانية
+  // (نقاط نهاية عامة مجهّلة فقط — لا مصادقة ولا بيانات زبائن، عكس قناة WS الخاصة بكل تاجر)
   useEffect(() => {
-    fetchPublicStats().then(s => { if (s) setStats(s); });
-    fetchPublicListings().then(l => setListings(l));
+    let alive = true;
+    const load = () => {
+      fetchPublicStats().then(s => { if (alive && s) setStats(s); });
+      fetchPublicListings().then(l => { if (alive) setListings(l); });
+    };
+    load();
+    const id = setInterval(load, 30000);
+    const onVis = () => { if (document.visibilityState === 'visible') load(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => { alive = false; clearInterval(id); document.removeEventListener('visibilitychange', onVis); };
   }, []);
 
   // SEO ديناميكي حسب اللغة

@@ -37,7 +37,7 @@ export function CountUp({ to, suffix = '', dur = 1600 }: { to: number; suffix?: 
 
 // غلاف قسم + عنوان قسم
 export function Section({ children, id, alt }: { children: React.ReactNode; id?: string; alt?: boolean }) {
-  return <section id={id} style={{ padding: 'clamp(44px,8vh,88px) clamp(16px,5vw,40px)', background: alt ? C.alt : 'transparent' }}><div style={{ maxWidth: 1100, margin: '0 auto' }}>{children}</div></section>;
+  return <section id={id} style={{ padding: 'clamp(34px,5.5vh,62px) clamp(16px,5vw,40px)', background: alt ? `${C.alt}cc` : 'transparent' }}><div style={{ maxWidth: 1100, margin: '0 auto' }}>{children}</div></section>;
 }
 
 export function SecHead({ title, sub }: { title: string; sub?: string }) {
@@ -94,16 +94,26 @@ export function BackToTop() {
   );
 }
 
-// خلفية زليج مغربية متحرّكة (العنصر التوقيعي) — نقوش هندسية لطيفة خلف كل الصفحة
+// زليج غني — بلاطة نجمة ثمانية مغربية (مربّعان متقاطعان + نجمة داخلية) كـSVG حقيقي
+const ZELLIGE_TILE =
+  `<svg xmlns='http://www.w3.org/2000/svg' width='96' height='96' viewBox='0 0 96 96'>` +
+  `<g fill='none' stroke='${C.orange}' stroke-width='1.1'>` +
+  `<rect x='16' y='16' width='64' height='64'/>` +
+  `<rect x='16' y='16' width='64' height='64' transform='rotate(45 48 48)'/></g>` +
+  `<g fill='none' stroke='${C.blue}' stroke-width='1'>` +
+  `<circle cx='48' cy='48' r='13'/>` +
+  `<rect x='35' y='35' width='26' height='26' transform='rotate(45 48 48)'/></g>` +
+  `<g fill='${C.purple}'><circle cx='16' cy='16' r='1.6'/><circle cx='80' cy='16' r='1.6'/>` +
+  `<circle cx='16' cy='80' r='1.6'/><circle cx='80' cy='80' r='1.6'/></g></svg>`;
+
+// خلفية زليج مغربية متحرّكة (العنصر التوقيعي) — نقش هندسي راقٍ خلف كل الصفحة
 export function Zellige() {
+  const url = `url("data:image/svg+xml,${encodeURIComponent(ZELLIGE_TILE)}")`;
   return (
     <div aria-hidden style={{
-      position: 'fixed', inset: 0, zIndex: 0, opacity: 0.07, pointerEvents: 'none',
-      backgroundImage:
-        `radial-gradient(circle at 50% 50%, ${C.orange} 0 2px, transparent 3px),` +
-        `conic-gradient(from 0deg at 50% 50%, ${C.orange} 0 12.5%, transparent 0 25%, ${C.blue} 0 37.5%, transparent 0 50%, ${C.orange} 0 62.5%, transparent 0 75%, ${C.blue} 0 87.5%, transparent 0)`,
-      backgroundSize: '46px 46px, 92px 92px',
-      animation: 'lpZellige 42s linear infinite',
+      position: 'fixed', inset: 0, zIndex: 0, opacity: 0.09, pointerEvents: 'none',
+      backgroundImage: url, backgroundSize: '96px 96px',
+      animation: 'lpZellige 60s linear infinite',
     }} />
   );
 }
