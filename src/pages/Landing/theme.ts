@@ -7,6 +7,14 @@ export const C = {
   border: 'rgba(26,19,13,0.10)', borderH: 'rgba(26,19,13,0.18)',
   shadow: '0 14px 44px rgba(120,72,43,0.10)', shadowH: '0 26px 64px rgba(120,72,43,0.16)',
   orange: '#C75B39', orangeD: '#A8482B', blue: '#1F8A70', green: '#2E8B57', purple: '#E8A317',
+  // Nouveaux chemins pour les ressources
+  assets: {
+    logo: '/amanzine-logo.svg',      // Chemin vers votre nouveau logo
+    logoDark: '/amanzine-logo-dark.svg', // Version sombre si disponible
+    heroVideo: '/videos/hero-preview.mp4', // Vidéo de présentation
+    heroVideoWebm: '/videos/hero-preview.webm', // Format alternatif
+    poster: '/videos/hero-poster.jpg', // Image de prévisualisation
+  }
 } as const;
 
 // نفس منطق كشف العنوان في services/api.ts (يعمل في dev والإنتاج)
