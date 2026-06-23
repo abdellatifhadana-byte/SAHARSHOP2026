@@ -47,6 +47,40 @@ const GLOBAL_CSS = `
   @media(min-width:861px){ .osdesk{ height:470px } .oswin{ position:absolute } .osw1{ width:380px; top:0; inset-inline-end:0; z-index:3 } .osw2{ width:330px; top:120px; inset-inline-start:0; z-index:2 } .osw3{ width:330px; top:248px; inset-inline-end:56px; z-index:4 } }
   @media(max-width:860px){ .oswin{ position:relative; margin-bottom:14px } }
   html { scroll-behavior: smooth; }
+// ... styles existants ...
+  
+  /* Styles pour la vidéo */
+  .hero-video-container {
+    position: relative;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(199, 91, 57, 0.15);
+  }
+  
+  .hero-video-container video {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  
+  .hero-video-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 16px 20px;
+    background: linear-gradient(transparent, rgba(0,0,0,0.5));
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  
+  @media (max-width: 640px) {
+    .hero-video-container {
+      border-radius: 12px;
+    }
+  }
 `;
 
 function Shell() {
