@@ -129,7 +129,7 @@ export default function DashboardPage() {
       {products.length === 0 && orders.length === 0 && !isLoading && (
         <div style={{ padding: '48px 24px', textAlign: 'center', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 20 }}>
           <div style={{ fontSize: 48, marginBottom: 12 }}>🚀</div>
-          <h2 style={{ fontSize: 18, fontWeight: 900, marginBottom: 8 }}>مرحباً في SAHAR shop!</h2>
+          <h2 style={{ fontSize: 18, fontWeight: 900, marginBottom: 8 }}>مرحباً في AMANZINE!</h2>
           <p style={{ fontSize: 13, color: '#999', marginBottom: 20 }}>ابدأ بإضافة أول منتج وافتح متجرك للزبائن</p>
           <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
             <button onClick={() => setPage('products')} style={{ padding: '10px 22px', borderRadius: 12, background: '#FF6A00', border: 'none', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>📦 أضف أول منتج</button>

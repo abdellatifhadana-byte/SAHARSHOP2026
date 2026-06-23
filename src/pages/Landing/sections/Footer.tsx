@@ -13,9 +13,9 @@ export default function Footer() {
     <footer style={{ borderTop: `1px solid ${C.border}`, background: C.surface, padding: 'clamp(30px,5vw,44px) clamp(16px,5vw,40px)', textAlign: 'center' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 12 }}>
         <div style={{ width: 32, height: 32, borderRadius: 9, background: `linear-gradient(135deg, ${C.orange}, ${C.orangeD})`, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-          <img src="/sahar-logo-text.png" alt="SAHAR" style={{ width: '78%', height: '78%', objectFit: 'contain' }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; (e.currentTarget.parentElement as HTMLElement).innerHTML = '<span style="font-size:13px;font-weight:900;color:#fff">S</span>'; }} />
+          <img src="/amanzine-logo.svg" alt="AMANZINE" style={{ width: '78%', height: '78%', objectFit: 'contain' }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; (e.currentTarget.parentElement as HTMLElement).innerHTML = '<span style="font-size:13px;font-weight:900;color:#fff">A</span>'; }} />
         </div>
-        <span style={{ fontWeight: 900, fontSize: 15, color: C.ink }}><span style={{ color: C.orange }}>SAHAR</span> shop</span>
+        <span style={{ fontWeight: 900, fontSize: 15, color: C.ink }}><span style={{ color: C.orange }}>AMANZINE</span></span>
       </div>
       <p style={{ fontSize: 12.5, color: C.ink2, maxWidth: 460, margin: '0 auto 14px', lineHeight: 1.7 }}>{tx('footTagline')}</p>
 

@@ -66,7 +66,7 @@ export function ProductCard({ it, big }: { it: Listing; big?: boolean }) {
       </div>
       <div style={{ padding: '12px 13px', display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
         <div style={{ fontSize: 13.5, fontWeight: 800, color: C.ink, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.name}</div>
-        <div style={{ fontSize: 10.5, color: C.ink3, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tx('byStore')} {it.sellerName || 'SAHAR'}{it.city ? ` · ${it.city}` : ''}</div>
+        <div style={{ fontSize: 10.5, color: C.ink3, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tx('byStore')} {it.sellerName || 'AMANZINE'}{it.city ? ` · ${it.city}` : ''}</div>
         <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 6 }}>
           <span style={{ fontWeight: 900, color: C.orange, fontSize: big ? 17 : 15 }}>{it.price} {tx('dh')}</span>
           <span style={{ fontSize: 14 }}>🛒</span>

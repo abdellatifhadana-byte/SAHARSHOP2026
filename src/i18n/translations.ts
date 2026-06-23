@@ -153,7 +153,7 @@ const ar: T = {
   'auth.email': 'البريد الإلكتروني', 'auth.password': 'كلمة المرور',
   'auth.storeName': 'اسم المتجر (اختياري)', 'auth.haveAccount': 'لديك حساب بالفعل؟',
   'auth.noAccount': 'ليس لديك حساب؟', 'auth.demo': 'تجربة مجانية بدون تسجيل',
-  'auth.loginSuccess': '✅ أهلاً بعودتك!', 'auth.registerSuccess': '🎉 مرحباً بك في SAHAR shop!',
+  'auth.loginSuccess': '✅ أهلاً بعودتك!', 'auth.registerSuccess': '🎉 مرحباً بك في AMANZINE!',
   'auth.logoutConfirm': 'هل تريد تسجيل الخروج؟', 'auth.loginBtn': 'دخول',
   'auth.registerBtn': 'إنشاء حساب', 'auth.logout': 'خروج',
   'auth.fillAll': 'يرجى ملء البريد الإلكتروني وكلمة المرور',
@@ -340,7 +340,7 @@ const darija: T = {
   'auth.register': 'أنشئ حساب جديد', 'auth.registerSub': 'بدأ المتجر ديالك بالمجان',
   'auth.email': 'الإيميل', 'auth.password': 'كلمة السر', 'auth.storeName': 'اسم المتجر (اختياري)',
   'auth.demo': 'جرّب بلا تسجيل', 'auth.loginSuccess': '✅ أهلاً بيك!',
-  'auth.registerSuccess': '🎉 مرحباً بيك فـ SAHAR shop!',
+  'auth.registerSuccess': '🎉 مرحباً بيك فـ AMANZINE!',
   'auth.logoutConfirm': 'واش تخرج؟', 'auth.loginBtn': 'دخول', 'auth.registerBtn': 'أنشئ حساب',
 
   'landing.hero.title1': 'المنصة المغربية الذكية',
@@ -525,7 +525,7 @@ const fr: T = {
   'auth.register': 'Créer un compte', 'auth.registerSub': 'Lancez votre boutique gratuitement',
   'auth.email': 'E-mail', 'auth.password': 'Mot de passe', 'auth.storeName': 'Nom de la boutique (optionnel)',
   'auth.demo': 'Essai gratuit sans inscription', 'auth.loginSuccess': '✅ Bienvenue !',
-  'auth.registerSuccess': '🎉 Bienvenue sur SAHAR shop !',
+  'auth.registerSuccess': '🎉 Bienvenue sur AMANZINE !',
   'auth.logoutConfirm': 'Voulez-vous vous déconnecter ?', 'auth.loginBtn': 'Connexion', 'auth.registerBtn': 'Créer',
 
   'landing.hero.title1': 'La plateforme marocaine intelligente',
@@ -707,7 +707,7 @@ const en: T = {
   'auth.register': 'Create Account', 'auth.registerSub': 'Launch your store for free today',
   'auth.email': 'Email address', 'auth.password': 'Password',
   'auth.storeName': 'Store name (optional)', 'auth.demo': 'Free trial without registration',
-  'auth.loginSuccess': '✅ Welcome back!', 'auth.registerSuccess': '🎉 Welcome to SAHAR shop!',
+  'auth.loginSuccess': '✅ Welcome back!', 'auth.registerSuccess': '🎉 Welcome to AMANZINE!',
   'auth.logoutConfirm': 'Sign out?', 'auth.loginBtn': 'Sign In', 'auth.registerBtn': 'Create Account',
 
   'landing.hero.title1': "Morocco's Smart Platform",
@@ -888,7 +888,7 @@ const zh: T = {
   'auth.register': '创建账户', 'auth.registerSub': '今天免费开启你的店铺',
   'auth.email': '电子邮箱', 'auth.password': '密码',
   'auth.storeName': '店铺名称（可选）', 'auth.demo': '免注册免费试用',
-  'auth.loginSuccess': '✅ 欢迎回来！', 'auth.registerSuccess': '🎉 欢迎来到 SAHAR shop！',
+  'auth.loginSuccess': '✅ 欢迎回来！', 'auth.registerSuccess': '🎉 欢迎来到 AMANZINE！',
   'auth.logoutConfirm': '退出登录？', 'auth.loginBtn': '登录', 'auth.registerBtn': '创建账户',
 
   'landing.hero.title1': '摩洛哥的智能平台',

@@ -85,9 +85,9 @@ import { Search, ChevronDown, ChevronUp, CheckCircle, XCircle, Package, AlertTri
 const STATUS_AR: Record<string, string> = { pending: 'بانتظار', pending_confirmation: 'تأكيد واتساب', approved: 'موافقة', processing: 'جارٍ', shipped: 'شُحن', delivered: 'وُصّل', cancelled: 'ملغي' };
 
 function printOrder(order: any, settings: any, currency: string) {
-  const brandName = settings.brand?.name || 'SAHAR shop';
+  const brandName = settings.brand?.name || 'AMANZINE';
   const brandPhone = settings.brand?.phone || '';
-  const brandLogo = settings.brand?.logo || '/sahar-logo-text.png';
+  const brandLogo = settings.brand?.logo || '/amanzine-logo.svg';
 
   const html = `<!DOCTYPE html>
 <html dir="rtl" lang="ar">
@@ -205,7 +205,7 @@ function printOrder(order: any, settings: any, currency: string) {
 }
 
 function sendReceiptWhatsApp(order: any, settings: any, currency: string) {
-  const brandName = settings.brand?.name || 'SAHAR shop';
+  const brandName = settings.brand?.name || 'AMANZINE';
   const items = (order.items || []).map((i: any) =>
     `• ${i.productName} × ${i.quantity} = ${(i.price * i.quantity).toLocaleString()} ${currency}`
   ).join('\n');

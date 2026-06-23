@@ -20,7 +20,7 @@ export default function ImageEditorPage() {
   const fileRef    = useRef<HTMLInputElement>(null);
   const logoRef    = useRef<HTMLInputElement>(null);
   const [bg,          setBg]          = useState<string>(() => {
-    try { return sessionStorage.getItem('sahar_editor_image') || ''; } catch { return ''; }
+    try { return sessionStorage.getItem('amanzine_editor_image') || ''; } catch { return ''; }
   });
   const [layers, setLayers] = useState<Layer[]>([]);
   const [selected,setSelected] = useState<string|null>(null);
@@ -78,7 +78,7 @@ export default function ImageEditorPage() {
   // Handle action from ProductsPage (logo/name overlay)
   useEffect(() => {
     const action = sessionStorage.getItem('editor_action');
-    const storeName = sessionStorage.getItem('editor_store_name') || settings.brand.name || 'SAHAR shop';
+    const storeName = sessionStorage.getItem('editor_store_name') || settings.brand.name || 'AMANZINE';
     if (!action) return;
     sessionStorage.removeItem('editor_action');
     sessionStorage.removeItem('editor_store_name');
@@ -100,7 +100,7 @@ export default function ImageEditorPage() {
             size: 80,
           }]);
         };
-        logoImg.src = settings.brand.logo || '/sahar-logo-text.png';
+        logoImg.src = settings.brand.logo || '/amanzine-logo.svg';
       }, 500);
     }
     
@@ -320,7 +320,7 @@ export default function ImageEditorPage() {
                 // Load Sahar Shop logo directly
                 const img = new window.Image();
                 img.crossOrigin = 'anonymous';
-                img.src = '/sahar-logo-text.png';
+                img.src = '/amanzine-logo.svg';
                 img.onload = () => {
                   const canvas2 = document.createElement('canvas');
                   canvas2.width = img.width; canvas2.height = img.height;
@@ -330,7 +330,7 @@ export default function ImageEditorPage() {
                 };
                 img.onerror = () => logoRef.current?.click();
               }} className="btn btn-ghost btn-sm" style={{ gap:6,fontSize:11,width:'100%',background:'rgba(255,106,0,.08)',border:'1px solid rgba(255,106,0,.2)',color:'var(--ember)' }}>
-                <img src="/sahar-logo-text.png" alt="" style={{ width:14,height:14,objectFit:'contain' }}/> لوغو SAHAR shop
+                <img src="/amanzine-logo.svg" alt="" style={{ width:14,height:14,objectFit:'contain' }}/> لوغو AMANZINE
               </button>
               <button onClick={()=>logoRef.current?.click()} className="btn btn-ghost btn-sm" style={{ gap:6,fontSize:11,width:'100%' }}>
                 <Plus size={12}/> لوغو مخصص

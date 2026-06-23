@@ -537,7 +537,7 @@ export default function GuidePage() {
             <span style={{ fontSize: 12, fontWeight: 700, color: '#FF9A55' }}>دليل الاستخدام الكامل</span>
           </div>
           <h1 style={{ fontSize: 'clamp(26px, 5vw, 38px)', fontWeight: 900, color: '#FAFAFA', lineHeight: 1.2, marginBottom: 10, letterSpacing: '-0.02em' }}>
-            تعلّم كل شيء عن <span style={{ color: '#FF6A00' }}>SAHAR shop</span>
+            تعلّم كل شيء عن <span style={{ color: '#FF6A00' }}>AMANZINE</span>
           </h1>
           <p style={{ fontSize: 14, color: '#999', maxWidth: 560, lineHeight: 1.8 }}>
             منصة متكاملة لبيع المنتجات والخدمات — مع ذكاء اصطناعي، واتساب، توصيل، والمزيد.

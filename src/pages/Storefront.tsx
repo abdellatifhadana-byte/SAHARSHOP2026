@@ -125,8 +125,8 @@ function detectSource():string {
 
 function storeSessionId():string {
   try {
-    let s=sessionStorage.getItem('sahar_sid');
-    if(!s){s=Math.random().toString(36).slice(2)+Date.now().toString(36);sessionStorage.setItem('sahar_sid',s);}
+    let s=sessionStorage.getItem('amanzine_sid');
+    if(!s){s=Math.random().toString(36).slice(2)+Date.now().toString(36);sessionStorage.setItem('amanzine_sid',s);}
     return s;
   } catch { return 'anon'; }
 }
@@ -154,7 +154,7 @@ function useStorefront(userId:string) {
     fetch(`/api/products/public/catalog?userId=${userId}`).then(r=>r.json())
       .then(c=>{setProducts(c.products||[]);setStoreInfo({brand:c.brand||{},deliveryCosts:c.deliveryCosts,promotions:c.promotions,hcaptchaSiteKey:c.hcaptchaSiteKey});setLoading(false);})
       .catch(()=>{setError(T('sf.errLoad'));setLoading(false);});
-    try{const k=`sahar_visit_${userId}`;if(!sessionStorage.getItem(k)){trackStoreEvent(userId,'visit');sessionStorage.setItem(k,'1');}}catch{}
+    try{const k=`amanzine_visit_${userId}`;if(!sessionStorage.getItem(k)){trackStoreEvent(userId,'visit');sessionStorage.setItem(k,'1');}}catch{}
   },[userId]);
 
   return {products,storeInfo,loading,error};
@@ -162,10 +162,10 @@ function useStorefront(userId:string) {
 
 function useCart() {
   const [items,setItems]=useState<CartItem[]>(()=>{
-    try{const s=localStorage.getItem('sahar_cart');return s?JSON.parse(s):[];}catch{return [];}
+    try{const s=localStorage.getItem('amanzine_cart');return s?JSON.parse(s):[];}catch{return [];}
   });
 
-  useEffect(()=>{try{localStorage.setItem('sahar_cart',JSON.stringify(items));}catch{}},[items]);
+  useEffect(()=>{try{localStorage.setItem('amanzine_cart',JSON.stringify(items));}catch{}},[items]);
 
   const add=(product:SProduct,size:string,color:string,giftWrap?:boolean,giftMessage?:string)=>setItems(prev=>{
     const ex=prev.find(i=>i.product.id===product.id&&i.size===size&&i.color===color);
@@ -263,8 +263,8 @@ function PageSkeleton() {
   return (
     <div style={{minHeight:'100dvh',background:DS.bg,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:32,gap:24,position:'relative',zIndex:1}}>
       <div style={{width:56,height:56,borderRadius:16,overflow:'hidden',background:'rgba(255,106,0,0.08)',border:'1.5px solid rgba(255,106,0,0.32)',display:'flex',alignItems:'center',justifyContent:'center',animation:'logoGlow 1.8s ease infinite'}}>
-        <img src="/sahar-logo-text.png" alt="SAHAR" style={{width:'82%',height:'82%',objectFit:'contain'}}
-          onError={e=>{const img=e.currentTarget as HTMLImageElement;if(!img.dataset.fb){img.dataset.fb='1';img.src='/icon-512.png';}else{img.style.display='none';(img.parentElement as HTMLElement).innerHTML='<span style="font-size:24px;font-weight:900;color:#FF6A00">S</span>';}}}/>
+        <img src="/amanzine-logo.svg" alt="AMANZINE" style={{width:'82%',height:'82%',objectFit:'contain'}}
+          onError={e=>{const img=e.currentTarget as HTMLImageElement;if(!img.dataset.fb){img.dataset.fb='1';img.src='/amanzine-logo.svg';}else{img.style.display='none';(img.parentElement as HTMLElement).innerHTML='<span style="font-size:24px;font-weight:900;color:#FF6A00">S</span>';}}}/>
       </div>
       <style>{`@keyframes logoGlow{0%,100%{transform:scale(1);box-shadow:0 0 20px rgba(255,106,0,.18)}50%{transform:scale(1.05);box-shadow:0 0 40px rgba(255,106,0,.42)}}`}</style>
       <div style={{textAlign:'center'}}>
@@ -307,7 +307,7 @@ function LiveTicker({orders}:{orders:{name:string;city:string;product:string;tim
 function ProductCard({p,onAdd,onView,currency}:{p:SProduct;onAdd:(p:SProduct)=>void;onView:(p:SProduct)=>void;currency:string}) {
   const [hover,setHover]=useState(false);
   const [imgIdx,setImgIdx]=useState(0);
-  const [liked,setLiked]=useState(()=>{try{return JSON.parse(localStorage.getItem('sahar_wishlist')||'[]').includes(p.id);}catch{return false;}});
+  const [liked,setLiked]=useState(()=>{try{return JSON.parse(localStorage.getItem('amanzine_wishlist')||'[]').includes(p.id);}catch{return false;}});
   const [addedFlash,setAddedFlash]=useState(false);
   const imgs=[p.imageUrl,...(p.images||[])].filter(Boolean);
   const isNew=p.createdAt&&(Date.now()-new Date(p.createdAt).getTime()<7*24*60*60*1000);
@@ -315,7 +315,7 @@ function ProductCard({p,onAdd,onView,currency}:{p:SProduct;onAdd:(p:SProduct)=>v
   const rating=p.sales>20?5:p.sales>10?4:p.sales>3?4:3;
   const madeInMA=p.customFields?.some(f=>f.type==='boolean'&&f.value==='true'&&f.label.includes('صنع في المغرب'));
 
-  const toggleLike=(e:React.MouseEvent)=>{e.stopPropagation();const wl:string[]=JSON.parse(localStorage.getItem('sahar_wishlist')||'[]');localStorage.setItem('sahar_wishlist',JSON.stringify(liked?wl.filter(x=>x!==p.id):[...wl,p.id]));setLiked(!liked);};
+  const toggleLike=(e:React.MouseEvent)=>{e.stopPropagation();const wl:string[]=JSON.parse(localStorage.getItem('amanzine_wishlist')||'[]');localStorage.setItem('amanzine_wishlist',JSON.stringify(liked?wl.filter(x=>x!==p.id):[...wl,p.id]));setLiked(!liked);};
   const quickAdd=(e:React.MouseEvent)=>{e.stopPropagation();if(p.stock>0||p.type==='service'||p.type==='digital'){onAdd(p);setAddedFlash(true);setTimeout(()=>setAddedFlash(false),900);}};
 
   return (
@@ -688,10 +688,10 @@ function LuckyWheel({userId,open,onClose}:{userId:string;open:boolean;onClose:()
   const [result,setResult]=useState<{label:string;code:string|null;minOrder?:number}|null>(null);
   const [error,setError]=useState('');
   const todayKey=()=>new Date().toISOString().slice(0,10);
-  const [spunToday,setSpunToday]=useState(()=>{try{return localStorage.getItem(`sahar_wheel_day_${userId}`)===todayKey();}catch{return false;}});
+  const [spunToday,setSpunToday]=useState(()=>{try{return localStorage.getItem(`amanzine_wheel_day_${userId}`)===todayKey();}catch{return false;}});
   useBackToClose(open,onClose);
 
-  const spin=async()=>{if(spinning||spunToday)return;setError('');setSpinning(true);try{const r=await fetch('/api/coupons/public/spin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId})});const d=await r.json();if(!r.ok)throw new Error(d.error||T('wh.spinFail'));const target=360*5+(360-(d.index*60+30));setRotation(target);setTimeout(()=>{setResult({label:d.label,code:d.code,minOrder:d.minOrder});if(d.code){try{localStorage.setItem('sahar_wheel_code',d.code);}catch{}}try{localStorage.setItem(`sahar_wheel_day_${userId}`,todayKey());}catch{}setSpunToday(true);setSpinning(false);},4300);}catch(e:any){setError(e.message);setSpinning(false);}};
+  const spin=async()=>{if(spinning||spunToday)return;setError('');setSpinning(true);try{const r=await fetch('/api/coupons/public/spin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId})});const d=await r.json();if(!r.ok)throw new Error(d.error||T('wh.spinFail'));const target=360*5+(360-(d.index*60+30));setRotation(target);setTimeout(()=>{setResult({label:d.label,code:d.code,minOrder:d.minOrder});if(d.code){try{localStorage.setItem('amanzine_wheel_code',d.code);}catch{}}try{localStorage.setItem(`amanzine_wheel_day_${userId}`,todayKey());}catch{}setSpunToday(true);setSpinning(false);},4300);}catch(e:any){setError(e.message);setSpinning(false);}};
 
   if(!open)return null;
   return (
@@ -727,7 +727,7 @@ function LuckyWheel({userId,open,onClose}:{userId:string;open:boolean;onClose:()
 function CartSidebar({cart,storeInfo,userId,onClose,onOrderSuccess}:{cart:ReturnType<typeof useCart>;storeInfo:StoreInfo;userId:string;onClose:()=>void;onOrderSuccess:(id:string)=>void}) {
   const [step,setStep]=useState<'cart'|'checkout'|'success'>('cart');
   const [form,setForm]=useState({name:'',phone:'',city:'',address:'',email:'',notes:'',subscribe:true,paymentMethod:'cod' as 'cod'|'virement'});
-  const [couponCode,setCouponCode]=useState(()=>{try{return localStorage.getItem('sahar_wheel_code')||'';}catch{return '';}});
+  const [couponCode,setCouponCode]=useState(()=>{try{return localStorage.getItem('amanzine_wheel_code')||'';}catch{return '';}});
   const [couponDiscount,setCouponDiscount]=useState(0);
   const [couponShipping,setCouponShipping]=useState(false);
   const [couponMsg,setCouponMsg]=useState('');
@@ -765,7 +765,7 @@ function CartSidebar({cart,storeInfo,userId,onClose,onOrderSuccess}:{cart:Return
   const handleOrder=async()=>{if(!form.name||!form.phone||!form.city){alert(T('ct.fillRequired'));return;}
     const captchaToken=hcapKey?(((window as any).hcaptcha?.getResponse?.())||''):'';
     if(hcapKey&&!captchaToken){alert(T('ct.captchaFirst'));return;}
-    setLoading(true);try{const items=cart.items.map(i=>({productId:i.product.id,productName:i.product.name,price:i.product.price,quantity:i.quantity,size:i.size,color:i.color,giftWrap:i.giftWrap,giftMessage:i.giftMessage}));const r=await fetch('/api/orders/public',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId,items,customerName:form.name,customerPhone:form.phone,city:form.city,address:form.address,total:grandTotal,deliveryCost:cityCost,couponCode:(couponDiscount>0||couponShipping)?couponCode:'',captchaToken,customerEmail:form.email.trim(),source:'Storefront',notes:`${form.notes}${form.subscribe?T('ct.subscribeNote'):''}`})});const data=await r.json();if(!r.ok)throw new Error(data.error);setOrderId(data.order.id);const finalTotal=data.applied?.total??grandTotal;try{localStorage.removeItem('sahar_wheel_code');}catch{}try{const recent=JSON.parse(localStorage.getItem('sahar_recent_orders')||'[]');localStorage.setItem('sahar_recent_orders',JSON.stringify([{name:form.name,city:form.city,product:cart.items[0]?.product?.name||'منتج',time:new Date().toISOString()},...recent].slice(0,20)));}catch{}const phone=storeInfo.brand.phone?.replace(/\D/g,'');const itemsText=cart.items.map(i=>`• ${i.product.name} (${i.size} ${i.color}) x${i.quantity} — ${i.product.price*i.quantity} ${cur}`).join('\n');const promoText=[data.applied?.discount>0?`🏷️ ${data.applied.discountSource}: -${data.applied.discount} ${cur}`:'',data.applied?.freeShipping?'🚚 توصيل مجاني':''].filter(Boolean).join('\n');const msg=`مرحباً ${storeInfo.brand.name}! 👋\n\nأريد تأكيد طلبي:\n\n${itemsText}\n${promoText?promoText+'\n':''}\n💰 الإجمالي: ${finalTotal} ${cur}\n\n👤 ${form.name}\n📱 ${form.phone}\n📍 ${form.city}\n🏠 ${form.address||'—'}`;if(phone)setTimeout(()=>window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`,'_blank'),500);cart.clear();try{localStorage.removeItem('sahar_cart');}catch{}setStep('success');onOrderSuccess(data.order.id);}catch(e:any){alert(T('ct.errPrefix',{e:e.message}));}setLoading(false);};
+    setLoading(true);try{const items=cart.items.map(i=>({productId:i.product.id,productName:i.product.name,price:i.product.price,quantity:i.quantity,size:i.size,color:i.color,giftWrap:i.giftWrap,giftMessage:i.giftMessage}));const r=await fetch('/api/orders/public',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId,items,customerName:form.name,customerPhone:form.phone,city:form.city,address:form.address,total:grandTotal,deliveryCost:cityCost,couponCode:(couponDiscount>0||couponShipping)?couponCode:'',captchaToken,customerEmail:form.email.trim(),source:'Storefront',notes:`${form.notes}${form.subscribe?T('ct.subscribeNote'):''}`})});const data=await r.json();if(!r.ok)throw new Error(data.error);setOrderId(data.order.id);const finalTotal=data.applied?.total??grandTotal;try{localStorage.removeItem('amanzine_wheel_code');}catch{}try{const recent=JSON.parse(localStorage.getItem('amanzine_recent_orders')||'[]');localStorage.setItem('amanzine_recent_orders',JSON.stringify([{name:form.name,city:form.city,product:cart.items[0]?.product?.name||'منتج',time:new Date().toISOString()},...recent].slice(0,20)));}catch{}const phone=storeInfo.brand.phone?.replace(/\D/g,'');const itemsText=cart.items.map(i=>`• ${i.product.name} (${i.size} ${i.color}) x${i.quantity} — ${i.product.price*i.quantity} ${cur}`).join('\n');const promoText=[data.applied?.discount>0?`🏷️ ${data.applied.discountSource}: -${data.applied.discount} ${cur}`:'',data.applied?.freeShipping?'🚚 توصيل مجاني':''].filter(Boolean).join('\n');const msg=`مرحباً ${storeInfo.brand.name}! 👋\n\nأريد تأكيد طلبي:\n\n${itemsText}\n${promoText?promoText+'\n':''}\n💰 الإجمالي: ${finalTotal} ${cur}\n\n👤 ${form.name}\n📱 ${form.phone}\n📍 ${form.city}\n🏠 ${form.address||'—'}`;if(phone)setTimeout(()=>window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`,'_blank'),500);cart.clear();try{localStorage.removeItem('amanzine_cart');}catch{}setStep('success');onOrderSuccess(data.order.id);}catch(e:any){alert(T('ct.errPrefix',{e:e.message}));}setLoading(false);};
 
   const inpStyle:React.CSSProperties={width:'100%',padding:'12px 15px',borderRadius:DS.radiusSm,border:DS.glassBorder,background:DS.bgInput,color:DS.textPrimary,fontSize:13,outline:'none',boxSizing:'border-box',fontFamily:'Tajawal,sans-serif'};
 
@@ -921,12 +921,12 @@ export default function Storefront() {
   const [successOrderId,setSuccessOrderId]=useState('');
   const [cartAnim,setCartAnim]=useState(false);
   const [lang,setLangState]=useState<Lang>(initialPublicLang);
-  const setLang=(l:Lang)=>{setLangState(l);try{localStorage.setItem('sahar_lang',l);}catch{}};
+  const setLang=(l:Lang)=>{setLangState(l);try{localStorage.setItem('amanzine_lang',l);}catch{}};
   const rtl=isRtlLang(lang);
   CURRENT_LANG=lang; // ضبط لغة الوحدة قبل رسم الأبناء
   void successOrderId;
 
-  useEffect(()=>{const recentOrders=JSON.parse(localStorage.getItem('sahar_recent_orders')||'[]');if(recentOrders.length){const o=recentOrders[Math.floor(Math.random()*recentOrders.length)];const mins=Math.floor(Math.random()*12)+2;setLiveTicker([{name:o.name,city:o.city,product:o.product,time:T('sf.min',{n:String(mins)})}]);const tid=setTimeout(()=>setLiveTicker([]),5000);return()=>clearTimeout(tid);}},[cart.items.length]);
+  useEffect(()=>{const recentOrders=JSON.parse(localStorage.getItem('amanzine_recent_orders')||'[]');if(recentOrders.length){const o=recentOrders[Math.floor(Math.random()*recentOrders.length)];const mins=Math.floor(Math.random()*12)+2;setLiveTicker([{name:o.name,city:o.city,product:o.product,time:T('sf.min',{n:String(mins)})}]);const tid=setTimeout(()=>setLiveTicker([]),5000);return()=>clearTimeout(tid);}},[cart.items.length]);
   const handleAddToCart=(p:SProduct,size?:string,color?:string)=>{cart.add(p,size||p.sizes?.[0]||'',color||p.colors?.[0]||'');setCartAnim(true);setTimeout(()=>setCartAnim(false),600);};
   useEffect(()=>{(window as any).__sfProducts=products;},[products]);
   useEffect(()=>{if(!products.length)return;const pid=new URLSearchParams(window.location.search).get('p');if(pid){const f=products.find(x=>x.id===pid);if(f)setViewProduct(f);}},[products]);
@@ -967,7 +967,7 @@ export default function Storefront() {
         {showServices&&allServices.length>0&&<div style={{marginBottom:48}}><div style={{display:'flex',alignItems:'center',gap:10,marginBottom:16}}><div style={{width:4,height:24,background:`linear-gradient(180deg, ${DS.purple}, ${DS.purpleLight})`,borderRadius:DS.radiusFull,boxShadow:`0 0 12px ${DS.purpleGlow}`}}/><span style={{fontSize:16,fontWeight:900}}>{T('sf.ourServices')}</span><span style={{fontSize:11,color:DS.textTertiary,background:DS.glassBg,border:DS.glassBorder,padding:'3px 10px',borderRadius:DS.radiusFull}}>{allServices.length}</span></div><div style={{display:'flex',gap:12,overflowX:'auto',paddingBottom:8,scrollbarWidth:'none'}}>{allServices.map(p=><ServiceCard key={p.id} p={p} currency={cur} onView={p=>setViewProduct(p)}/>)}</div></div>}
         {showDigital&&allDigital.length>0&&<div style={{marginBottom:48}}><div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(155px,1fr))',gap:14}}>{allDigital.map(p=><ProductCard key={p.id} p={p} currency={cur} onAdd={handleAddToCart} onView={p=>setViewProduct(p)}/>)}</div></div>}
         {allProducts.length===0&&allServices.length===0&&allDigital.length===0&&<div style={{textAlign:'center',padding:'80px 20px',color:DS.textTertiary}}><ShoppingBag size={48} style={{marginBottom:16,opacity:0.15}}/><div style={{fontSize:15,fontWeight:600}}>{T('sf.noProducts')}</div></div>}
-        <div style={{marginTop:48,paddingTop:24,borderTop:`1px solid ${DS.border}`,textAlign:'center',paddingBottom:20}}><div style={{fontSize:12,color:DS.textTertiary,marginBottom:8,fontWeight:700}}>{brand.name}</div><div style={{display:'flex',justifyContent:'center',gap:16}}>{brand.phone&&<a href={`https://wa.me/${brand.phone.replace(/\D/g,'')}`} target="_blank" rel="noreferrer" style={{fontSize:11,color:'#25D366',textDecoration:'none',fontWeight:600}}>واتساب</a>}{brand.instagram&&<a href={`https://instagram.com/${brand.instagram}`} target="_blank" rel="noreferrer" style={{fontSize:11,color:DS.textTertiary,textDecoration:'none',fontWeight:600}}>Instagram</a>}{brand.facebook&&<a href={`https://facebook.com/${brand.facebook}`} target="_blank" rel="noreferrer" style={{fontSize:11,color:DS.textTertiary,textDecoration:'none',fontWeight:600}}>Facebook</a>}</div><a href="/market" style={{display:'inline-flex',alignItems:'center',gap:6,marginTop:14,padding:'8px 18px',borderRadius:DS.radiusFull,background:'rgba(255,106,0,0.08)',border:'1px solid rgba(255,106,0,0.2)',color:'#FF9A55',fontSize:11.5,fontWeight:700,textDecoration:'none'}}>{T('sf.discoverMarket')}</a><div style={{fontSize:9,color:DS.textTertiary,opacity:0.4,marginTop:10}}>Powered by SAHAR Shop 🇲🇦</div></div>
+        <div style={{marginTop:48,paddingTop:24,borderTop:`1px solid ${DS.border}`,textAlign:'center',paddingBottom:20}}><div style={{fontSize:12,color:DS.textTertiary,marginBottom:8,fontWeight:700}}>{brand.name}</div><div style={{display:'flex',justifyContent:'center',gap:16}}>{brand.phone&&<a href={`https://wa.me/${brand.phone.replace(/\D/g,'')}`} target="_blank" rel="noreferrer" style={{fontSize:11,color:'#25D366',textDecoration:'none',fontWeight:600}}>واتساب</a>}{brand.instagram&&<a href={`https://instagram.com/${brand.instagram}`} target="_blank" rel="noreferrer" style={{fontSize:11,color:DS.textTertiary,textDecoration:'none',fontWeight:600}}>Instagram</a>}{brand.facebook&&<a href={`https://facebook.com/${brand.facebook}`} target="_blank" rel="noreferrer" style={{fontSize:11,color:DS.textTertiary,textDecoration:'none',fontWeight:600}}>Facebook</a>}</div><a href="/market" style={{display:'inline-flex',alignItems:'center',gap:6,marginTop:14,padding:'8px 18px',borderRadius:DS.radiusFull,background:'rgba(255,106,0,0.08)',border:'1px solid rgba(255,106,0,0.2)',color:'#FF9A55',fontSize:11.5,fontWeight:700,textDecoration:'none'}}>{T('sf.discoverMarket')}</a><div style={{fontSize:9,color:DS.textTertiary,opacity:0.4,marginTop:10}}>Powered by AMANZINE 🇲🇦</div></div>
       </div>
       <LiveTicker orders={liveTicker}/>
       {cart.count>0&&!showCart&&<div style={{position:'fixed',bottom:20,right:14,left:14,zIndex:150}}><button onClick={()=>setShowCart(true)} style={{width:'100%',height:54,background:DS.glassBg,backdropFilter:DS.glassBlur,border:`1px solid ${DS.borderPurple}`,borderRadius:DS.radiusFull,color:DS.textPrimary,fontSize:15,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:10,boxShadow:`0 12px 40px rgba(0,0,0,0.4), 0 0 0 1px ${DS.borderPurple}`}}><ShoppingCart size={18}/>{T('sf.cartN',{count:String(cart.count)})}<span style={{background:DS.purpleSoft,borderRadius:DS.radiusFull,padding:'4px 14px',fontSize:13,fontWeight:700,color:DS.purpleLight}}>{cart.total.toLocaleString()} {cur}</span></button></div>}

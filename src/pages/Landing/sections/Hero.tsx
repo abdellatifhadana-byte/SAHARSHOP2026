@@ -63,7 +63,7 @@ export default function Hero() {
                 <div style={{ width: 28, height: 28, borderRadius: 8, background: `linear-gradient(135deg, ${C.orange}, ${C.purple})` }} />
                 <div>
                   <div style={{ fontSize: 11.5, fontWeight: 900, color: C.ink }}>{tx('previewHint')}</div>
-                  <div style={{ fontSize: 9, color: C.ink3, fontWeight: 700 }}>sahar.shop/store</div>
+                  <div style={{ fontSize: 9, color: C.ink3, fontWeight: 700 }}>amanzine.shop/store</div>
                 </div>
                 <span style={{ marginInlineStart: 'auto', display: 'flex', alignItems: 'center', gap: 4, fontSize: 9.5, fontWeight: 800, color: C.green, background: `${C.green}1a`, borderRadius: 99, padding: '3px 9px' }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: C.green, animation: 'lpShimmer 2s ease infinite' }} /> online</span>
               </div>

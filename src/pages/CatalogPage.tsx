@@ -69,7 +69,7 @@ export default function CatalogPage() {
       <main style={{ position: 'relative', zIndex: 1, maxWidth: 1100, margin: '0 auto', padding: '20px 16px' }}>
         {/* Hero */}
         <div style={{ textAlign: 'center', padding: '24px 16px 20px', marginBottom: 24 }}>
-          <img src="/logo-sahar.png" alt="Sahar Shop" style={{ width: 60, height: 60, margin: '0 auto 12px', display: 'block', filter: 'drop-shadow(0 0 12px rgba(249,115,22,0.4))' }} />
+          <img src="/amanzine-logo.svg" alt="Sahar Shop" style={{ width: 60, height: 60, margin: '0 auto 12px', display: 'block', filter: 'drop-shadow(0 0 12px rgba(249,115,22,0.4))' }} />
           <h1 style={{ fontSize: 26, fontWeight: 900, color: 'var(--txt-1)', marginBottom: 8 }}>
             🛍️ منتجات Sahar Shop
           </h1>
@@ -171,7 +171,7 @@ export default function CatalogPage() {
 
         {/* Footer */}
         <div style={{ textAlign: 'center', marginTop: 40, padding: '24px 20px', borderTop: '1px solid var(--clr-border)', background: 'rgba(0,0,0,0.2)', borderRadius: 16 }}>
-          <img src="/logo-sahar.png" alt="Sahar Shop" style={{ width: 40, height: 40, margin: '0 auto 10px', display: 'block' }} />
+          <img src="/amanzine-logo.svg" alt="Sahar Shop" style={{ width: 40, height: 40, margin: '0 auto 10px', display: 'block' }} />
           <p style={{ fontSize: 16, fontWeight: 900, color: 'var(--txt-1)', marginBottom: 4 }}>Sahar Shop</p>
           <p style={{ fontSize: 12, color: 'var(--txt-3)', marginBottom: 12 }}>ملابس · أحذية · إكسسوارات — رجال، نساء، أطفال</p>
           <div style={{ display: 'flex', justifyContent: 'center', gap: 16, flexWrap: 'wrap', marginBottom: 12 }}>

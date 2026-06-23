@@ -203,15 +203,15 @@ export default function AuthPage() {
               animation: 'float 4s ease-in-out infinite',
             }} />
             {logoErr
-              ? <span style={{ fontSize: 40, fontWeight: 900, color: '#FF7A00' }}>S</span>
-              : <img src="/sahar-logo-text.png" alt="SAHAR shop"
+              ? <span style={{ fontSize: 40, fontWeight: 900, color: '#FF7A00' }}>A</span>
+              : <img src="/amanzine-logo.svg" alt="AMANZINE"
                   style={{ width: '84%', height: '84%', objectFit: 'contain', position: 'relative' }}
                   onError={() => setLogoErr(true)}
                 />
             }
           </div>
           <h1 style={{ fontSize: 24, fontWeight: 900, color: DS.text, marginBottom: 4, letterSpacing: '-0.02em' }}>
-            <span style={{ color: '#FF7A00' }}>SAHAR</span> shop
+            <span style={{ color: '#FF7A00' }}>AMANZINE</span>
           </h1>
           <p style={{ color: DS.text3, fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', fontWeight: 600 }}>
             AI Commerce OS

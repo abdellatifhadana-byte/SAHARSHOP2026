@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="AMANZINE">
+  <defs>
+    <linearGradient id="amz" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FF7A2F"/>
+      <stop offset=".5" stop-color="#C75B39"/>
+      <stop offset="1" stop-color="#E8A317"/>
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="30" fill="url(#amz)"/>
+  <!-- زخرفة زليج خفيفة في الزاوية -->
+  <g fill="none" stroke="#ffffff" stroke-width="2" opacity=".18">
+    <rect x="92" y="92" width="22" height="22" transform="rotate(45 103 103)"/>
+  </g>
+  <!-- شعار الحرف A -->
+  <g stroke="#ffffff" stroke-width="13" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <path d="M40 99 L64 33 L88 99"/>
+    <path d="M50 76 H78"/>
+  </g>
+</svg>

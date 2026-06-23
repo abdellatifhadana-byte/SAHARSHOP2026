@@ -72,7 +72,7 @@ export default function Onboarding() {
       padding: '20px 16px', position: 'relative', overflow: 'hidden', zIndex: 1,
     }}>
       {/* Background image — branded, professional */}
-      <div style={{ position: 'fixed', inset: 0, zIndex: 0, backgroundImage: 'url(/sahar-banner-wide.png)', backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.10, filter: 'blur(2px)' }} />
+      <div style={{ position: 'fixed', inset: 0, zIndex: 0, backgroundImage: 'url(/amanzine-logo.svg)', backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.10, filter: 'blur(2px)' }} />
       <div style={{ position: 'fixed', inset: 0, zIndex: 0, background: 'linear-gradient(180deg, rgba(10,22,40,.88), rgba(10,22,40,.96))' }} />
 
       <div style={{ position: 'relative', width: '100%', maxWidth: 440 }}>
@@ -98,11 +98,11 @@ export default function Onboarding() {
           {step === 'welcome' && (
             <div style={{ textAlign: 'center' }}>
               <div style={{ width: 84, height: 84, margin: '0 auto 16px', borderRadius: 22, overflow: 'hidden', background: 'rgba(255,106,0,.1)', border: '1.5px solid rgba(255,106,0,.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 30px rgba(255,106,0,.2)' }}>
-                <img src="/sahar-logo-text.png" alt="SAHAR" style={{ width: '82%', height: '82%', objectFit: 'contain' }}
+                <img src="/amanzine-logo.svg" alt="AMANZINE" style={{ width: '82%', height: '82%', objectFit: 'contain' }}
                   onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; (e.currentTarget.parentElement as HTMLElement).innerHTML = '<span style="font-size:34px;font-weight:900;color:#FF6A00">S</span>'; }} />
               </div>
               <h1 style={{ fontSize: 26, fontWeight: 900, marginBottom: 10, color: 'var(--ink1)' }}>
-                مرحباً في <span style={{ color: '#FF6A00' }}>SAHAR shop</span>
+                مرحباً في <span style={{ color: '#FF6A00' }}>AMANZINE</span>
               </h1>
               <p style={{ fontSize: 14, color: 'var(--ink2)', lineHeight: 1.8, marginBottom: 24 }}>
                 سنجهّز متجرك في أقل من دقيقة. أجب عن أسئلة بسيطة فقط — يمكنك تغيير كل شيء لاحقاً.

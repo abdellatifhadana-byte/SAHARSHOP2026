@@ -22,9 +22,9 @@ export default function Header() {
     <header style={{ position: 'sticky', top: 0, zIndex: 50, height: 64, padding: '0 clamp(14px,4vw,40px)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: scrolled ? 'rgba(248,250,252,0.85)' : 'transparent', backdropFilter: scrolled ? 'blur(16px)' : 'none', WebkitBackdropFilter: scrolled ? 'blur(16px)' : 'none', borderBottom: `1px solid ${scrolled ? C.border : 'transparent'}`, transition: 'background .3s, border-color .3s', animation: 'lpIn .5s ease both' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <div style={{ width: 38, height: 38, borderRadius: 11, background: `linear-gradient(135deg, ${C.orange}, ${C.orangeD})`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 8px 18px ${C.orange}44`, overflow: 'hidden' }}>
-          <img src="/sahar-logo-text.png" alt="SAHAR" style={{ width: '78%', height: '78%', objectFit: 'contain' }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; (e.currentTarget.parentElement as HTMLElement).innerHTML = '<span style="font-size:17px;font-weight:900;color:#fff">S</span>'; }} />
+          <img src="/amanzine-logo.svg" alt="AMANZINE" style={{ width: '78%', height: '78%', objectFit: 'contain' }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; (e.currentTarget.parentElement as HTMLElement).innerHTML = '<span style="font-size:17px;font-weight:900;color:#fff">A</span>'; }} />
         </div>
-        <span style={{ fontWeight: 900, fontSize: 16.5, letterSpacing: '-0.02em', color: C.ink }}><span style={{ color: C.orange }}>SAHAR</span> shop</span>
+        <span style={{ fontWeight: 900, fontSize: 16.5, letterSpacing: '-0.02em', color: C.ink }}><span style={{ color: C.orange }}>AMANZINE</span></span>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <div ref={langRef} style={{ position: 'relative' }}>

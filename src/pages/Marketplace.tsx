@@ -6,7 +6,7 @@ import { pt } from '../i18n/public';
 // السوق المغربي الموحّد (Marketplace) — صفحة عامة (بلا حساب):
 //  • كتالوج الإعلانات المعتمَدة (منتجات + خدمات) مع فلترة.
 //  • زر «انشر إعلانك مجاناً» → نموذج يُرسِل إعلاناً pending للمراجعة.
-//  • متعدّد اللغات: الزبون يختار لغته بنفسه (محفوظة في sahar_lang).
+//  • متعدّد اللغات: الزبون يختار لغته بنفسه (محفوظة في amanzine_lang).
 // إضافية بالكامل — لا تمسّ المتجر/المنتجات/الطلبات الحالية.
 // ════════════════════════════════════════════════════════════
 
@@ -36,7 +36,7 @@ const CITIES = ['الدار البيضاء', 'الرباط', 'مراكش', 'فا
 // لغة الزبون المحفوظة (مشتركة مع المتجر) — أو لغة المتصفّح
 function initialLang(): Lang {
   try {
-    const saved = localStorage.getItem('sahar_lang');
+    const saved = localStorage.getItem('amanzine_lang');
     if (saved && LANGS.some(l => l.code === saved)) return saved as Lang;
     const nav = (navigator.language || 'ar').slice(0, 2);
     if (LANGS.some(l => l.code === nav)) return nav as Lang;
@@ -74,7 +74,7 @@ function LangPicker({ lang, setLang }: { lang: Lang; setLang: (l: Lang) => void 
 
 export default function Marketplace() {
   const [lang, setLangState] = useState<Lang>(initialLang);
-  const setLang = (l: Lang) => { setLangState(l); try { localStorage.setItem('sahar_lang', l); } catch {} };
+  const setLang = (l: Lang) => { setLangState(l); try { localStorage.setItem('amanzine_lang', l); } catch {} };
   const rtl = isRtlLang(lang);
 
   const [listings, setListings] = useState<Listing[]>([]);

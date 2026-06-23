@@ -45,8 +45,8 @@ self.addEventListener('push', e => {
   e.waitUntil(
     self.registration.showNotification(data.title || 'AI Commerce OS', {
       body: data.body || '',
-      icon: '/icon-512.png',
-      badge: '/icon-512.png',
+      icon: '/amanzine-logo.svg',
+      badge: '/amanzine-logo.svg',
       tag: data.tag || 'default',
       data: data.url || '/',
     })

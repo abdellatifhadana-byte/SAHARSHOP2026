@@ -7,11 +7,11 @@ import { SAMPLES, type Listing } from '../data';
 
 // نصوص مُحلّية لهذا القسم (5 لغات)
 const TXT: Record<Lang, { title: string; sub: string; hint: string; dash: string; orders: string; ai: string; visits: string; ord: string; new: string; ship: string; urgent: string; aiQ: string; aiA: string }> = {
-  ar:     { title: 'نظامك كاملاً في مكان واحد', sub: 'جرّبه قبل أن تسجّل — اسحب أي نافذة بشريطها العلوي.', hint: '👆 اسحب النوافذ', dash: 'لوحة التحكم', orders: 'الطلبات الحيّة', ai: 'مساعد SAHAR', visits: 'الزيارات', ord: 'الطلبات', new: 'جديد', ship: 'شُحن', urgent: 'عاجل', aiQ: 'بغيت تليفون سامسونج', aiA: '🌟 هاهوما أحسن 3 هواتف متوفرة دابا…' },
-  darija: { title: 'نظامك كامل ف بلاصة وحدة', sub: 'جرّبو قبل ما تسجّل — جرّ أي نافذة من الشريط ديالها.', hint: '👆 جرّ النوافذ', dash: 'لوحة التحكم', orders: 'الطلبات مباشرة', ai: 'مساعد SAHAR', visits: 'الزيارات', ord: 'الطلبات', new: 'جديد', ship: 'تشحن', urgent: 'عاجل', aiQ: 'بغيت تليفون سامسونج', aiA: '🌟 هاهوما أحسن 3 هواتف موجودين دابا…' },
-  fr:     { title: 'Tout votre système au même endroit', sub: 'Essayez avant de vous inscrire — glissez une fenêtre par sa barre.', hint: '👆 Glissez les fenêtres', dash: 'Tableau de bord', orders: 'Commandes en direct', ai: 'Assistant SAHAR', visits: 'Visites', ord: 'Commandes', new: 'Nouveau', ship: 'Expédié', urgent: 'Urgent', aiQ: 'Je veux un téléphone Samsung', aiA: '🌟 Voici les 3 meilleurs téléphones dispo…' },
-  en:     { title: 'Your whole system in one place', sub: 'Try it before signing up — drag any window by its top bar.', hint: '👆 Drag the windows', dash: 'Dashboard', orders: 'Live orders', ai: 'SAHAR assistant', visits: 'Visits', ord: 'Orders', new: 'New', ship: 'Shipped', urgent: 'Urgent', aiQ: 'I want a Samsung phone', aiA: '🌟 Here are the top 3 phones in stock…' },
-  zh:     { title: '你的整个系统集于一处', sub: '注册前先试用 — 拖动任意窗口的顶栏。', hint: '👆 拖动窗口', dash: '控制台', orders: '实时订单', ai: 'SAHAR 助手', visits: '访问', ord: '订单', new: '新', ship: '已发货', urgent: '紧急', aiQ: '我想要三星手机', aiA: '🌟 以下是有货的前 3 款手机…' },
+  ar:     { title: 'نظامك كاملاً في مكان واحد', sub: 'جرّبه قبل أن تسجّل — اسحب أي نافذة بشريطها العلوي.', hint: '👆 اسحب النوافذ', dash: 'لوحة التحكم', orders: 'الطلبات الحيّة', ai: 'مساعد AMANZINE', visits: 'الزيارات', ord: 'الطلبات', new: 'جديد', ship: 'شُحن', urgent: 'عاجل', aiQ: 'بغيت تليفون سامسونج', aiA: '🌟 هاهوما أحسن 3 هواتف متوفرة دابا…' },
+  darija: { title: 'نظامك كامل ف بلاصة وحدة', sub: 'جرّبو قبل ما تسجّل — جرّ أي نافذة من الشريط ديالها.', hint: '👆 جرّ النوافذ', dash: 'لوحة التحكم', orders: 'الطلبات مباشرة', ai: 'مساعد AMANZINE', visits: 'الزيارات', ord: 'الطلبات', new: 'جديد', ship: 'تشحن', urgent: 'عاجل', aiQ: 'بغيت تليفون سامسونج', aiA: '🌟 هاهوما أحسن 3 هواتف موجودين دابا…' },
+  fr:     { title: 'Tout votre système au même endroit', sub: 'Essayez avant de vous inscrire — glissez une fenêtre par sa barre.', hint: '👆 Glissez les fenêtres', dash: 'Tableau de bord', orders: 'Commandes en direct', ai: 'Assistant AMANZINE', visits: 'Visites', ord: 'Commandes', new: 'Nouveau', ship: 'Expédié', urgent: 'Urgent', aiQ: 'Je veux un téléphone Samsung', aiA: '🌟 Voici les 3 meilleurs téléphones dispo…' },
+  en:     { title: 'Your whole system in one place', sub: 'Try it before signing up — drag any window by its top bar.', hint: '👆 Drag the windows', dash: 'Dashboard', orders: 'Live orders', ai: 'AMANZINE assistant', visits: 'Visits', ord: 'Orders', new: 'New', ship: 'Shipped', urgent: 'Urgent', aiQ: 'I want a Samsung phone', aiA: '🌟 Here are the top 3 phones in stock…' },
+  zh:     { title: '你的整个系统集于一处', sub: '注册前先试用 — 拖动任意窗口的顶栏。', hint: '👆 拖动窗口', dash: '控制台', orders: '实时订单', ai: 'AMANZINE 助手', visits: '访问', ord: '订单', new: '新', ship: '已发货', urgent: '紧急', aiQ: '我想要三星手机', aiA: '🌟 以下是有货的前 3 款手机…' },
 };
 
 export default function OSPreview() {
@@ -90,7 +90,7 @@ export default function OSPreview() {
             </div>
           </div>
 
-          {/* مساعد SAHAR */}
+          {/* مساعد AMANZINE */}
           <div className="oswin osw3" data-drag style={winStyle}>
             <div data-bar style={barStyle}>{dot('#FF5F57')}{dot('#FEBC2E')}{dot('#28C840')}<span style={title}>🤖 {x.ai}</span></div>
             <div style={{ padding: 14 }}>

@@ -1,5 +1,5 @@
 // ══════════════════════════════════════════════════════
-// SAHAR SHOP — Sound System
+// AMANZINE SHOP — Sound System
 // Beautiful, calming notification sounds
 // ══════════════════════════════════════════════════════
 

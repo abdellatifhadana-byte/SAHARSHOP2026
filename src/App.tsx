@@ -52,16 +52,16 @@ const LOADING_MSGS: Record<string, [string, string]> = {
   settings:      ['جاري تحميل الإعدادات...', 'نجلب إعدادات متجرك المحفوظة'],
 };
 
-// شعار SAHAR الرسمي (sahar-logo-text.png) داخل بلاطة متوهجة — مع تراجع
+// شعار AMANZINE الرسمي (amanzine-logo.svg) داخل بلاطة متوهجة — مع تراجع
 // تلقائي لأيقونة التطبيق ثم لحرف S إن تعذر تحميل الصورة
 function BrandLogo({ size = 46, radius = 14, style }: { size?: number; radius?: number; style?: React.CSSProperties }) {
   return (
     <div style={{ width: size, height: size, borderRadius: radius, overflow: 'hidden', background: 'rgba(255,106,0,0.08)', border: '1.5px solid rgba(255,106,0,0.32)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 24px rgba(255,106,0,0.2)', flexShrink: 0, ...style }}>
-      <img src="/sahar-logo-text.png" alt="SAHAR"
+      <img src="/amanzine-logo.svg" alt="AMANZINE"
         style={{ width: '82%', height: '82%', objectFit: 'contain' }}
         onError={e => {
           const img = e.currentTarget as HTMLImageElement;
-          if (!img.dataset.fb) { img.dataset.fb = '1'; img.src = '/icon-512.png'; }
+          if (!img.dataset.fb) { img.dataset.fb = '1'; img.src = '/amanzine-logo.svg'; }
           else { img.style.display = 'none'; (img.parentElement as HTMLElement).innerHTML = `<span style="font-size:${Math.round(size * 0.42)}px;font-weight:900;color:#FF6A00">S</span>`; }
         }} />
     </div>
@@ -71,12 +71,12 @@ function BrandLogo({ size = 46, radius = 14, style }: { size?: number; radius?: 
 // سبلاش الشعار — يظهر مرة واحدة في الجلسة ثم يختفي ويكشف التطبيق
 function SplashScreen() {
   const [phase, setPhase] = useState<'show' | 'fade' | 'done'>(() => {
-    try { return sessionStorage.getItem('sahar_splash') ? 'done' : 'show'; } catch { return 'show'; }
+    try { return sessionStorage.getItem('amanzine_splash') ? 'done' : 'show'; } catch { return 'show'; }
   });
   useEffect(() => {
     if (phase !== 'show') return;
     const t1 = setTimeout(() => setPhase('fade'), 2400);
-    const t2 = setTimeout(() => { try { sessionStorage.setItem('sahar_splash', '1'); } catch {} setPhase('done'); }, 3100);
+    const t2 = setTimeout(() => { try { sessionStorage.setItem('amanzine_splash', '1'); } catch {} setPhase('done'); }, 3100);
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [phase]);
   if (phase === 'done') return null;
@@ -85,7 +85,7 @@ function SplashScreen() {
       <style>{`@keyframes splashLogo{0%{transform:scale(.55);opacity:0}55%{transform:scale(1.07);opacity:1}100%{transform:scale(1)}}@keyframes splashGlow{0%,100%{box-shadow:0 0 36px rgba(255,106,0,.25)}50%{box-shadow:0 0 90px rgba(255,106,0,.55)}}@keyframes splashText{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}`}</style>
       <BrandLogo size={108} radius={28} style={{ border: '2px solid rgba(255,106,0,0.4)', animation: 'splashLogo 1.1s cubic-bezier(.16,1,.3,1) both, splashGlow 2.2s ease infinite' }} />
       <div style={{ textAlign: 'center', animation: 'splashText .8s .45s ease both' }}>
-        <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.02em', color: '#FAFAFA', fontFamily: 'Tajawal, system-ui, sans-serif' }}><span style={{ color: '#FF6A00' }}>SAHAR</span> shop</div>
+        <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.02em', color: '#FAFAFA', fontFamily: 'Tajawal, system-ui, sans-serif' }}><span style={{ color: '#FF6A00' }}>AMANZINE</span></div>
         <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.5)', marginTop: 7, fontWeight: 600, fontFamily: 'Tajawal, system-ui, sans-serif' }}>منصة المغرب الذكية للبيع والخدمات والحجوزات</div>
       </div>
     </div>
