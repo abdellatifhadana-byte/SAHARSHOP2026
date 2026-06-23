@@ -16,6 +16,7 @@ import Pricing from './sections/Pricing';
 import FAQ from './sections/FAQ';
 import FinalCTA from './sections/FinalCTA';
 import Footer from './sections/Footer';
+export { default as HeroVideo } from './sections/HeroVideo';
 
 // نقش زاوية (نجمة مغربية) يظهر على البطاقات عند التحويم — مبنيّ من ألوان الثيم
 const NAQSH_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='66' height='66'><g fill='none' stroke='${C.orange}' stroke-width='1.3'><rect x='18' y='18' width='30' height='30'/><rect x='18' y='18' width='30' height='30' transform='rotate(45 33 33)'/></g><circle cx='33' cy='33' r='6' fill='none' stroke='${C.blue}' stroke-width='1.3'/></svg>`;
