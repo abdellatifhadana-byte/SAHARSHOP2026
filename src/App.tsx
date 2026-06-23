@@ -52,38 +52,18 @@ const LOADING_MSGS: Record<string, [string, string]> = {
   settings:      ['جاري تحميل الإعدادات...', 'نجلب إعدادات متجرك المحفوظة'],
 };
 
-// شعار AMANZINE الرسمي (PNG) داخل بلاطة متوهجة — مع تراجع تلقائي
+// شعار AMANZINE الرسمي (amanzine-logo.svg) داخل بلاطة متوهجة — مع تراجع
+// تلقائي لأيقونة التطبيق ثم لحرف S إن تعذر تحميل الصورة
 function BrandLogo({ size = 46, radius = 14, style }: { size?: number; radius?: number; style?: React.CSSProperties }) {
   return (
-    <div style={{ 
-      width: size, 
-      height: size, 
-      borderRadius: radius, 
-      overflow: 'hidden', 
-      background: 'rgba(255,106,0,0.08)', 
-      border: '1.5px solid rgba(255,106,0,0.32)', 
-      display: 'flex', 
-      alignItems: 'center', 
-      justifyContent: 'center', 
-      boxShadow: '0 0 24px rgba(255,106,0,0.2)', 
-      flexShrink: 0, 
-      ...style 
-    }}>
-      <img 
-        src="/amanzine-logo-new-v2.png" 
-        alt="AMANZINE"
+    <div style={{ width: size, height: size, borderRadius: radius, overflow: 'hidden', background: 'rgba(255,106,0,0.08)', border: '1.5px solid rgba(255,106,0,0.32)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 24px rgba(255,106,0,0.2)', flexShrink: 0, ...style }}>
+      <img src="/amanzine-logo.svg" alt="AMANZINE"
         style={{ width: '82%', height: '82%', objectFit: 'contain' }}
         onError={e => {
           const img = e.currentTarget as HTMLImageElement;
-          if (!img.dataset.fb) { 
-            img.dataset.fb = '1'; 
-            img.src = '/amanzine-logo-new.png'; 
-          } else { 
-            img.style.display = 'none'; 
-            (img.parentElement as HTMLElement).innerHTML = `<span style="font-size:${Math.round(size * 0.42)}px;font-weight:900;color:#FF6A00">A</span>`;
-          }
-        }} 
-      />
+          if (!img.dataset.fb) { img.dataset.fb = '1'; img.src = '/amanzine-logo.svg'; }
+          else { img.style.display = 'none'; (img.parentElement as HTMLElement).innerHTML = `<span style="font-size:${Math.round(size * 0.42)}px;font-weight:900;color:#FF6A00">S</span>`; }
+        }} />
     </div>
   );
 }
@@ -101,34 +81,12 @@ function SplashScreen() {
   }, [phase]);
   if (phase === 'done') return null;
   return (
-    <div style={{ 
-      position: 'fixed', inset: 0, zIndex: 99999, background: '#0A0A0F', 
-      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', 
-      gap: 20, opacity: phase === 'fade' ? 0 : 1, transition: 'opacity 0.7s ease', 
-      pointerEvents: phase === 'fade' ? 'none' : 'auto' 
-    }}>
-      <style>{`
-        @keyframes splashLogo{0%{transform:scale(.55);opacity:0}55%{transform:scale(1.07);opacity:1}100%{transform:scale(1)}}
-        @keyframes splashGlow{0%,100%{box-shadow:0 0 36px rgba(255,106,0,.25)}50%{box-shadow:0 0 90px rgba(255,106,0,.55)}}
-        @keyframes splashText{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
-      `}</style>
-      <BrandLogo size={108} radius={28} style={{ 
-        border: '2px solid rgba(255,106,0,0.4)', 
-        animation: 'splashLogo 1.1s cubic-bezier(.16,1,.3,1) both, splashGlow 2.2s ease infinite' 
-      }} />
+    <div style={{ position: 'fixed', inset: 0, zIndex: 99999, background: '#0A0A0F', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 20, opacity: phase === 'fade' ? 0 : 1, transition: 'opacity 0.7s ease', pointerEvents: phase === 'fade' ? 'none' : 'auto' }}>
+      <style>{`@keyframes splashLogo{0%{transform:scale(.55);opacity:0}55%{transform:scale(1.07);opacity:1}100%{transform:scale(1)}}@keyframes splashGlow{0%,100%{box-shadow:0 0 36px rgba(255,106,0,.25)}50%{box-shadow:0 0 90px rgba(255,106,0,.55)}}@keyframes splashText{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}`}</style>
+      <BrandLogo size={108} radius={28} style={{ border: '2px solid rgba(255,106,0,0.4)', animation: 'splashLogo 1.1s cubic-bezier(.16,1,.3,1) both, splashGlow 2.2s ease infinite' }} />
       <div style={{ textAlign: 'center', animation: 'splashText .8s .45s ease both' }}>
-        <div style={{ 
-          fontSize: 26, fontWeight: 900, letterSpacing: '-0.02em', color: '#FAFAFA', 
-          fontFamily: 'Tajawal, system-ui, sans-serif' 
-        }}>
-          <span style={{ color: '#FF6A00' }}>AMANZINE</span>
-        </div>
-        <div style={{ 
-          fontSize: 12.5, color: 'rgba(255,255,255,0.5)', marginTop: 7, fontWeight: 600, 
-          fontFamily: 'Tajawal, system-ui, sans-serif' 
-        }}>
-          منصة المغرب الذكية للبيع والخدمات والحجوزات
-        </div>
+        <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.02em', color: '#FAFAFA', fontFamily: 'Tajawal, system-ui, sans-serif' }}><span style={{ color: '#FF6A00' }}>AMANZINE</span></div>
+        <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.5)', marginTop: 7, fontWeight: 600, fontFamily: 'Tajawal, system-ui, sans-serif' }}>منصة المغرب الذكية للبيع والخدمات والحجوزات</div>
       </div>
     </div>
   );
@@ -152,6 +110,7 @@ function ThemeManager() {
     if (!manual || manual === 'auto') { const s = getSeasonalTheme(); if (s) html.classList.add(s); }
   }, [settings.design?.theme, (settings as any).design?.seasonalTheme]);
 
+  // Global text direction + lang follow the chosen UI language (ar/darija = RTL).
   const lang = (settings.brand as any)?.language || 'ar';
   useEffect(() => {
     const html = document.documentElement;
@@ -166,19 +125,20 @@ function RouterSync() {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Public routes that RouterSync must NEVER interfere with
   const isPublicRoute = location.pathname.startsWith('/store') ||
     location.pathname.startsWith('/market') ||
     location.pathname.startsWith('/landing') ||
     location.pathname === '/';
 
   useEffect(() => {
-    if (isPublicRoute) return;
+    if (isPublicRoute) return; // Never sync from public routes
     const page = URL_PAGES[location.pathname];
     if (page && page !== currentPage) setPage(page as any);
   }, [location.pathname]);
 
   useEffect(() => {
-    if (isPublicRoute) return;
+    if (isPublicRoute) return; // Never push navigation from public routes
     const url = PAGE_URLS[currentPage];
     if (url && location.pathname !== url) navigate(url, { replace: false });
   }, [currentPage]);
@@ -191,20 +151,19 @@ function AppShell() {
   const location = useLocation();
   const isDemoMode = token === 'demo-token-local';
   const isAuthed   = !!token || isDemoMode;
-  const isPublicRoute = location.pathname.startsWith('/store') || 
-    location.pathname.startsWith('/market') || 
-    location.pathname.startsWith('/landing');
+  // الصفحات العامة (واجهة الزبون) لا تتأثر ببوابة التحميل أو الإعداد الأولي
+  const isPublicRoute = location.pathname.startsWith('/store') || location.pathname.startsWith('/market') || location.pathname.startsWith('/landing');
 
+  // أثناء أول تحميل للبيانات لا نقرر شيئاً — لا نعرض Onboarding قبل وصول
+  // الإعدادات الحقيقية من الخادم، حتى لا يُعاد الإعداد الأولي على جهاز جديد
+  // فتُكتب القيم الافتراضية فوق إعدادات المتجر المحفوظة (مسح الإعدادات).
   if (token && !isDemoMode && !isPublicRoute && isLoading) {
     const pageKey = URL_PAGES[location.pathname] || '';
     const [msgTitle, msgSub] = LOADING_MSGS[pageKey] || ['مرحباً بعودتك 👋', 'جاري تحميل متجرك... نجلب بياناتك المحفوظة'];
     return (
       <>
         <ThemeManager />
-        <div style={{ 
-          minHeight: '100dvh', display: 'flex', flexDirection: 'column', 
-          alignItems: 'center', justifyContent: 'center', gap: 14, padding: 24, textAlign: 'center' 
-        }}>
+        <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, padding: 24, textAlign: 'center' }}>
           <style>{`@keyframes logoPulse{0%,100%{transform:scale(1);box-shadow:0 0 18px rgba(255,106,0,.18)}50%{transform:scale(1.06);box-shadow:0 0 34px rgba(255,106,0,.4)}}`}</style>
           <BrandLogo size={48} radius={15} style={{ animation: 'logoPulse 1.8s ease infinite' }} />
           <div className="spin" style={{ width: 26, height: 26, border: '3px solid var(--border2)', borderTopColor: 'var(--ember)', borderRadius: '50%' }} />
@@ -231,19 +190,24 @@ function AppShell() {
       {isAuthed && <RouterSync />}
       <NotificationToast />
       {isAuthed && <TourGuide />}
+      {/* ambient background handled in CSS body */}
 
       <Routes>
+        {/* ── PUBLIC: Storefront for customers ── */}
         <Route path="/store"          element={<Storefront />} />
         <Route path="/store/:userId"  element={<Storefront />} />
         <Route path="/store/*"        element={<Storefront />} />
 
+        {/* ── PUBLIC: Marketplace (unified catalog + quick-seller) ── */}
         <Route path="/market"         element={<Marketplace />} />
 
+        {/* ── PUBLIC: Landing page (choose: merchant or customer) ── */}
         <Route path="/landing" element={<LandingPage />} />
         <Route path="/auth"    element={isAuthed ? <Navigate to="/dashboard" replace /> : <AuthPage />} />
         <Route path="/login"   element={isAuthed ? <Navigate to="/dashboard" replace /> : <AuthPage />} />
         <Route path="/register"element={isAuthed ? <Navigate to="/dashboard" replace /> : <AuthPage />} />
 
+        {/* ── PROTECTED: Merchant dashboard ── */}
         {['/dashboard','/products','/services','/orders','/messages','/customers',
           '/analytics','/insights','/connections','/delivery','/notifications',
           '/settings','/studio','/editor','/import','/coupons','/guide','/moderation'].map(path => (
@@ -251,12 +215,14 @@ function AppShell() {
             element={isAuthed ? <MainLayout /> : <Navigate to="/login" replace />} />
         ))}
 
+        {/* ── ROOT: Show landing page always at / ── */}
         <Route path="/" element={
           isAuthed
             ? <Navigate to="/dashboard" replace />
             : <LandingPage />
         } />
 
+        {/* ── FALLBACK ── */}
         <Route path="*" element={
           isAuthed ? <Navigate to="/dashboard" replace /> : <LandingPage />
         } />
