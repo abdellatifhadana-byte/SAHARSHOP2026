@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * ================================================================
- * AI Commerce OS — Sahar Shop
+ * AI Commerce OS — AMANZINE
  * Build & Package Script
  * ================================================================
  * هذا السكريبت يقوم بـ:
@@ -44,7 +44,7 @@ function step(num, total, msg) {
 // ── Main Build Function ───────────────────────────────────────
 async function main() {
   log('\n╔═══════════════════════════════════════════════════════╗', 'green');
-  log('║     AI Commerce OS — Sahar Shop  Build Script        ║', 'green');
+  log('║     AI Commerce OS — AMANZINE  Build Script          ║', 'green');
   log('╚═══════════════════════════════════════════════════════╝', 'green');
 
   try {
@@ -77,7 +77,7 @@ async function main() {
     const backendPkg = {
       name: 'ai-commerce-backend',
       version: '1.0.0',
-      description: 'Sahar Shop Backend Server',
+      description: 'AMANZINE Backend Server',
       main: 'server/index.js',
       scripts: { start: 'node server/index.js', dev: 'node server/index.js' },
       dependencies: {
@@ -92,7 +92,7 @@ async function main() {
     };
     fs.writeFileSync(path.join(backendDir, 'package.json'), JSON.stringify(backendPkg, null, 2));
     fs.writeFileSync(path.join(backendDir, '.env.example'), fs.readFileSync(path.join(PROJECT_ROOT, 'server', '.env.example'), 'utf8'));
-    fs.writeFileSync(path.join(backendDir, 'README.md'), `# Sahar Shop Backend\n\nnpm install\nnode server/index.js\n`);
+    fs.writeFileSync(path.join(backendDir, 'README.md'), `# AMANZINE Backend\n\nnpm install\nnode server/index.js\n`);
     log('✅ تم نسخ الخلفية', 'green');
 
     // Step 5: Copy Source Code

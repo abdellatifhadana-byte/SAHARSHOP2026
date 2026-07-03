@@ -84,7 +84,7 @@ export default function ImageEditorPage() {
     sessionStorage.removeItem('editor_store_name');
     
     if (action === 'logo') {
-      // Add Sahar logo as overlay
+      // Add AMANZINE logo as overlay
       setTimeout(() => {
         const logoImg = new window.Image();
         logoImg.crossOrigin = 'anonymous';
@@ -317,7 +317,7 @@ export default function ImageEditorPage() {
             <div style={{ fontSize:11,fontWeight:700,color:'var(--ink3)',marginBottom:8,letterSpacing:'.06em' }}>اللوغو</div>
             <div style={{ display:'flex',flexDirection:'column',gap:6 }}>
               <button onClick={() => {
-                // Load Sahar Shop logo directly
+                // Load AMANZINE logo directly
                 const img = new window.Image();
                 img.crossOrigin = 'anonymous';
                 img.src = '/amanzine-logo.svg';

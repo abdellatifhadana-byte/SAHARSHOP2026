@@ -1,11 +1,9 @@
-// Hero.tsx - Version avec vidéo intégrée
 import { Zap, Check, ChevronDown, Bot, Shield, Headphones } from 'lucide-react';
 import { t } from '../../../i18n/translations';
 import { C } from '../theme';
 import { useLanding } from '../context';
 import { useMagnetic } from '../hooks';
 import { CountUp, ProductCard } from '../components';
-import HeroVideo from './HeroVideo';
 import { SAMPLES } from '../data';
 
 export default function Hero() {
@@ -26,12 +24,21 @@ export default function Hero() {
 
   return (
     <section style={{ position: 'relative', overflow: 'hidden', padding: 'clamp(34px,6vh,68px) clamp(16px,5vw,40px) clamp(26px,5vh,52px)' }}>
-      {/* ... gardez les dégradés d'arrière-plan ... */}
+      {/* فيديو الخلفية — صامت · تشغيل تلقائي · متكرّر */}
+      <video
+        autoPlay muted loop playsInline preload="auto" aria-hidden="true"
+        ref={el => { if (el) el.muted = true; }}
+        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', zIndex: 0, pointerEvents: 'none' }}
+      >
+        <source src="/amanzine-intro.mp4" type="video/mp4" />
+      </video>
+      {/* حجاب كريمي فوق الفيديو ليبقى النص واضحًا */}
+      <div style={{ position: 'absolute', inset: 0, zIndex: 1, background: 'linear-gradient(180deg, rgba(251,247,240,0.82), rgba(251,247,240,0.90))', pointerEvents: 'none' }} />
+      {/* وهج طيني + نعناعي */}
       <div style={{ position: 'absolute', top: '-18%', insetInlineEnd: '-8%', width: 460, height: 460, borderRadius: '50%', background: `radial-gradient(circle, ${C.orange}1f, transparent 70%)`, pointerEvents: 'none' }} />
       <div style={{ position: 'absolute', bottom: '-26%', insetInlineStart: '-10%', width: 440, height: 440, borderRadius: '50%', background: `radial-gradient(circle, ${C.blue}1a, transparent 70%)`, pointerEvents: 'none' }} />
-      
-      <div style={{ position: 'relative', maxWidth: 1160, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%,360px), 1fr))', gap: 'clamp(28px,5vw,56px)', alignItems: 'center' }}>
-        {/* Texte - inchangé */}
+      <div style={{ position: 'relative', zIndex: 2, maxWidth: 1160, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%,360px), 1fr))', gap: 'clamp(28px,5vw,56px)', alignItems: 'center' }}>
+        {/* نص */}
         <div style={{ textAlign: isRtl ? 'right' : 'left', animation: 'lpUp .6s .05s ease both' }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '7px 15px', borderRadius: 99, background: C.surface, border: `1px solid ${C.border}`, boxShadow: C.shadow }}>
             <span style={{ width: 7, height: 7, borderRadius: '50%', background: C.blue, boxShadow: `0 0 0 4px ${C.blue}2e`, animation: 'lpShimmer 2s ease infinite' }} />
@@ -56,47 +63,42 @@ export default function Hero() {
           </div>
         </div>
 
-        {/* REMPLACEMENT : Vidéo + aperçu du store */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, animation: 'lpUp .7s .2s ease both' }}>
-          {/* Vidéo de présentation */}
-          <HeroVideo autoPlay muted loop />
-
-          {/* Petit aperçu du store en dessous (optionnel) */}
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: '1fr 1fr', 
-            gap: 8,
-            background: C.surface,
-            border: `1px solid ${C.border}`,
-            borderRadius: 12,
-            padding: 8,
-            boxShadow: C.shadow,
-          }}>
-            {heroItems.slice(0, 2).map(it => (
-              <div key={it.id} style={{ 
-                background: C.alt, 
-                borderRadius: 8, 
-                padding: '8px 10px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                fontSize: 11,
-                fontWeight: 700,
-                color: C.ink,
-              }}>
-                <span style={{ fontSize: 18 }}>{it.emoji || '🛍️'}</span>
+        {/* معاينة المتجر — بقوس مغربي */}
+        <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', animation: 'lpUp .7s .2s ease both' }}>
+          {/* حجر القوس (keystone) */}
+          <div style={{ position: 'absolute', top: -9, zIndex: 2, width: 18, height: 18, background: `linear-gradient(135deg, ${C.orange}, ${C.purple})`, transform: 'rotate(45deg)', borderRadius: 4, boxShadow: C.shadow }} />
+          <div style={{ animation: 'lpFloat 6s ease-in-out infinite', width: '100%', maxWidth: 400 }}>
+            <div style={{ background: C.surface, border: `1px solid ${C.border}`, boxShadow: C.shadowH, overflow: 'hidden', borderRadius: '130px 130px 22px 22px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '16px 16px 12px', borderBottom: `1px solid ${C.border}`, background: `linear-gradient(${C.alt}, ${C.surface})` }}>
+                <div style={{ width: 28, height: 28, borderRadius: 8, background: `linear-gradient(135deg, ${C.orange}, ${C.purple})` }} />
                 <div>
-                  <div style={{ fontSize: 10, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 80 }}>{it.name}</div>
-                  <div style={{ fontSize: 10, color: C.orange, fontWeight: 900 }}>{it.price} DH</div>
+                  <div style={{ fontSize: 11.5, fontWeight: 900, color: C.ink }}>{tx('previewHint')}</div>
+                  <div style={{ fontSize: 9, color: C.ink3, fontWeight: 700 }}>amanzine.shop/store</div>
                 </div>
+                <span style={{ marginInlineStart: 'auto', display: 'flex', alignItems: 'center', gap: 4, fontSize: 9.5, fontWeight: 800, color: C.green, background: `${C.green}1a`, borderRadius: 99, padding: '3px 9px' }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: C.green, animation: 'lpShimmer 2s ease infinite' }} /> online</span>
               </div>
-            ))}
+              <div style={{ padding: 13, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                {heroItems.map(it => <ProductCard key={it.id} it={it} />)}
+              </div>
+              <div style={{ padding: '0 13px 14px' }}>
+                <div style={{ height: 40, borderRadius: 12, background: `linear-gradient(135deg, ${C.blue}, #16715b)`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 12.5, fontWeight: 800, boxShadow: `0 10px 22px ${C.blue}44` }}>🛒 {isRtl ? 'إتمام الطلب' : 'Checkout'}</div>
+              </div>
+            </div>
+          </div>
+          {/* شريحتان عائمتان */}
+          <div style={{ position: 'absolute', top: 18, insetInlineStart: -6, animation: 'lpFloat2 5s ease-in-out infinite', background: C.surface, border: `1px solid ${C.border}`, boxShadow: C.shadow, borderRadius: 13, padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ width: 26, height: 26, borderRadius: 8, background: `${C.green}1a`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>🔔</div>
+            <div><div style={{ fontSize: 11, fontWeight: 900, color: C.ink }}>+1</div><div style={{ fontSize: 8.5, color: C.ink3, fontWeight: 700 }}>{isRtl ? 'طلب جديد' : 'new order'}</div></div>
+          </div>
+          <div style={{ position: 'absolute', bottom: 14, insetInlineEnd: -6, animation: 'lpFloat 6.5s ease-in-out infinite', background: C.surface, border: `1px solid ${C.border}`, boxShadow: C.shadow, borderRadius: 13, padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ width: 26, height: 26, borderRadius: 8, background: `${C.blue}1a`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Bot size={15} color={C.blue} /></div>
+            <div><div style={{ fontSize: 10, fontWeight: 900, color: C.ink }}>AI</div><div style={{ fontSize: 8.5, color: C.ink3, fontWeight: 700 }}>24/7</div></div>
           </div>
         </div>
       </div>
 
-      {/* ... reste du composant (stats, early-stage, scroll hint) inchangé ... */}
-      <div style={{ position: 'relative', maxWidth: 1000, margin: 'clamp(26px,4vh,44px) auto 0', animation: 'lpUp .7s .3s ease both' }}>
+      {/* شريط الأرقام / Early-stage */}
+      <div style={{ position: 'relative', zIndex: 2, maxWidth: 1000, margin: 'clamp(26px,4vh,44px) auto 0', animation: 'lpUp .7s .3s ease both' }}>
         {established ? (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px,1fr))', gap: 14, padding: '22px', background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20, boxShadow: C.shadow }}>
             {[
@@ -123,7 +125,7 @@ export default function Hero() {
         )}
       </div>
 
-      <div style={{ textAlign: 'center', marginTop: 'clamp(18px,3vh,32px)' }}>
+      <div style={{ position: 'relative', zIndex: 2, textAlign: 'center', marginTop: 'clamp(18px,3vh,32px)' }}>
         <button onClick={() => scrollTo('live')} style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 4, background: 'none', border: 'none', color: C.ink3, cursor: 'pointer', fontFamily: 'inherit', fontSize: 11, fontWeight: 700 }}>{tx('scrollHint')} <ChevronDown size={18} style={{ animation: 'lpBounce 1.8s ease infinite' }} /></button>
       </div>
     </section>

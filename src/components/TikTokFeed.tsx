@@ -104,7 +104,7 @@ export default function TikTokFeed({ products, onOrder, currency }: TikTokFeedPr
           <div className="relative p-6 space-y-4 z-10 text-right">
             <div className="flex items-center gap-2 mb-2">
                <span className="bg-indigo-600 text-white text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider">Top Rated</span>
-               <span className="bg-white/10 backdrop-blur-md text-white/70 text-[10px] font-bold px-2 py-0.5 rounded italic">#SaharShopFashion</span>
+               <span className="bg-white/10 backdrop-blur-md text-white/70 text-[10px] font-bold px-2 py-0.5 rounded italic">#AmanzineFashion</span>
             </div>
             
             <h2 className="text-white text-3xl font-black mb-1 drop-shadow-lg">{product.name}</h2>
@@ -114,7 +114,7 @@ export default function TikTokFeed({ products, onOrder, currency }: TikTokFeedPr
 
             <div className="flex items-center gap-3 py-2 text-indigo-300 font-bold text-sm overflow-hidden whitespace-nowrap">
               <Music2 size={14} />
-              <span className="animate-pulse">Original Sound - Sahar Shop Official - 🔥 Trending Now</span>
+              <span className="animate-pulse">Original Sound - AMANZINE Official - 🔥 Trending Now</span>
             </div>
 
             <div className="flex items-center justify-between gap-4 pt-4">

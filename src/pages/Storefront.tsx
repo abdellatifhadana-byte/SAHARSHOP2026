@@ -262,11 +262,11 @@ function AnimatedBackground() {
 function PageSkeleton() {
   return (
     <div style={{minHeight:'100dvh',background:DS.bg,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:32,gap:24,position:'relative',zIndex:1}}>
-      <div style={{width:56,height:56,borderRadius:16,overflow:'hidden',background:'rgba(255,106,0,0.08)',border:'1.5px solid rgba(255,106,0,0.32)',display:'flex',alignItems:'center',justifyContent:'center',animation:'logoGlow 1.8s ease infinite'}}>
-        <img src="/amanzine-logo.svg" alt="AMANZINE" style={{width:'82%',height:'82%',objectFit:'contain'}}
-          onError={e=>{const img=e.currentTarget as HTMLImageElement;if(!img.dataset.fb){img.dataset.fb='1';img.src='/amanzine-logo.svg';}else{img.style.display='none';(img.parentElement as HTMLElement).innerHTML='<span style="font-size:24px;font-weight:900;color:#FF6A00">S</span>';}}}/>
+      <div style={{width:56,height:56,borderRadius:16,overflow:'hidden',background:'transparent',display:'flex',alignItems:'center',justifyContent:'center',animation:'logoGlow 1.8s ease infinite'}}>
+        <img src="/amanzine-logo.svg" alt="AMANZINE" style={{width:'100%',height:'100%',objectFit:'contain'}}
+          onError={e=>{const img=e.currentTarget as HTMLImageElement;img.style.display='none';(img.parentElement as HTMLElement).innerHTML='<span style="font-size:24px;font-weight:900;color:#006233">A</span>';}}/>
       </div>
-      <style>{`@keyframes logoGlow{0%,100%{transform:scale(1);box-shadow:0 0 20px rgba(255,106,0,.18)}50%{transform:scale(1.05);box-shadow:0 0 40px rgba(255,106,0,.42)}}`}</style>
+      <style>{`@keyframes logoGlow{0%,100%{transform:scale(1);box-shadow:0 0 20px rgba(0,98,51,.18)}50%{transform:scale(1.05);box-shadow:0 0 40px rgba(0,98,51,.42)}}`}</style>
       <div style={{textAlign:'center'}}>
         <div style={{fontSize:16,fontWeight:900,color:DS.textPrimary}}>{T('sf.welcome')}</div>
         <div style={{fontSize:12,color:DS.textTertiary,marginTop:8,lineHeight:1.8,fontWeight:600}}>{T('sf.loading1')}<br/>{T('sf.loading2')}</div>

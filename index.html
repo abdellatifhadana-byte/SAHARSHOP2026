@@ -223,8 +223,8 @@
         overflow: hidden;
         background: rgba(10,10,15,0.9);
         box-shadow: 
-          0 0 0 1px rgba(255,106,0,0.3),
-          0 24px 64px rgba(255,106,0,0.18),
+          0 0 0 1px rgba(0,98,51,0.3),
+          0 24px 64px rgba(0,98,51,0.18),
           0 8px 24px rgba(0,0,0,0.6);
         margin-bottom: 26px;
         display: flex;
@@ -240,9 +240,9 @@
         inset: -4px;
         border-radius: 34px;
         border: 2px solid transparent;
-        border-top-color: rgba(255,106,0,0.6);
-        border-right-color: rgba(124,58,237,0.4);
-        border-bottom-color: rgba(0,210,179,0.3);
+        border-top-color: rgba(0,98,51,0.6);
+        border-right-color: rgba(193,39,45,0.45);
+        border-bottom-color: rgba(31,165,101,0.3);
         animation: ringSpin 4s linear infinite;
         pointer-events: none;
       }
@@ -257,7 +257,7 @@
         position: absolute;
         inset: 6px;
         border-radius: 24px;
-        box-shadow: inset 0 0 20px rgba(255,106,0,0.1);
+        box-shadow: inset 0 0 20px rgba(0,98,51,0.1);
         animation: innerGlow 3s ease-in-out infinite;
         pointer-events: none;
       }
@@ -279,7 +279,7 @@
       #splash-logo-fallback {
         font-size: 58px;
         font-weight: 900;
-        background: linear-gradient(135deg, #FF6A00, #FFB347, #FF6A00);
+        background: linear-gradient(135deg, #1FA565, #E0524C, #1FA565);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
@@ -300,8 +300,12 @@
       }
 
       #splash-title span {
-        color: #FF6A00;
-        text-shadow: 0 0 30px rgba(255,106,0,0.5);
+        color: #1FA565;
+        text-shadow: 0 0 30px rgba(31,165,101,0.45);
+      }
+      #splash-title span.z {
+        color: #E0524C;
+        text-shadow: 0 0 30px rgba(224,82,76,0.45);
       }
 
       /* ── Subtitle ── */
@@ -463,11 +467,11 @@
         <div id="splash-logo-wrap">
           <img id="splash-logo" src="/amanzine-logo.svg" alt="AMANZINE"
             onerror="this.style.display='none';document.getElementById('splash-logo-fallback').style.display='block'" />
-          <div id="splash-logo-fallback">S</div>
+          <div id="splash-logo-fallback">A</div>
         </div>
 
         <!-- Title -->
-        <div id="splash-title"><span>AMANZINE</span></div>
+        <div id="splash-title"><span>AMAN</span><span class="z">Z</span><span>INE</span></div>
         <div id="splash-sub">AI Commerce OS</div>
 
         <!-- Progress -->

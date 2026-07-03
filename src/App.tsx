@@ -52,17 +52,16 @@ const LOADING_MSGS: Record<string, [string, string]> = {
   settings:      ['جاري تحميل الإعدادات...', 'نجلب إعدادات متجرك المحفوظة'],
 };
 
-// شعار AMANZINE الرسمي (amanzine-logo.svg) داخل بلاطة متوهجة — مع تراجع
-// تلقائي لأيقونة التطبيق ثم لحرف S إن تعذر تحميل الصورة
+// شعار AMANZINE الرسمي (amanzine-logo.svg) — مع تراجع تلقائي
+// إلى حرف A إن تعذّر تحميل الصورة
 function BrandLogo({ size = 46, radius = 14, style }: { size?: number; radius?: number; style?: React.CSSProperties }) {
   return (
-    <div style={{ width: size, height: size, borderRadius: radius, overflow: 'hidden', background: 'rgba(255,106,0,0.08)', border: '1.5px solid rgba(255,106,0,0.32)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 24px rgba(255,106,0,0.2)', flexShrink: 0, ...style }}>
+    <div style={{ width: size, height: size, borderRadius: radius, overflow: 'hidden', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, ...style }}>
       <img src="/amanzine-logo.svg" alt="AMANZINE"
-        style={{ width: '82%', height: '82%', objectFit: 'contain' }}
+        style={{ width: '100%', height: '100%', objectFit: 'contain' }}
         onError={e => {
           const img = e.currentTarget as HTMLImageElement;
-          if (!img.dataset.fb) { img.dataset.fb = '1'; img.src = '/amanzine-logo.svg'; }
-          else { img.style.display = 'none'; (img.parentElement as HTMLElement).innerHTML = `<span style="font-size:${Math.round(size * 0.42)}px;font-weight:900;color:#FF6A00">S</span>`; }
+          img.style.display = 'none'; (img.parentElement as HTMLElement).innerHTML = `<span style="font-size:${Math.round(size * 0.42)}px;font-weight:900;color:#006233">A</span>`;
         }} />
     </div>
   );

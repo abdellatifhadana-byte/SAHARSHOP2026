@@ -1,12 +1,12 @@
 #!/bin/bash
 # ================================================================
-# AI Commerce OS — Sahar Shop
+# AI Commerce OS — AMANZINE
 # Package Script (Mac/Linux)
 # ================================================================
 
 echo ""
 echo "╔═══════════════════════════════════════════════════════╗"
-echo "║     AI Commerce OS — Sahar Shop  Package Script      ║"
+echo "║     AI Commerce OS — AMANZINE  Package Script        ║"
 echo "╚═══════════════════════════════════════════════════════╝"
 
 # Clean

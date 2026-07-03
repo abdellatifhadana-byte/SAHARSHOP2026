@@ -332,7 +332,7 @@ router.post('/test-whatsapp', auth, async (req, res) => {
 
   const https2 = require('https');
   const cleanTo = to.replace(/[\s\-\(\)]/g, '');
-  const msg = `✅ رسالة تجريبية من SAHAR shop\n\nإذا وصلتك هذه الرسالة فإن ربط WhatsApp Business يعمل بشكل صحيح! 🎉\n\nوقت الإرسال: ${new Date().toLocaleString('ar-MA')}`;
+  const msg = `✅ رسالة تجريبية من AMANZINE\n\nإذا وصلتك هذه الرسالة فإن ربط WhatsApp Business يعمل بشكل صحيح! 🎉\n\nوقت الإرسال: ${new Date().toLocaleString('ar-MA')}`;
   const body = JSON.stringify({ messaging_product: 'whatsapp', to: cleanTo, type: 'text', text: { body: msg } });
 
   return new Promise(resolve => {

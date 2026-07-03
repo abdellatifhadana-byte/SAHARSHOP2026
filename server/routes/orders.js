@@ -51,7 +51,7 @@ function _sendBrevoEmail(apiKey, toEmail, toName, subject, html) {
     if (!apiKey || !toEmail) return resolve(false);
     const httpsB = require('https');
     const body = JSON.stringify({
-      sender: { name: 'SAHAR Shop', email: 'noreply@saharshop.store' },
+      sender: { name: 'AMANZINE', email: 'noreply@amanzine.shop' },
       to: [{ email: toEmail, name: toName || toEmail }],
       subject, htmlContent: html,
     });
@@ -272,7 +272,7 @@ router.put('/:id/deliver', auth, async (req, res) => {
 
     const brand = ((await db.getSettings(req.user.id))||{}).brand || {};
     const storeBase = process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : '';
-    const reviewMsg = `🎉 مبروك ${o.customerName}!\n\nوصل طلبك بنجاح من ${brand.name||'SAHAR shop'} 📦\n\nنتمنى يكون عجبك كلشي 💛\n\n⭐ كنفرحو بتقييمك:\n• كيف كانت جودة المنتج؟\n• كيف كانت سرعة التوصيل؟\n• هل ستوصي بنا لأصدقائك؟\n\nرأيك مهم جداً لنا 🙏\n${storeBase ? '🔗 ' + storeBase + '/store/' + req.user.id : ''}\n\nشكراً لثقتك! 💫\n— ${brand.name||'SAHAR shop'} ✨`;
+    const reviewMsg = `🎉 مبروك ${o.customerName}!\n\nوصل طلبك بنجاح من ${brand.name||'AMANZINE'} 📦\n\nنتمنى يكون عجبك كلشي 💛\n\n⭐ كنفرحو بتقييمك:\n• كيف كانت جودة المنتج؟\n• كيف كانت سرعة التوصيل؟\n• هل ستوصي بنا لأصدقائك؟\n\nرأيك مهم جداً لنا 🙏\n${storeBase ? '🔗 ' + storeBase + '/store/' + req.user.id : ''}\n\nشكراً لثقتك! 💫\n— ${brand.name||'AMANZINE'} ✨`;
     const waPhone = (o.customerPhone||'').replace(/\D/g,'');
     const reviewWaUrl = waPhone ? 'https://wa.me/' + waPhone + '?text=' + encodeURIComponent(reviewMsg) : null;
 

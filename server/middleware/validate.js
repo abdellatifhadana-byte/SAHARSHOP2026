@@ -1,6 +1,6 @@
 'use strict';
 /**
- * Input validation middleware for SAHAR SHOP
+ * Input validation middleware for AMANZINE SHOP
  * Protects against XSS, injection, oversized payloads
  */
 

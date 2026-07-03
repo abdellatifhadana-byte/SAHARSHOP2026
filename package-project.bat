@@ -4,7 +4,7 @@ color 0A
 
 echo.
 echo ╔═══════════════════════════════════════════════════════╗
-echo ║     AI Commerce OS - Sahar Shop  Package Script      ║
+echo ║     AI Commerce OS - AMANZINE  Package Script        ║
 echo ╚═══════════════════════════════════════════════════════╝
 
 echo.

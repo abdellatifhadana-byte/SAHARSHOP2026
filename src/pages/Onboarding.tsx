@@ -97,12 +97,22 @@ export default function Onboarding() {
           {/* WELCOME */}
           {step === 'welcome' && (
             <div style={{ textAlign: 'center' }}>
-              <div style={{ width: 84, height: 84, margin: '0 auto 16px', borderRadius: 22, overflow: 'hidden', background: 'rgba(255,106,0,.1)', border: '1.5px solid rgba(255,106,0,.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 30px rgba(255,106,0,.2)' }}>
-                <img src="/amanzine-logo.svg" alt="AMANZINE" style={{ width: '82%', height: '82%', objectFit: 'contain' }}
-                  onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; (e.currentTarget.parentElement as HTMLElement).innerHTML = '<span style="font-size:34px;font-weight:900;color:#FF6A00">S</span>'; }} />
+              <div style={{ width: 84, height: 84, margin: '0 auto 16px', borderRadius: 22, overflow: 'hidden', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <img src="/amanzine-logo.svg" alt="AMANZINE" style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                  onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; (e.currentTarget.parentElement as HTMLElement).innerHTML = '<span style="font-size:34px;font-weight:900;color:#006233">A</span>'; }} />
+              </div>
+              {/* فيديو ترحيبي — يعمل صامتًا تلقائيًا، مع أزرار تحكّم لتشغيل الصوت */}
+              <div style={{ position: 'relative', width: '100%', margin: '0 auto 18px', borderRadius: 16, overflow: 'hidden', border: '1px solid var(--border)', boxShadow: '0 12px 32px rgba(0,0,0,.18)', background: '#000' }}>
+                <video
+                  autoPlay muted playsInline controls preload="metadata"
+                  ref={el => { if (el) el.muted = true; }}
+                  style={{ display: 'block', width: '100%', height: 'auto' }}
+                >
+                  <source src="/amanzine-intro.mp4" type="video/mp4" />
+                </video>
               </div>
               <h1 style={{ fontSize: 26, fontWeight: 900, marginBottom: 10, color: 'var(--ink1)' }}>
-                مرحباً في <span style={{ color: '#FF6A00' }}>AMANZINE</span>
+                مرحباً في <span style={{ color: '#1FA565' }}>AMAN<span style={{ color: '#E0524C' }}>Z</span>INE</span>
               </h1>
               <p style={{ fontSize: 14, color: 'var(--ink2)', lineHeight: 1.8, marginBottom: 24 }}>
                 سنجهّز متجرك في أقل من دقيقة. أجب عن أسئلة بسيطة فقط — يمكنك تغيير كل شيء لاحقاً.

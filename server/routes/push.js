@@ -27,7 +27,7 @@ function getVapidKeys() {
 }
 
 const vapid = getVapidKeys();
-const CONTACT = process.env.ADMIN_EMAIL ? `mailto:${process.env.ADMIN_EMAIL}` : 'mailto:admin@sahar.shop';
+const CONTACT = process.env.ADMIN_EMAIL ? `mailto:${process.env.ADMIN_EMAIL}` : 'mailto:admin@amanzine.shop';
 
 webpush.setVapidDetails(CONTACT, vapid.publicKey, vapid.privateKey);
 console.log(`[Push] VAPID public key: ${vapid.publicKey.slice(0, 20)}...`);

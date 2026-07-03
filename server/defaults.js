@@ -2,8 +2,8 @@
 
 const defaultSettings = {
   brand: {
-    logo: '/sahar-logo-text.png',
-    name: 'SAHAR shop',
+    logo: '/amanzine-logo.svg',
+    name: 'AMANZINE',
     description: 'AI commerce OS — نظام تشغيل التجارة الإلكترونية',
     name: 'My Store',
     currency: 'MAD',

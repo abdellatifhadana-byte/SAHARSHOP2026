@@ -54,7 +54,7 @@ function uploadToCloudinary(buffer, options = {}) {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error('Cloudinary upload timed out (30s)')), UPLOAD_TIMEOUT_MS);
     const stream = cloudinary.uploader.upload_stream(
-      { folder: 'sahar-shop', resource_type: 'image', ...options },
+      { folder: 'amanzine', resource_type: 'image', ...options },
       (err, result) => { clearTimeout(timer); err ? reject(err) : resolve(result); }
     );
     stream.on('error', (e) => { clearTimeout(timer); reject(e); });
@@ -65,7 +65,7 @@ function uploadToCloudinary(buffer, options = {}) {
 // ── Dynamic Cloudinary upload using user's DB credentials (no global state) ──
 async function uploadToCloudinaryDynamic(buffer, cloudName, apiKey, apiSecret) {
   const timestamp = Math.round(Date.now() / 1000);
-  const folder = 'sahar-shop';
+  const folder = 'amanzine';
   const sig = crypto.createHash('sha256')
     .update(`folder=${folder}&timestamp=${timestamp}${apiSecret}`)
     .digest('hex');

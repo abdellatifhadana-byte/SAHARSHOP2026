@@ -199,9 +199,9 @@ export default function NavBar() {
       <header className="topnav topnav-desktop">
         {/* Logo */}
         <div className="nav-logo">
-          <div style={{ width: 32, height: 32, borderRadius: 9, overflow: 'hidden', background: 'var(--void)', border: '1px solid rgba(255,255,255,.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 2px 12px rgba(255,106,0,.2)' }}>
-            <img src="/amanzine-logo.svg" alt="S" style={{ width: '88%', height: '88%', objectFit: 'contain' }}
-              onError={e => { const el = e.currentTarget as HTMLImageElement; el.style.display = 'none'; (el.parentElement as HTMLElement).innerHTML = '<span style="font-size:14px;font-weight:900;color:#FF6A00;font-family:monospace">A</span>'; }} />
+          <div style={{ width: 32, height: 32, borderRadius: 9, overflow: 'hidden', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <img src="/amanzine-logo.svg" alt="AMANZINE" style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+              onError={e => { const el = e.currentTarget as HTMLImageElement; el.style.display = 'none'; (el.parentElement as HTMLElement).innerHTML = '<span style="font-size:14px;font-weight:900;color:#006233;font-family:monospace">A</span>'; }} />
           </div>
           <span className="nav-brand">{settings.brand.name || 'AMANZINE'}</span>
         </div>
@@ -287,9 +287,9 @@ export default function NavBar() {
       {/* ══ MOBILE TOP BAR ══ */}
       <header className="topnav topnav-mobile">
         <div className="nav-logo">
-          <div style={{ width: 28, height: 28, borderRadius: 8, overflow: 'hidden', background: 'var(--void)', border: '1px solid rgba(255,255,255,.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <img src="/amanzine-logo.svg" alt="S" style={{ width: '88%', height: '88%', objectFit: 'contain' }}
-              onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; (e.currentTarget.parentElement as HTMLElement).innerHTML = '<span style="font-size:12px;font-weight:900;color:#FF6A00">A</span>'; }} />
+          <div style={{ width: 28, height: 28, borderRadius: 8, overflow: 'hidden', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <img src="/amanzine-logo.svg" alt="AMANZINE" style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+              onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; (e.currentTarget.parentElement as HTMLElement).innerHTML = '<span style="font-size:12px;font-weight:900;color:#006233">A</span>'; }} />
           </div>
           <span className="nav-brand" style={{ fontSize: 13, maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {settings.brand.name}
@@ -321,9 +321,9 @@ export default function NavBar() {
           <div className="sidebar-panel" onClick={e => e.stopPropagation()}>
             <div style={{ padding: '14px 16px 12px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div className="nav-logo">
-                <div style={{ width: 26, height: 26, borderRadius: 7, overflow: 'hidden', background: 'var(--void)', border: '1px solid rgba(255,255,255,.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <img src="/amanzine-logo.svg" alt="S" style={{ width: '88%', height: '88%', objectFit: 'contain' }}
-                    onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; (e.currentTarget.parentElement as HTMLElement).innerHTML = '<span style="font-size:11px;font-weight:900;color:#FF6A00">A</span>'; }} />
+                <div style={{ width: 26, height: 26, borderRadius: 7, overflow: 'hidden', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <img src="/amanzine-logo.svg" alt="AMANZINE" style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                    onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; (e.currentTarget.parentElement as HTMLElement).innerHTML = '<span style="font-size:11px;font-weight:900;color:#006233">A</span>'; }} />
                 </div>
                 <span className="nav-brand" style={{ fontSize: 13 }}>{settings.brand.name}</span>
               </div>

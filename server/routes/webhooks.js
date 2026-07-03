@@ -77,7 +77,7 @@ async function handleIncoming(msg, phoneId) {
   const aiProvider = settings.ai?.provider  || 'openai';
   const model     = settings.ai?.model     || 'gpt-4o-mini';
 
-  const storeName  = settings.brand?.name || 'متجر SAHAR';
+  const storeName  = settings.brand?.name || 'متجر AMANZINE';
   const sysPrompt  = `أنت مساعد بيع ذكي لمتجر "${storeName}". تحدث بالدارجة المغربية بأسلوب ودي واحترافي. المنتجات المتاحة:\n${(products||[]).filter(p=>p.status==='published'&&p.stock>0).map(p=>`- ${p.name}: ${p.price} ${settings.brand?.currency||'MAD'}`).join('\n')}`;
 
   let reply = null;

@@ -131,7 +131,7 @@ app.use('/api/listings',      require('./routes/listings'));
 app.get('/api/health', (req, res) => {
   const mem = process.memoryUsage();
   res.json({
-    status: 'ok', version: '3.2.0', name: 'SAHAR shop AI Commerce OS',
+    status: 'ok', version: '3.2.0', name: 'AMANZINE AI Commerce OS',
     time: new Date().toISOString(),
     uptime: Math.round(process.uptime()) + 's',
     memory: Math.round(mem.heapUsed/1024/1024) + 'MB',

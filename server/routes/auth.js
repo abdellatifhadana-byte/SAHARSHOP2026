@@ -199,7 +199,7 @@ router.post('/request-otp', auth, async (req, res) => {
     if (!user) return res.status(404).json({ error: 'User not found' });
 
     const settings  = await db.getSettings(req.user.id) || {};
-    const storeName = settings.brand?.name || 'SAHAR Shop';
+    const storeName = settings.brand?.name || 'AMANZINE';
     const result    = await sendOTP(user.email, storeName);
 
     res.json({
@@ -240,7 +240,7 @@ router.post('/forgot-password', sanitizeBody, async (req, res) => {
     // Always return success — prevents user enumeration
     if (!user) return res.json({ sent: true });
     const settings  = await db.getSettings(user.id) || {};
-    const storeName = settings.brand?.name || 'SAHAR Shop';
+    const storeName = settings.brand?.name || 'AMANZINE';
     await sendOTP(user.email, storeName);
     await db.addLog({ userId: user.id, user: 'System', action: 'Password reset requested', details: user.email, type: 'auth', severity: 'warning' });
     res.json({ sent: true, email: user.email.replace(/(.{2}).*(@)/, '$1***$2') });

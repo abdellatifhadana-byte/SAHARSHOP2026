@@ -188,9 +188,8 @@ export default function AuthPage() {
         <div style={{ textAlign: 'center', marginBottom: 28 }}>
           <div style={{
             width: 88, height: 88, margin: '0 auto 16px', borderRadius: 22, overflow: 'hidden',
-            background: 'rgba(10,10,20,0.9)',
-            boxShadow: `0 0 0 1.5px rgba(255,122,0,0.25), 0 12px 40px rgba(124,58,237,0.2)`,
-            backdropFilter: 'blur(16px)',
+            background: 'transparent',
+            boxShadow: `0 12px 40px rgba(0,98,51,0.22)`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             position: 'relative',
           }}>
@@ -198,20 +197,20 @@ export default function AuthPage() {
             <div style={{
               position: 'absolute', inset: -3, borderRadius: 25,
               border: '1.5px solid transparent',
-              borderTopColor: 'rgba(255,122,0,0.4)',
-              borderRightColor: 'rgba(124,58,237,0.3)',
+              borderTopColor: 'rgba(0,98,51,0.5)',
+              borderRightColor: 'rgba(193,39,45,0.4)',
               animation: 'float 4s ease-in-out infinite',
             }} />
             {logoErr
-              ? <span style={{ fontSize: 40, fontWeight: 900, color: '#FF7A00' }}>A</span>
+              ? <span style={{ fontSize: 40, fontWeight: 900, color: '#006233' }}>A</span>
               : <img src="/amanzine-logo.svg" alt="AMANZINE"
-                  style={{ width: '84%', height: '84%', objectFit: 'contain', position: 'relative' }}
+                  style={{ width: '100%', height: '100%', objectFit: 'contain', position: 'relative' }}
                   onError={() => setLogoErr(true)}
                 />
             }
           </div>
           <h1 style={{ fontSize: 24, fontWeight: 900, color: DS.text, marginBottom: 4, letterSpacing: '-0.02em' }}>
-            <span style={{ color: '#FF7A00' }}>AMANZINE</span>
+            <span style={{ color: '#1FA565' }}>AMAN<span style={{ color: '#E0524C' }}>Z</span>INE</span>
           </h1>
           <p style={{ color: DS.text3, fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', fontWeight: 600 }}>
             AI Commerce OS
