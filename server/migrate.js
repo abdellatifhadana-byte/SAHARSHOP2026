@@ -299,6 +299,79 @@ async function migrate() {
     )`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_reviews_listing ON reviews(listing_id)`);
 
+    // ── Services Marketplace (alloservix) — بحجوزات ومقدّمي خدمات ─────────
+    // كلها مقيَّدة بـ user_id (المستأجر/المتجر) على نفس نمط products/orders.
+    await client.query(`CREATE TABLE IF NOT EXISTS providers (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      bio TEXT DEFAULT '',
+      phone TEXT DEFAULT '',
+      city TEXT DEFAULT '',
+      avatar_url TEXT DEFAULT '',
+      latitude DOUBLE PRECISION,
+      longitude DOUBLE PRECISION,
+      status TEXT NOT NULL DEFAULT 'pending',
+      is_verified BOOLEAN DEFAULT FALSE,
+      rating_avg DOUBLE PRECISION DEFAULT 0,
+      rating_count INTEGER DEFAULT 0,
+      admin_note TEXT DEFAULT '',
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_providers_user ON providers(user_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_providers_status ON providers(user_id, status)`);
+
+    await client.query(`CREATE TABLE IF NOT EXISTS provider_services (
+      id TEXT PRIMARY KEY,
+      provider_id TEXT NOT NULL REFERENCES providers(id) ON DELETE CASCADE,
+      service_key TEXT NOT NULL,
+      service_label TEXT NOT NULL,
+      skill_level TEXT DEFAULT 'intermediate',
+      price_min NUMERIC DEFAULT 0,
+      price_max NUMERIC DEFAULT 0,
+      duration_min INTEGER DEFAULT 60,
+      description TEXT DEFAULT '',
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_pservices_provider ON provider_services(provider_id)`);
+
+    // جدول أسبوعي متكرر: weekday 0=الأحد..6=السبت، أوقات HH:MM
+    await client.query(`CREATE TABLE IF NOT EXISTS availability_templates (
+      id TEXT PRIMARY KEY,
+      provider_id TEXT NOT NULL REFERENCES providers(id) ON DELETE CASCADE,
+      weekday INTEGER NOT NULL,
+      start_time TEXT NOT NULL,
+      end_time TEXT NOT NULL
+    )`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_avtpl_provider ON availability_templates(provider_id)`);
+
+    // فترات محدّدة (استثناءات/حجب) — status: open | blocked
+    await client.query(`CREATE TABLE IF NOT EXISTS availability_slots (
+      id TEXT PRIMARY KEY,
+      provider_id TEXT NOT NULL REFERENCES providers(id) ON DELETE CASCADE,
+      starts_at TIMESTAMPTZ NOT NULL,
+      ends_at TIMESTAMPTZ NOT NULL,
+      status TEXT NOT NULL DEFAULT 'open'
+    )`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_avslot_provider ON availability_slots(provider_id, starts_at)`);
+
+    await client.query(`CREATE TABLE IF NOT EXISTS bookings (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      provider_id TEXT NOT NULL REFERENCES providers(id) ON DELETE CASCADE,
+      service_id TEXT REFERENCES provider_services(id) ON DELETE SET NULL,
+      customer_name TEXT NOT NULL,
+      customer_phone TEXT NOT NULL,
+      scheduled_at TIMESTAMPTZ NOT NULL,
+      duration_min INTEGER NOT NULL DEFAULT 60,
+      status TEXT NOT NULL DEFAULT 'pending',
+      price NUMERIC DEFAULT 0,
+      notes TEXT DEFAULT '',
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_bookings_user ON bookings(user_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_bookings_provider ON bookings(provider_id, scheduled_at)`);
+
     // FK fixes: loyalty_points.customer_id → customers(id) ON DELETE CASCADE
     await client.query(`
       DO $$ BEGIN

@@ -56,8 +56,8 @@ export const BrandVideo: React.FC<BrandVideoProps> = ({
     <video
       autoPlay={variant === 'autoplay' || variant === 'modal'}
       controls={variant === 'controls' || variant === 'modal'}
-      muted={variant === 'autoplay' || variant === 'background'}
-      loop={variant === 'autoplay' || variant === 'background'}
+      muted={variant === 'autoplay'}
+      loop={variant === 'autoplay'}
       playsInline
       poster={poster}
       className={className}

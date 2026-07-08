@@ -5,7 +5,7 @@ import {
   Zap, ChevronDown, ChevronUp, Globe, Key, Copy, ExternalLink, X,
 } from 'lucide-react';
 import type { DeliveryProviderConfig } from '../types';
-import { settingsAPI } from '../services/api';
+import { settingsAPI, getToken as getAuthToken } from '../services/api';
 
 // ─── سجل الشحنات: الحقيقة الكاملة لكل عملية شحن ──────────────────────────────
 // يقرأ سجلات النظام (type=delivery) ويبين لكل طلب: هل أُنشئت شحنة حقيقية
@@ -301,7 +301,7 @@ function UrlWizard({ onSave, onCancel, onDirtyChange }: {
 
   const testConnection = async () => {
     setTesting(true); setTestResult(null);
-    const token = localStorage.getItem('ai_commerce_token') || '';
+    const token = getAuthToken() || '';
     const stages = ['الاتصال بالخادم...', 'التحقق من الرابط...', 'فحص الاستجابة...'];
     for (const s of stages) { setTestStage(s); await new Promise(r => setTimeout(r, 380)); }
     try {
@@ -659,7 +659,7 @@ export default function DeliveryPage() {
 
   const testConn = async (prov: DeliveryProviderConfig) => {
     notify('info', `اختبار ${prov.name}...`);
-    const token = localStorage.getItem('ai_commerce_token') || '';
+    const token = getAuthToken() || '';
     try {
       if (prov.websiteUrl) {
         const r = await fetch('/api/delivery/test-connection', {

@@ -20,6 +20,8 @@ router.post('/', auth, async (req, res) => {
     if (existing) return res.status(409).json({ error: 'هذا الكود موجود بالفعل' });
     const coupon = await db.createCoupon({ userId: req.user.id, code, type, value, minOrder, maxUses, expiresAt });
     await db.addLog({ userId: req.user.id, user: 'Manager', action: `Coupon created: ${code}`, details: `${type} ${value}`, type: 'info', severity: 'info' });
+    // Activity: عرض/كوبون جديد → حدث عام يغذّي الـ Feed
+    try { require('../lib/engines/activity').emit({ businessId: `store:${req.user.id}`, actor: req.user.id, type: 'offer.created', category: 'offer', payload: { code, type, value } }); } catch {}
     res.json(coupon);
   } catch (e) { console.error('[coupons]', e.message); res.status(500).json({ error: 'Server error' }); }
 });

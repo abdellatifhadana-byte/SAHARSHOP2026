@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { getToken as getAuthToken } from '../services/api';
 import { useStore } from '../store';
 import { CheckCircle, XCircle, AlertCircle, RefreshCw, Wifi, WifiOff } from 'lucide-react';
 
@@ -33,7 +34,7 @@ export default function SystemCheck() {
 
     // 1. Backend health check — via our own API (avoids CORS)
     try {
-      const tok = localStorage.getItem('ai_commerce_token') || '';
+      const tok = getAuthToken() || '';
       const r = await fetch('/api/health', {
         headers: tok ? { Authorization: `Bearer ${tok}` } : {},
         signal: AbortSignal.timeout(6000),
@@ -56,7 +57,7 @@ export default function SystemCheck() {
     }
 
     // 2. Auth check — verify token
-    const token = localStorage.getItem('ai_commerce_token');
+    const token = getAuthToken();
     if (token && token !== 'demo-token-local') {
       try {
         const r = await fetch('/api/auth/me', {
@@ -76,7 +77,7 @@ export default function SystemCheck() {
     const hasAiKey = !!(settings.ai?.apiKey || settings.ai?.geminiKey);
     if (hasAiKey) {
       try {
-        const tok = localStorage.getItem('ai_commerce_token') || '';
+        const tok = getAuthToken() || '';
         const service = settings.ai?.geminiKey ? 'gemini' : 'openai';
         const apiKey = settings.ai?.geminiKey || settings.ai?.apiKey;
         const r = await fetch('/api/settings/verify-connection', {

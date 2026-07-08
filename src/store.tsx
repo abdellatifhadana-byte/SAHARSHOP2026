@@ -128,10 +128,15 @@ function getInitialPage(): Page {
   return (URL_TO_PAGE[path] as Page) || 'dashboard';
 }
 
-// TODO v3.3: migrate token storage to HttpOnly secure cookies to eliminate XSS exposure.
-// localStorage is used here for simplicity — acceptable for MVP but not production hardened.
-const storedToken = (() => { try { return localStorage.getItem('ai_commerce_token'); } catch { return null; } })();
-if (storedToken) api.setToken(storedToken);
+// C-3 (مكتمل): التوكن يعيش في كوكي HttpOnly + ذاكرة التبويب — لا localStorage.
+// api.ts يحمّل توكن الديمو/التوكن القديم (هجرة لمرة واحدة) عند تحميل الوحدة.
+// وجود مستخدم مخزّن (غير سرّي) يعني "جلسة كوكي على الأرجح" — نتحقق منها عبر
+// /auth/me عند الإقلاع بدل تسجيل خروج فوري عند كل تحديث للصفحة.
+const storedToken = (() => {
+  const t = api.getToken();
+  if (t) return t;
+  try { return localStorage.getItem('ai_commerce_user') ? 'cookie-session' : null; } catch { return null; }
+})();
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   // Demo token: keep seed data so the demo experience works without a backend.
@@ -202,12 +207,23 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    if (!api.getToken()) { setState(s => ({ ...s, isOnline: true, isLoading: false })); return; }
-
     try {
+      // C-3: ‏/auth/me يصادق عبر كوكي HttpOnly حتى بدون توكن في الذاكرة —
+      // (وعند انتهاء توكن الوصول يجدّده تلقائياً من كوكي refresh داخل api.ts)
       const meData = await api.authAPI.me().catch(() => null);
       const currentUser = meData?.user || null;
-      if (currentUser) { try { localStorage.setItem('ai_commerce_user', JSON.stringify(currentUser)); } catch {} }
+
+      if (!currentUser) {
+        // لا جلسة صالحة (زائر، أو كوكي منتهٍ) — حالة الزائر، بلا إعادة توجيه
+        if (!api.getToken()) { try { localStorage.removeItem('ai_commerce_user'); } catch {} }
+        setState(s => ({ ...s, token: api.getToken(), user: api.getToken() ? s.user : null, isOnline: true, isLoading: false }));
+        return;
+      }
+
+      try { localStorage.setItem('ai_commerce_user', JSON.stringify(currentUser)); } catch {}
+      // جلسة كوكي مستعادة بلا توكن في الذاكرة: جدّد للحصول على توكن وصول
+      // (تحتاجه الصفحات التي ترسل Bearer مباشرة + مصافحة WS)
+      if (!api.getToken()) await api.authAPI.refresh();
 
       // Flush settings queued while the server was unreachable — must land
       // BEFORE we fetch settings back, or the server copy wipes local edits.
@@ -239,6 +255,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
       setState(s => ({
         ...s,
+        token: api.getToken() || s.token, // C-3: توكن الذاكرة بعد استعادة جلسة الكوكي
         user: currentUser || s.user,
         products: products ?? s.products,
         orders: orders ?? s.orders,
@@ -365,8 +382,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const logout = () => {
-    api.authAPI.logout().catch(() => {});
+  const logout = async () => {
+    // C-3: ننتظر الخادم يمسح كوكيز HttpOnly ويبطل توكن التجديد قبل مغادرة
+    // الصفحة — وإلا بقي الكوكي صالحاً واستعاد الإقلاع الجلسة "بعد الخروج"
+    try { await api.authAPI.logout(); } catch {}
     api.setToken(null);
     api.setRefreshToken(null);
     api.disconnectWS();
@@ -382,7 +401,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       try { localStorage.setItem('ai_commerce_theme', (val as any).theme); } catch {}
     }
     const tok = api.getToken();
-    if (!tok || tok === 'demo-token-local') return; // demo: local-only by design
+    if (tok === 'demo-token-local') return; // demo: local-only by design
+    // C-3: جلسة كوكي بلا توكن في الذاكرة تُحفظ عبر الكوكي؛ لا جلسة إطلاقاً = محلي فقط
+    const hasCookieSession = (() => { try { return !!localStorage.getItem('ai_commerce_user'); } catch { return false; } })();
+    if (!tok && !hasCookieSession) return;
     try {
       await api.settingsAPI.save({ [key]: val });
       // saved OK — drop any stale pending copy of this key

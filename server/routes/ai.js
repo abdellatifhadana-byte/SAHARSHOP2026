@@ -1,6 +1,7 @@
 'use strict';
 const router = require('express').Router();
 const auth   = require('../middleware/auth');
+const aiQuota = require('../middleware/ai-quota'); // H-5
 const https  = require('https');
 const { db } = require('../database');
 
@@ -154,7 +155,7 @@ function smartReply(msg, history, products, settings) {
    ══════════════════════════════════════════════ */
 
 // POST /api/ai/reply — main AI endpoint
-router.post('/reply', auth, async (req, res) => {
+router.post('/reply', auth, aiQuota, async (req, res) => {
   try {
     const { message, history, products, settings: reqSettings, systemPrompt } = req.body;
 
@@ -199,7 +200,7 @@ ${allProds||'لا منتجات منشورة'}
 });
 
 // POST /api/ai/generate-description — dedicated product description generator
-router.post('/generate-description', auth, async (req, res) => {
+router.post('/generate-description', auth, aiQuota, async (req, res) => {
   try {
     const { name, category, price, sizes, colors, type, imageUrl } = req.body;
     if (!name) return res.status(400).json({ error: 'name required' });
@@ -229,7 +230,7 @@ router.post('/generate-description', auth, async (req, res) => {
 });
 
 // POST /api/ai/generate-hashtags — generate social media hashtags
-router.post('/generate-hashtags', auth, async (req, res) => {
+router.post('/generate-hashtags', auth, aiQuota, async (req, res) => {
   try {
     const { name, category, description, storeName } = req.body;
     if (!name) return res.status(400).json({ error: 'name required' });
@@ -276,7 +277,7 @@ Include: Arabic hashtags for Morocco (#تسوق_المغرب etc.), English hash
 // POST /api/ai/design-product-image — توليد صورة المنتج
 // المزودون المدعومون فعلياً: OpenAI (DALL-E 3) · Gemini (توليد صور) · Grok (xAI)
 // provider: 'auto' يجرب المتاح بالترتيب، أو حدد مزوداً بعينه
-router.post('/design-product-image', auth, async (req, res) => {
+router.post('/design-product-image', auth, aiQuota, async (req, res) => {
   try {
     const { productName, price, storeName, description, category, colors, sizes, customPrompt, baseImage, provider = 'auto' } = req.body;
     if (!productName) return res.status(400).json({ error: 'productName required' });

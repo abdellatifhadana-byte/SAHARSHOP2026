@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { getToken as getAuthToken } from '../services/api';
 
 // ════════════════════════════════════════════════════════════
 // طابور موافقة الأدمن على إعلانات السوق (Marketplace moderation).
@@ -24,7 +25,7 @@ export default function ModerationPage() {
   const [loading, setLoading] = useState(true);
   const [forbidden, setForbidden] = useState(false);
   const [busy, setBusy] = useState('');
-  const tok = () => { try { return localStorage.getItem('ai_commerce_token') || ''; } catch { return ''; } };
+  const tok = () => { try { return getAuthToken() || ''; } catch { return ''; } };
 
   const load = () => {
     setLoading(true); setForbidden(false);

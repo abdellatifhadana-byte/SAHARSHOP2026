@@ -1,0 +1,28 @@
+'use strict';
+// ============================================================
+// /api/discover — alias رجعي فقط. لم يعد محرّكاً مستقلاً:
+// يفوّض إلى Search Engine الموحّد ثم يعيد تجميع النتائج بالشكل القديم
+// الذي تتوقّعه واجهة DiscoverSections الحالية. الواجهة الجديدة تستعمل /api/search.
+// (لا منطق بحث/SQL مكرّر هنا — مصدر واحد: lib/engines/search.js)
+// ============================================================
+const router = require('express').Router();
+const searchEngine = require('../lib/engines/search');
+
+router.get('/', async (req, res) => {
+  const city = String(req.query.city || '').trim() || undefined;
+  const q    = String(req.query.q || '').trim().slice(0, 80) || undefined;
+  const limit = Math.min(+req.query.limit || 24, 60);
+  try {
+    const { businesses, products } = await searchEngine.execute({ city, q, limit });
+    // إعادة تجميع النموذج الموحّد إلى المفاتيح القديمة (providers/stores/listings)
+    res.json({
+      city: city || null, q: q || null,
+      products,
+      providers: businesses.filter(b => b.source === 'provider'),
+      stores:    businesses.filter(b => b.source === 'store'),
+      listings:  businesses.filter(b => b.source === 'listing'),
+    });
+  } catch (e) { console.error('[discover]', e.message); res.status(500).json({ error: 'Server error' }); }
+});
+
+module.exports = router;

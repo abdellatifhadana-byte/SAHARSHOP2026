@@ -96,4 +96,34 @@ function decryptSettings(data) {
   } catch { return data; }
 }
 
-module.exports = { encrypt, decrypt, encryptSettings, decryptSettings };
+// ============================================================
+// H-1 (جانب العميل): لا تُعاد الأسرار للمتصفح إطلاقاً.
+// GET /settings يُرجعها مقنَّعة بـ MASK، وPUT يتجاهل قيم MASK
+// (فلا يكتب القناع فوق السر الحقيقي عند حفظ حقول أخرى).
+// ============================================================
+const MASK = '••••••••';
+
+// نسخة مقنَّعة تُرسل للواجهة — القيم غير الفارغة تُستبدل بالقناع
+function maskSettings(data) {
+  try {
+    if (!data || typeof data !== 'object') return data;
+    const clone = JSON.parse(JSON.stringify(data));
+    walkSecrets(clone, v => (v ? MASK : v));
+    return clone;
+  } catch { return data; }
+}
+
+// إزالة قيم القناع من حمولة الحفظ الواردة (تُبقي السر المخزّن كما هو)
+function stripMasked(source) {
+  if (!source || typeof source !== 'object') return source;
+  if (Array.isArray(source)) return source;
+  const out = {};
+  for (const key of Object.keys(source)) {
+    const v = source[key];
+    if (v === MASK) continue;
+    out[key] = (v && typeof v === 'object' && !Array.isArray(v)) ? stripMasked(v) : v;
+  }
+  return out;
+}
+
+module.exports = { encrypt, decrypt, encryptSettings, decryptSettings, MASK, maskSettings, stripMasked };

@@ -39,3 +39,32 @@ test('decryptSettings reverses encryptSettings', () => {
   assert.strictEqual(dec.cloudinaryApiSecret, 'cld');
   assert.strictEqual(dec.security.hcaptchaSecret, 'hc');
 });
+
+// ── H-1 (جانب العميل): القناع وتجريده ─────────────────────────
+test('maskSettings replaces secrets with MASK, keeps non-secrets and empties', () => {
+  const s = { ai: { apiKey: 'sk-x', geminiKey: '', model: 'gpt-4o' }, social: { whatsapp: { accessToken: 'wa', pageId: '1' } } };
+  const m = secrets.maskSettings(s);
+  assert.strictEqual(m.ai.apiKey, secrets.MASK);
+  assert.strictEqual(m.ai.geminiKey, '');
+  assert.strictEqual(m.ai.model, 'gpt-4o');
+  assert.strictEqual(m.social.whatsapp.accessToken, secrets.MASK);
+  assert.strictEqual(m.social.whatsapp.pageId, '1');
+  // caller object untouched
+  assert.strictEqual(s.ai.apiKey, 'sk-x');
+});
+
+test('stripMasked drops MASK values recursively, keeps real edits', () => {
+  const incoming = { ai: { apiKey: secrets.MASK, model: 'gpt-4o' }, social: { whatsapp: { accessToken: secrets.MASK, pageId: '2' } }, brand: { name: 'Y' } };
+  const out = secrets.stripMasked(incoming);
+  assert.strictEqual(out.ai.apiKey, undefined);
+  assert.strictEqual(out.ai.model, 'gpt-4o');
+  assert.strictEqual(out.social.whatsapp.accessToken, undefined);
+  assert.strictEqual(out.social.whatsapp.pageId, '2');
+  assert.strictEqual(out.brand.name, 'Y');
+});
+
+test('stripMasked keeps empty string (explicit clear) and arrays', () => {
+  const out = secrets.stripMasked({ ai: { apiKey: '' }, list: [1, 2] });
+  assert.strictEqual(out.ai.apiKey, '');
+  assert.deepStrictEqual(out.list, [1, 2]);
+});

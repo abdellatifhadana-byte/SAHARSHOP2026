@@ -61,8 +61,8 @@ export default function AuthPage() {
       });
       const j = await r.json();
       if (j.token) {
-        localStorage.setItem('ai_commerce_token', j.token);
-        if (j.refreshToken) localStorage.setItem('ai_commerce_refresh', j.refreshToken);
+        // C-3: الجلسة محمولة في كوكي HttpOnly ضبطه الخادم — لا توكن في localStorage.
+        // نخزّن المستخدم فقط (غير سرّي) ليستعيد الإقلاع الجلسة فوراً بعد التحويل.
         localStorage.setItem('ai_commerce_user', JSON.stringify(j.user));
         window.location.href = '/dashboard';
       } else {

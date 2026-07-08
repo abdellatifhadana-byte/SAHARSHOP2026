@@ -3,17 +3,14 @@ const jwt = require('jsonwebtoken');
 const { JWT_SECRET: SECRET } = require('../lib/config');
 const logger = require('../lib/logger');
 
-// Bearer-only authentication: token read strictly from the Authorization
-// header (frontend localStorage), so auth is tied to the current login and
-// can't fall back to a stale `token` cookie pointing at another account.
-// (Trade-off: relies on localStorage Bearer; the long-term hardening is
-//  HttpOnly-cookie-only auth. WS auth keeps its own cookie/token path.)
+// C-3: Bearer أولاً (الجلسة الحية في هذا التبويب — يمنع الرجوع لكوكي قديم
+// يخص حساباً آخر عند تعدد التبويبات)، ثم كوكي HttpOnly `token` كمسار أساسي
+// بعد تحديث الصفحة — التوكن لم يعد يُخزَّن في localStorage.
 module.exports = function auth(req, res, next) {
   const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Authentication required' });
-  }
-  const token = authHeader.slice(7); // strip 'Bearer '
+  let token = '';
+  if (authHeader && authHeader.startsWith('Bearer ')) token = authHeader.slice(7);
+  if (!token) token = (req.cookies && req.cookies.token) || '';
   if (!token) return res.status(401).json({ error: 'Authentication required' });
 
   try {

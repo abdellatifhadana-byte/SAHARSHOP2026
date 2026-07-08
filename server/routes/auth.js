@@ -157,8 +157,9 @@ router.get('/me', auth, async (req, res) => {
 });
 
 // POST /api/auth/refresh — exchange refresh token for a new access token (rotation)
+// C-3: يقبل التوكن من كوكي HttpOnly (المسار الأساسي بعد إزالة localStorage) أو من الجسم
 router.post('/refresh', async (req, res) => {
-  const { refreshToken } = req.body;
+  const refreshToken = (req.body && req.body.refreshToken) || (req.cookies && req.cookies.refreshToken);
   if (!refreshToken || typeof refreshToken !== 'string') {
     return res.status(401).json({ error: 'Refresh token required' });
   }
@@ -175,13 +176,15 @@ router.post('/refresh', async (req, res) => {
 
     const token      = sign(user);
     const newRefresh = await issueRefreshToken(user.id);
+    _setAuthCookies(res, token, newRefresh); // C-3: تدوير الكوكيز مع كل refresh
     res.json({ token, refreshToken: newRefresh });
   } catch (e) { console.error('[Auth refresh]', e); res.status(500).json({ error: 'Server error' }); }
 });
 
 // POST /api/auth/logout — revoke refresh token
 router.post('/logout', async (req, res) => {
-  const { refreshToken } = req.body;
+  // C-3: إبطال توكن التجديد من الجسم أو من الكوكي
+  const refreshToken = (req.body && req.body.refreshToken) || (req.cookies && req.cookies.refreshToken);
   if (refreshToken && typeof refreshToken === 'string') {
     try {
       const hash = crypto.createHash('sha256').update(refreshToken).digest('hex');

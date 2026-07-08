@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import DiscoverSections from '../components/DiscoverSections'; // Super App — الاكتشاف الموحد
 import { type Lang, LANGS, isRtlLang } from '../i18n';
 import { pt } from '../i18n/public';
 
@@ -81,6 +82,7 @@ export default function Marketplace() {
   const [loading, setLoading] = useState(true);
   const [type, setType] = useState<'all' | 'product' | 'service'>('all');
   const [city, setCity] = useState('');
+  const [q, setQ] = useState(''); // Discover: بحث موحّد عبر كل شيء
   const [showSell, setShowSell] = useState(false);
   const [detail, setDetail] = useState<Listing | null>(null);
 
@@ -89,13 +91,15 @@ export default function Marketplace() {
     const qs = new URLSearchParams();
     if (type !== 'all') qs.set('type', type);
     if (city) qs.set('city', city);
+    if (q.trim()) qs.set('q', q.trim());
     fetch(`/api/listings/public/catalog?${qs.toString()}`)
       .then(r => r.json())
       .then(d => setListings(Array.isArray(d.listings) ? d.listings : []))
       .catch(() => setListings([]))
       .finally(() => setLoading(false));
   };
-  useEffect(load, [type, city]);
+  // debounce أثناء الكتابة حتى لا نغرق الخادم بطلب لكل حرف
+  useEffect(() => { const t = setTimeout(load, q ? 350 : 0); return () => clearTimeout(t); }, [type, city, q]);
 
   return (
     <div dir={rtl ? 'rtl' : 'ltr'} style={{ minHeight: '100dvh', background: C.bg, color: C.ink1, fontFamily: 'Tajawal,system-ui,sans-serif', paddingBottom: 90 }}>
@@ -125,10 +129,17 @@ export default function Marketplace() {
           <option value="">{pt(lang, 'mk.allCities')}</option>
           {CITIES.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
+        <input
+          value={q} onChange={e => setQ(e.target.value)}
+          placeholder="🔍 ابحث عن أي شيء: منتج، خدمة، سباك، متجر…"
+          style={{ ...inp, flex: 1, minWidth: 200 }}
+        />
       </div>
 
       {/* Catalog */}
       <div style={{ padding: '0 16px' }}>
+        {/* Discover: منتجات كل المتاجر + مقدّمو الخدمات + المتاجر — نتيجة واحدة */}
+        <DiscoverSections city={city} q={q} />
         {loading ? (
           <div style={{ textAlign: 'center', padding: '60px 0', color: C.ink3 }}>{pt(lang, 'mk.loading')}</div>
         ) : listings.length === 0 ? (

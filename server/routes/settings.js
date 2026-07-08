@@ -2,21 +2,24 @@
 const router = require('express').Router();
 const auth   = require('../middleware/auth');
 const { db } = require('../database');
+const { MASK, maskSettings, stripMasked } = require('../lib/secrets');
 
+// H-1: الأسرار لا تُعاد للمتصفح — تُستبدل بقناع ثابت (أي XSS لن يجد ما يسرقه)
 router.get('/', auth, async (req, res) => {
   try {
     const settings = await db.getSettings(req.user.id);
-    res.json(settings || {});
+    res.json(maskSettings(settings || {}));
   } catch (e) { console.error('[settings]', e.message); res.status(500).json({ error: 'Server error' }); }
 });
 
 router.put('/', auth, async (req, res) => {
   try {
     const existing = await db.getSettings(req.user.id) || {};
-    const merged = deepMerge(existing, req.body);
+    // H-1: قيمة القناع الواردة من الواجهة تعني "أبقِ السر المخزّن كما هو"
+    const merged = deepMerge(existing, stripMasked(req.body));
     await db.saveSettings(req.user.id, merged);
     await db.addLog({ userId: req.user.id, user: 'Manager', action: 'Settings updated', details: Object.keys(req.body).join(', '), type: 'settings', severity: 'info' });
-    res.json(merged);
+    res.json(maskSettings(merged));
   } catch (e) { console.error('[settings]', e.message); res.status(500).json({ error: 'Server error' }); }
 });
 
@@ -65,7 +68,8 @@ router.get('/export', auth, async (req, res) => {
       products: await db.getProducts(uid),
       orders: await db.getOrders(uid),
       customers: await db.getCustomers(uid),
-      settings: await db.getSettings(uid),
+      // H-1: التصدير يمرّ عبر المتصفح — الأسرار تبقى مقنَّعة هنا أيضاً
+      settings: maskSettings(await db.getSettings(uid)),
     };
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Content-Disposition', 'attachment; filename="commerce-export.json"');
@@ -115,8 +119,25 @@ router.get('/server-config', auth, (req, res) => {
 
 // POST /api/settings/verify-connection — proxy for connection verification (avoid CORS)
 router.post('/verify-connection', auth, async (req, res) => {
-  const { service, token, pageId, apiKey } = req.body;
+  let { service, token, pageId, apiKey } = req.body;
   const https = require('https');
+
+  // H-1: الواجهة ترى الأسرار مقنَّعة — عند وصول القناع نستعمل السر المخزّن
+  if ([token, apiKey, req.body.apiSecret, req.body.secretKey].includes(MASK)) {
+    try {
+      const st = (await db.getSettings(req.user.id)) || {};
+      const aiKeys = { openai: st.ai?.apiKey, gemini: st.ai?.geminiKey, claude: st.ai?.claudeKey, deepseek: st.ai?.deepseekKey, grok: st.ai?.grokKey, mistral: st.ai?.mistralKey };
+      if (apiKey === MASK) {
+        apiKey = (service === 'brevo' ? st.marketing?.brevoApiKey
+                : service === 'cloudinary' ? st.cloudinaryApiKey
+                : aiKeys[service]) || apiKey;
+        req.body.apiKey = apiKey;
+      }
+      if (token === MASK)  token  = st.social?.[service]?.accessToken || token;
+      if (req.body.apiSecret === MASK) req.body.apiSecret = st.cloudinaryApiSecret || req.body.apiSecret;
+      if (req.body.secretKey === MASK) req.body.secretKey = st.security?.hcaptchaSecret || req.body.secretKey;
+    } catch {}
+  }
 
   function httpsGet(hostname, path, headers) {
     return new Promise((resolve, reject) => {

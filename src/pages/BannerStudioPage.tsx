@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { getToken as getAuthToken } from '../services/api';
 import { useStore } from '../store';
 import { Sparkles, Copy, Check, Hash, MessageCircle, FileText, Video } from 'lucide-react';
 
@@ -59,7 +60,7 @@ export default function BannerStudioPage() {
     
     setPublishState(s => ({ ...s, [platform]: 'loading' }));
     try {
-      const authTok = localStorage.getItem('ai_commerce_token') || '';
+      const authTok = getAuthToken() || '';
       const r = await fetch('/api/ai/publish', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authTok}` },

@@ -99,13 +99,14 @@ router.post('/public', submitLimiter, sanitizeBody, async (req, res) => {
   } catch (e) { console.error('[listings/public]', e.message); res.status(500).json({ error: 'Server error' }); }
 });
 
-// GET /api/listings/public/catalog?city=&type=  — unified catalog (APPROVED only)
+// GET /api/listings/public/catalog?city=&type=&q=  — unified catalog (APPROVED only)
 router.get('/public/catalog', async (req, res) => {
   try {
     const t = req.query.type;
     const listings = await db.getPublicListings({
       city: req.query.city || undefined,
       type: t === 'service' ? 'service' : t === 'product' ? 'product' : undefined,
+      q: String(req.query.q || '').trim().slice(0, 80) || undefined,
     });
     res.json({ listings });
   } catch (e) { res.status(500).json({ error: 'Server error' }); }
@@ -145,6 +146,10 @@ function moderate(status) {
     try {
       const l = await db.setListingStatus(req.params.id, status, (req.body && req.body.reason) || '');
       if (!l) return res.status(404).json({ error: 'Not found' });
+      // Activity: إعلان معتمَد يصبح حدثاً عامّاً يغذّي الـ Feed
+      if (status === 'approved') {
+        try { require('../lib/engines/activity').emit({ businessId: `listing:${l.id}`, actor: 'admin', type: 'listing.approved', category: 'listing', city: l.city || null, payload: { name: l.name, type: l.type, price: l.price } }); } catch {}
+      }
       res.json(l);
     } catch (e) { res.status(500).json({ error: 'Server error' }); }
   };

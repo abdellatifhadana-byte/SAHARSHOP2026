@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
+import { getToken as getAuthToken } from '../services/api';
 import { useStore } from '../store';
 import { Wifi, CheckCircle, Loader2, Eye, EyeOff, AlertTriangle, ExternalLink, RefreshCw, Zap } from 'lucide-react';
 import { IconWhatsApp, IconFacebook, IconInstagram, IconTikTok } from '../components/icons';
@@ -178,7 +179,7 @@ export default function ConnectionsPage() {
   const [waTestLoading, setWaTestLoading] = useState(false);
 
   useEffect(() => {
-    const token = localStorage.getItem('ai_commerce_token') || '';
+    const token = getAuthToken() || '';
     fetch('/api/settings/server-config', { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json())
       .then(d => setServerConfig(d))
@@ -231,7 +232,7 @@ export default function ConnectionsPage() {
     return false;
   };
 
-  const getToken = () => localStorage.getItem('ai_commerce_token') || '';
+  const getToken = () => getAuthToken() || '';
 
   const connect = useCallback(async (svc: typeof SERVICES[0]) => {
     const allFilled = svc.fields.every(f => val(svc.id, f.key).trim());

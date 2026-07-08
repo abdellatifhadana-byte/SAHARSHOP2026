@@ -13,13 +13,26 @@ const BASE_URL = (() => {
   return 'http://localhost:3001/api';
 })();
 
+// C-3: التوكنات الحقيقية لم تعد تُخزَّن في localStorage (حماية من XSS).
+// المصادر: ذاكرة الجلسة (هذا التبويب) + كوكي HttpOnly (يستعيد الجلسة بعد التحديث).
+// الاستثناء الوحيد: رمز الديمو الثابت — ليس سراً ويُبقي تجربة الديمو تعمل بلا خادم.
+const DEMO_TOKEN = 'demo-token-local';
+
 let _token: string | null = null;
 let _refreshToken: string | null = null;
 let _isOnline = false;
 let _refreshing = false;
 
-try { _token = localStorage.getItem('ai_commerce_token'); } catch {}
-try { _refreshToken = localStorage.getItem('ai_commerce_refresh'); } catch {}
+// هجرة لمرة واحدة: توكن قديم في localStorage يُحمَّل للذاكرة ثم يُحذف من التخزين
+// (الجلسات الحديثة تحمل كوكي HttpOnly أصلاً، فلا يفقد أحد جلسته فجأة)
+try {
+  const legacy = localStorage.getItem('ai_commerce_token');
+  if (legacy) { _token = legacy; if (legacy !== DEMO_TOKEN) localStorage.removeItem('ai_commerce_token'); }
+} catch {}
+try {
+  const legacyR = localStorage.getItem('ai_commerce_refresh');
+  if (legacyR) { _refreshToken = legacyR; localStorage.removeItem('ai_commerce_refresh'); }
+} catch {}
 
 export function getToken()  { return _token; }
 export function isOnline()  { return _isOnline; }
@@ -27,17 +40,14 @@ export function isOnline()  { return _isOnline; }
 export function setToken(t: string | null) {
   _token = t;
   try {
-    if (t) localStorage.setItem('ai_commerce_token', t);
+    if (t === DEMO_TOKEN) localStorage.setItem('ai_commerce_token', t);
     else localStorage.removeItem('ai_commerce_token');
   } catch {}
 }
 
 export function setRefreshToken(t: string | null) {
   _refreshToken = t;
-  try {
-    if (t) localStorage.setItem('ai_commerce_refresh', t);
-    else localStorage.removeItem('ai_commerce_refresh');
-  } catch {}
+  try { localStorage.removeItem('ai_commerce_refresh'); } catch {}
 }
 
 // ── Health check ──────────────────────────────────────────────
@@ -67,15 +77,17 @@ async function _doFetch(method: string, path: string, body?: unknown): Promise<R
   });
 }
 
-// ── Refresh access token using stored refresh token ───────────
+// ── Refresh access token ──────────────────────────────────────
+// C-3: المسار الأساسي هو كوكي HttpOnly `refreshToken` (يُرسل تلقائياً عبر
+// credentials:'include')؛ توكن الذاكرة يُرسل في الجسم إن وُجد (توافق رجعي).
 async function _tryRefresh(): Promise<boolean> {
-  if (!_refreshToken || _refreshing) return false;
+  if (_refreshing || _token === 'demo-token-local') return false;
   _refreshing = true;
   try {
     const res = await fetch(`${BASE_URL}/auth/refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken: _refreshToken }),
+      body: JSON.stringify(_refreshToken ? { refreshToken: _refreshToken } : {}),
       credentials: 'include',
       signal: AbortSignal.timeout(10000),
     });
@@ -94,14 +106,17 @@ async function request<T>(
   path: string,
   body?: unknown
 ): Promise<T> {
-  const isAuthRoute = path.startsWith('/auth/');
+  // C-3: /auth/me يُسمح له بمحاولة refresh (استعادة جلسة الكوكي بعد انتهاء
+  // توكن الوصول) لكن فشله لا يعيد التوجيه — الزائر غير المسجّل يبقى مكانه.
+  const isMeRoute   = path === '/auth/me';
+  const isAuthRoute = path.startsWith('/auth/') && !isMeRoute;
   let res = await _doFetch(method, path, body);
 
-  if (res.status === 401 && !isAuthRoute && _refreshToken) {
+  if (res.status === 401 && !isAuthRoute && _token !== 'demo-token-local') {
     const refreshed = await _tryRefresh();
     if (refreshed) {
       res = await _doFetch(method, path, body);
-    } else {
+    } else if (!isMeRoute) {
       try { localStorage.removeItem('ai_commerce_token'); localStorage.removeItem('ai_commerce_refresh'); } catch {}
       window.location.href = '/login';
       throw new Error('Session expired — please log in again');
@@ -264,16 +279,147 @@ export const loyaltyAPI = {
   add: (data: { customerId: string; amount: number }) => request<any>('POST', '/loyalty/add', data),
 };
 
+// ── Services Marketplace (alloservix) ─────────────────────────
+export interface Provider {
+  id: string; userId?: string; name: string; bio?: string; phone?: string; city?: string;
+  avatarUrl?: string; latitude?: number | null; longitude?: number | null;
+  status?: 'pending' | 'approved' | 'rejected' | 'suspended'; isVerified?: boolean;
+  ratingAvg?: number; ratingCount?: number; adminNote?: string;
+  services?: ProviderService[]; availability?: AvailabilityTemplate[];
+}
+export interface ProviderService {
+  id?: string; providerId?: string; serviceKey: string; serviceLabel: string;
+  skillLevel?: 'beginner' | 'intermediate' | 'expert'; priceMin?: number; priceMax?: number;
+  durationMin?: number; description?: string;
+}
+export interface AvailabilityTemplate { id?: string; weekday: number; startTime: string; endTime: string; }
+export interface Booking {
+  id: string; providerId: string; serviceId?: string | null; customerName: string; customerPhone: string;
+  scheduledAt: string; durationMin?: number; status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
+  price?: number; notes?: string; createdAt?: string;
+}
+
+export const providersAPI = {
+  list:   (params?: { status?: string; q?: string }) => {
+    const qs = new URLSearchParams(); if (params?.status) qs.set('status', params.status); if (params?.q) qs.set('q', params.q);
+    return request<Provider[]>('GET', `/providers${qs.toString() ? '?' + qs : ''}`);
+  },
+  get:    (id: string)          => request<Provider>('GET', `/providers/${id}`),
+  create: (data: Partial<Provider>) => request<Provider>('POST', '/providers', data),
+  update: (id: string, d: Partial<Provider>) => request<Provider>('PUT', `/providers/${id}`, d),
+  setStatus: (id: string, status: string, adminNote?: string) =>
+    request<Provider>('PUT', `/providers/${id}/status`, { status, adminNote }),
+  remove: (id: string)          => request<{ ok: boolean }>('DELETE', `/providers/${id}`),
+  addService:    (id: string, s: ProviderService) => request<{ id: string }>('POST', `/providers/${id}/services`, s),
+  removeService: (id: string, sid: string)        => request<{ ok: boolean }>('DELETE', `/providers/${id}/services/${sid}`),
+  setAvailability: (id: string, templates: AvailabilityTemplate[]) =>
+    request<{ ok: boolean }>('PUT', `/providers/${id}/availability`, { templates }),
+  // Public storefront discovery — approved providers of a store
+  discover: (storeUserId: string, q?: string) =>
+    request<Provider[]>('GET', `/providers/public/${storeUserId}${q ? '?q=' + encodeURIComponent(q) : ''}`),
+};
+
+export const bookingsAPI = {
+  list:   (params?: { providerId?: string; status?: string }) => {
+    const qs = new URLSearchParams(); if (params?.providerId) qs.set('providerId', params.providerId); if (params?.status) qs.set('status', params.status);
+    return request<Booking[]>('GET', `/bookings${qs.toString() ? '?' + qs : ''}`);
+  },
+  create:    (data: Partial<Booking>) => request<Booking>('POST', '/bookings', data),
+  setStatus: (id: string, status: string) => request<Booking>('PUT', `/bookings/${id}/status`, { status }),
+  // Public booking from storefront
+  book: (data: { userId: string } & Partial<Booking>) =>
+    request<{ id: string; status: string; statusAr: string; scheduledAt: string }>('POST', '/bookings/public', data),
+};
+
+// ── Universal Business Engine — API Contract ──────────────────
+// العقد الوحيد الذي تعتمد عليه كل الواجهة (Profile / Discover / Search / Map / AI).
+// عند الهجرة لاحقاً إلى جدول `businesses` لن تتغيّر مكوّنات React — العقد ثابت.
+export type Capability = 'products' | 'services' | 'booking' | 'delivery' | 'offers' | 'chat' | 'appointments' | 'marketplace';
+export type BusinessSource = 'store' | 'provider' | 'listing';
+
+export interface Business {
+  source: BusinessSource; id: string; type: string; ownerId: string;
+  name: string; description: string; city: string;
+  location: { lat: number; lng: number } | null;
+  image: string; gallery: string[];
+  verified: boolean; rating: { avg: number; count: number };
+  contact: { phone: string; whatsapp: string };
+  categories: string[];
+  capabilities: Record<Capability, boolean>;
+  href: string;
+  productCount?: number; price?: number; distanceKm?: number;
+}
+export interface BusinessProfileData {
+  business: Business;
+  sections: string[]; // أقسام مرتّبة يقرّرها الخادم حسب القدرات
+  data: {
+    products?: { id: string; name: string; price: number; imageUrl: string; emoji: string; type: string }[];
+    providers?: Business[];
+    services?: ProviderService[];
+    availability?: AvailabilityTemplate[];
+    openingHours?: { start: string; end: string };
+    price?: number; images?: string[];
+  };
+}
+
+export interface SearchFilters {
+  city?: string; q?: string; type?: 'store' | 'service'; category?: string;
+  verified?: boolean; ratingMin?: number; delivery?: boolean; booking?: boolean;
+  offers?: boolean; priceMin?: number; priceMax?: number;
+  lat?: number; lng?: number; radiusKm?: number; view?: 'list' | 'map'; limit?: number;
+}
+export interface SearchResult {
+  intent: { kind: string; nearby: boolean; cleaned: string; matched: string[] };
+  filters: Record<string, any>;
+  weights: Record<string, number>;
+  businesses: Business[];
+  products: any[];
+  markers?: { id: string; source: string; name: string; lat: number; lng: number; type: string; verified: boolean; rating: number; href: string; distanceKm?: number }[];
+  viewport?: { center: { lat: number; lng: number } | null; radiusKm: number; count: number };
+}
+
+export const businessAPI = {
+  // المحرّك الموحّد الوحيد: Discover = search بلا q · Map = view:'map'
+  search: (params: SearchFilters = {}) => {
+    const qs = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) {
+      if (v === undefined || v === null || v === '' || v === false) continue;
+      qs.set(k, String(v));
+    }
+    return request<SearchResult>('GET', `/search?${qs}`);
+  },
+  searchNearby: (params: { lat: number; lng: number; radiusKm?: number; city?: string; q?: string; type?: 'store' | 'service' }) => {
+    const qs = new URLSearchParams();
+    qs.set('lat', String(params.lat)); qs.set('lng', String(params.lng));
+    if (params.radiusKm) qs.set('radiusKm', String(params.radiusKm));
+    if (params.city) qs.set('city', params.city);
+    if (params.q) qs.set('q', params.q);
+    if (params.type) qs.set('type', params.type);
+    return request<{ businesses: Business[] }>('GET', `/business/nearby?${qs}`);
+  },
+  getProfile: (source: BusinessSource, id: string) =>
+    request<BusinessProfileData>('GET', `/business/${source}/${id}`),
+  find: (params: { city?: string; q?: string; type?: 'store' | 'service' } = {}) =>
+    businessAPI.search(params), // مرادف تعتمد عليه طبقة الـ AI لاحقاً
+};
+
 // ── WebSocket real-time ───────────────────────────────────────
+// WSK-01/02: مصادقة WS تتم بالكوكي HttpOnly تلقائياً عند المصافحة (الخادم
+// يقرأها)، مع إرسال توكن الذاكرة إن وُجد. إعادة الاتصال بتراجع أسّي،
+// وتتوقف نهائياً بعد الخروج المتعمّد (لا تكسر تسجيل الخروج).
 let _ws: WebSocket | null = null;
+let _wsClosedByUs = false;
+let _wsRetryMs = 5000;
 const _handlers = new Map<string, Set<(data: any) => void>>();
 
 export function connectWS(userId: string) {
   if (_ws && _ws.readyState < 2) return;
+  _wsClosedByUs = false;
   try {
     const wsBase = BASE_URL.replace(/^http/, 'ws').replace('/api', '');
     _ws = new WebSocket(`${wsBase}/ws?userId=${userId}`);
     _ws.onopen = () => {
+      _wsRetryMs = 5000; // نجح الاتصال — صفّر التراجع
       if (_token && _ws) _ws.send(JSON.stringify({ type: 'auth', token: _token }));
     };
     _ws.onmessage = (e) => {
@@ -284,7 +430,10 @@ export function connectWS(userId: string) {
     };
     _ws.onerror = () => {};
     _ws.onclose = () => {
-      setTimeout(() => connectWS(userId), 5000);
+      if (_wsClosedByUs) return; // WSK-02: خروج متعمّد — لا إعادة اتصال
+      const delay = _wsRetryMs;
+      _wsRetryMs = Math.min(_wsRetryMs * 2, 60000);
+      setTimeout(() => connectWS(userId), delay);
     };
   } catch {}
 }
@@ -296,6 +445,7 @@ export function onWS(event: string, handler: (data: any) => void) {
 }
 
 export function disconnectWS() {
+  _wsClosedByUs = true;
   _ws?.close();
   _ws = null;
 }

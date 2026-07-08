@@ -102,6 +102,12 @@ app.use('/api/coupons/public/spin', rateLimit({ windowMs: 60 * 60 * 1000, max: 1
 app.use('/api/orders/public',       rateLimit({ windowMs: 60 * 60 * 1000, max: 15, message: { error: 'طلبات كثيرة من هذا الجهاز — حاول بعد قليل' } }));
 app.use('/api/ai/public-reply',     rateLimit({ windowMs: 10 * 60 * 1000, max: 30, message: { error: 'رسائل كثيرة — انتظر قليلاً ثم أعد المحاولة' } }));
 app.use('/api/coupons/validate',    rateLimit({ windowMs: 10 * 60 * 1000, max: 40, message: { error: 'محاولات تحقق كثيرة — انتظر قليلاً' } }));
+app.use('/api/bookings/public',     rateLimit({ windowMs: 60 * 60 * 1000, max: 20, message: { error: 'محاولات حجز كثيرة — حاول بعد قليل' } })); // alloservix
+app.use('/api/search',              rateLimit({ windowMs: 10 * 60 * 1000, max: 150, standardHeaders: true, legacyHeaders: false, message: { error: 'طلبات كثيرة — انتظر قليلاً' } })); // المحرّك الموحّد
+app.use('/api/recommend',           rateLimit({ windowMs: 10 * 60 * 1000, max: 120, standardHeaders: true, legacyHeaders: false, message: { error: 'طلبات كثيرة — انتظر قليلاً' } })); // Recommendation Engine
+app.use('/api/feed',                rateLimit({ windowMs: 10 * 60 * 1000, max: 150, standardHeaders: true, legacyHeaders: false, message: { error: 'طلبات كثيرة — انتظر قليلاً' } })); // Activity Feed
+app.use('/api/discover',            rateLimit({ windowMs: 10 * 60 * 1000, max: 120, standardHeaders: true, legacyHeaders: false, message: { error: 'طلبات كثيرة — انتظر قليلاً' } })); // Super App (legacy alias)
+app.use('/api/business',            rateLimit({ windowMs: 10 * 60 * 1000, max: 120, standardHeaders: true, legacyHeaders: false, message: { error: 'طلبات كثيرة — انتظر قليلاً' } })); // Universal Business Engine
 
 // H-5: سقف لمسارات الذكاء الاصطناعي (حماية تكلفة المالك من الاستنزاف)
 app.use('/api/ai/',          rateLimit({ windowMs: 60 * 60 * 1000, max: 120, standardHeaders: true, legacyHeaders: false, message: { error: 'طلبات ذكاء اصطناعي كثيرة — انتظر قليلاً (حماية التكلفة)' } }));
@@ -126,6 +132,21 @@ app.use('/api/ai',            require('./routes/ai'));
 app.use('/api/delivery-auto', require('./routes/delivery-auto'));
 app.use('/api/push',          require('./routes/push'));
 app.use('/api/listings',      require('./routes/listings'));
+app.use('/api/providers',     require('./routes/providers'));   // alloservix — سوق الخدمات
+app.use('/api/bookings',      require('./routes/bookings'));    // alloservix — الحجوزات
+app.use('/api/search',        require('./routes/search'));      // المحرّك الموحّد الوحيد (Discover = Search بلا q)
+app.use('/api/recommend',     require('./routes/recommend'));   // Recommendation Engine (فوق Business Graph)
+app.use('/api/feed',          require('./routes/feed'));        // Activity Feed (timelines فوق Activity Engine)
+app.use('/api/insights',      require('./routes/insights'));    // Analytics Engine (لوحات من تدفّق الأحداث)
+
+// المحرّكات المعتمدة على الأحداث: Analytics + Rules→Notification كمشتركين على الـBus
+try {
+  require('./lib/engines/analytics').init();
+  require('./lib/engines/rules').init(require('./lib/engines/notification'));
+  console.log('[engines] analytics + rules→notification subscribers ready');
+} catch (e) { console.error('[engines] init failed:', e.message); }
+app.use('/api/discover',      require('./routes/discover'));    // legacy alias — يفوّض إلى Search Engine
+app.use('/api/business',      require('./routes/business'));    // Universal Business Engine — الملف الموحد
 
 // ── Health ───────────────────────────────────────────────────
 app.get('/api/health', (req, res) => {

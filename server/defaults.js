@@ -2,8 +2,7 @@
 
 const defaultSettings = {
   brand: {
-    logo: '/amanzine-logo.svg',
-    name: 'AMANZINE',
+    // L-2: أزيلت المفاتيح المكرّرة (name/logo) — القيم الفعلية هي الأخيرة دوماً
     description: 'AI commerce OS — نظام تشغيل التجارة الإلكترونية',
     name: 'My Store',
     currency: 'MAD',
@@ -12,6 +11,7 @@ const defaultSettings = {
     phone: '',
     email: '',
     address: '',
+    city: '', // Discover: مدينة المتجر — تُستعمل في الاكتشاف المحلي عبر المنصة
     logo: '',
     instagram: '',
     facebook: '',

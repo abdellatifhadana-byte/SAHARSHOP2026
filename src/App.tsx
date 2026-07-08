@@ -6,6 +6,8 @@ import MainLayout            from './pages/MainLayout';
 import LandingPage           from './pages/LandingPage';
 import Storefront            from './pages/Storefront';
 import Marketplace           from './pages/Marketplace';
+import Explore               from './pages/Explore';
+import BusinessProfile       from './pages/BusinessProfile';
 import Onboarding            from './pages/Onboarding';
 import NotificationToast     from './components/NotificationToast';
 import TourGuide             from './components/TourGuide';
@@ -30,6 +32,7 @@ const PAGE_URLS: Record<string, string> = {
   coupons:       '/coupons',
   guide:         '/guide',
   moderation:    '/moderation',
+  bookings:      '/bookings',
 };
 
 const URL_PAGES: Record<string, string> = Object.fromEntries(
@@ -127,6 +130,8 @@ function RouterSync() {
   // Public routes that RouterSync must NEVER interfere with
   const isPublicRoute = location.pathname.startsWith('/store') ||
     location.pathname.startsWith('/market') ||
+    location.pathname.startsWith('/explore') ||
+    location.pathname.startsWith('/business') ||
     location.pathname.startsWith('/landing') ||
     location.pathname === '/';
 
@@ -151,7 +156,7 @@ function AppShell() {
   const isDemoMode = token === 'demo-token-local';
   const isAuthed   = !!token || isDemoMode;
   // الصفحات العامة (واجهة الزبون) لا تتأثر ببوابة التحميل أو الإعداد الأولي
-  const isPublicRoute = location.pathname.startsWith('/store') || location.pathname.startsWith('/market') || location.pathname.startsWith('/landing');
+  const isPublicRoute = location.pathname.startsWith('/store') || location.pathname.startsWith('/market') || location.pathname.startsWith('/explore') || location.pathname.startsWith('/business') || location.pathname.startsWith('/landing');
 
   // أثناء أول تحميل للبيانات لا نقرر شيئاً — لا نعرض Onboarding قبل وصول
   // الإعدادات الحقيقية من الخادم، حتى لا يُعاد الإعداد الأولي على جهاز جديد
@@ -198,7 +203,9 @@ function AppShell() {
         <Route path="/store/*"        element={<Storefront />} />
 
         {/* ── PUBLIC: Marketplace (unified catalog + quick-seller) ── */}
+        <Route path="/explore"        element={<Explore />} />
         <Route path="/market"         element={<Marketplace />} />
+        <Route path="/business/:source/:id" element={<BusinessProfile />} />
 
         {/* ── PUBLIC: Landing page (choose: merchant or customer) ── */}
         <Route path="/landing" element={<LandingPage />} />

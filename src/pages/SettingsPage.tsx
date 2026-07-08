@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { getToken as getAuthToken } from '../services/api';
 import { useStore } from '../store';
 import {
   Settings, Bot, Package, Truck, FileText, Shield, Users,
@@ -75,7 +76,7 @@ function ChangePasswordForm({ notify }: { notify: (type: string, msg: string) =>
     if (form.next.length < 6) { notify('error', 'يجب أن تكون 6 أحرف على الأقل'); return; }
     setLoading(true);
     try {
-      const tok = localStorage.getItem('ai_commerce_token') || '';
+      const tok = getAuthToken() || '';
       const r = await fetch('/api/auth/change-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tok}` },
@@ -107,7 +108,7 @@ function ServerBackups() {
   const [list, setList] = useState<{ filename: string; date: string; size: number }[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
-  const tok = () => { try { return localStorage.getItem('ai_commerce_token') || ''; } catch { return ''; } };
+  const tok = () => { try { return getAuthToken() || ''; } catch { return ''; } };
 
   const load = async () => {
     setLoading(true); setErr('');
@@ -321,7 +322,13 @@ export default function SettingsPage() {
             <Field label="الوصف">
               <textarea className="textarea" rows={2} value={s.brand.description} onChange={e => updateSettings('brand', { ...s.brand, description: e.target.value })} />
             </Field>
-            <button onClick={() => notify('success', '✅ تم الحفظ')} className="btn btn-primary" style={{ width: 'fit-content' }}>حفظ</button>
+            <Field label="المدينة — تُظهر متجرك في الاكتشاف المحلي (سوق AMANZINE)">
+              <select className="input" value={(s.brand as any).city || ''} onChange={e => updateSettings('brand', { ...s.brand, city: e.target.value } as any)}>
+                <option value="">— اختر المدينة —</option>
+                {['الدار البيضاء','الرباط','مراكش','فاس','طنجة','أكادير','مكناس','وجدة','سلا','تطوان','القنيطرة','الجديدة'].map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </Field>
+            <button onClick={() => notify('success', '✅ محفوظ — إعداداتك تُحفظ تلقائياً عند كل تغيير')} className="btn btn-primary" style={{ width: 'fit-content' }}>حفظ</button>
           </Section>
 
           <Section title="أهداف المبيعات">
@@ -498,13 +505,13 @@ export default function SettingsPage() {
             <button onClick={async()=>{
               notify('info','⏳ جارٍ الاختبار...');
               try{
-                const tok=localStorage.getItem('ai_commerce_token')||'';
+                const tok=getAuthToken()||'';
                 const r=await fetch('/api/ai/reply',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${tok}`},body:JSON.stringify({message:'مرحبا'})});
                 const d=await r.json();
                 d.reply?notify('success','✅ AI يعمل! الرد: '+d.reply.slice(0,50)):notify('error','❌ لا يوجد رد');
               }catch{notify('error','❌ فشل الاتصال بـ AI');}
             }} className="btn btn-ghost btn-sm" style={{width:'fit-content'}}>🧪 اختبار AI</button>
-            <button onClick={() => notify('success', '✅ تم حفظ إعدادات AI')} className="btn btn-primary" style={{ width: 'fit-content' }}>حفظ</button>
+            <button onClick={() => notify('success', '✅ محفوظ — إعدادات AI تُحفظ تلقائياً عند كل تغيير')} className="btn btn-primary" style={{ width: 'fit-content' }}>حفظ</button>
           </Section>
         </div>
       )}
@@ -578,7 +585,7 @@ export default function SettingsPage() {
             </Field>
           )}
 
-          <button onClick={() => notify('success', '✅ تم الحفظ')} className="btn btn-primary" style={{ width: 'fit-content' }}>حفظ</button>
+          <button onClick={() => notify('success', '✅ محفوظ — إعداداتك تُحفظ تلقائياً عند كل تغيير')} className="btn btn-primary" style={{ width: 'fit-content' }}>حفظ</button>
         </Section>
       )}
 
@@ -963,7 +970,7 @@ export default function SettingsPage() {
               <div style={{ background: 'rgba(0,200,150,.06)', border: '1px solid rgba(0,200,150,.2)', borderRadius: 12, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink1)' }}>اختبار المصادقة الثنائية</div>
                 <button onClick={async () => {
-                  const tok = localStorage.getItem('ai_commerce_token') || '';
+                  const tok = getAuthToken() || '';
                   const r = await fetch('/api/auth/request-otp', { method: 'POST', headers: { 'Authorization': `Bearer ${tok}` } });
                   const d = await r.json();
                   if (d.sent) {
@@ -1257,7 +1264,7 @@ export default function SettingsPage() {
                 className={`chip ${s.ai.provider === 'mistral' ? 'active' : ''}`}
               >🌬️ Mistral</button>
             </div>
-            <button onClick={() => notify('success', '✅ تم الحفظ')} className="btn btn-primary" style={{ width: 'fit-content' }}>حفظ</button>
+            <button onClick={() => notify('success', '✅ محفوظ — إعداداتك تُحفظ تلقائياً عند كل تغيير')} className="btn btn-primary" style={{ width: 'fit-content' }}>حفظ</button>
           </Section>
 
           <Section title="📱 واتساب بيزنس">
@@ -1282,7 +1289,7 @@ export default function SettingsPage() {
               onClick={()=>updateSettings('social',{...s.social,whatsapp:{...(s.social as any)?.whatsapp,autoPublish:!((s.social as any)?.whatsapp?.autoPublish)}} as any)}
               label="نشر تلقائي على واتساب"
             />
-            <button onClick={() => notify('success', '✅ تم الحفظ')} className="btn btn-primary" style={{ width: 'fit-content' }}>حفظ</button>
+            <button onClick={() => notify('success', '✅ محفوظ — إعداداتك تُحفظ تلقائياً عند كل تغيير')} className="btn btn-primary" style={{ width: 'fit-content' }}>حفظ</button>
           </Section>
 
           <Section title="📘 فيسبوك وإنستغرام">
@@ -1320,7 +1327,7 @@ export default function SettingsPage() {
               onClick={()=>updateSettings('social',{...s.social,facebook:{...(s.social as any)?.facebook,autoHashtags:!((s.social as any)?.facebook?.autoHashtags)}} as any)}
               label="إضافة هاشتاقات تلقائياً"
             />
-            <button onClick={() => notify('success', '✅ تم الحفظ')} className="btn btn-primary" style={{ width: 'fit-content' }}>حفظ</button>
+            <button onClick={() => notify('success', '✅ محفوظ — إعداداتك تُحفظ تلقائياً عند كل تغيير')} className="btn btn-primary" style={{ width: 'fit-content' }}>حفظ</button>
           </Section>
 
           <Section title="🎵 TikTok Shop">

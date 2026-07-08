@@ -886,10 +886,11 @@ db.getListing = async (id) => {
   const { rows } = await pool.query('SELECT * FROM listings WHERE id = $1', [id]);
   return _mapListing(rows[0]) || null;
 };
-db.getPublicListings = async ({ city, type, limit = 60 } = {}) => {
+db.getPublicListings = async ({ city, type, q, limit = 60 } = {}) => {
   const conds = ["status = 'approved'"]; const vals = []; let i = 1;
   if (city) { conds.push(`city = $${i++}`); vals.push(city); }
   if (type) { conds.push(`type = $${i++}`); vals.push(type); }
+  if (q)    { conds.push(`(LOWER(name) LIKE $${i} OR LOWER(description) LIKE $${i} OR LOWER(category) LIKE $${i})`); vals.push('%' + String(q).toLowerCase() + '%'); i++; }
   vals.push(Math.min(+limit || 60, 200));
   const { rows } = await pool.query(
     `SELECT l.*,
@@ -965,6 +966,234 @@ db.getListingRating = async (listingId) => {
   const { rows } = await pool.query('SELECT COALESCE(ROUND(AVG(rating),1),0) AS avg, COUNT(*)::int AS count FROM reviews WHERE listing_id = $1', [listingId]);
   const r = rows[0] || {};
   return { avg: +r.avg || 0, count: +r.count || 0 };
+};
+
+// مقدّم خدمة عام بمعرّفه (للملف الموحّد) — معتمَد فقط
+db.getProviderById = async (id) => {
+  const { rows } = await pool.query("SELECT * FROM providers WHERE id = $1 AND status = 'approved'", [id]);
+  return _mapProvider(rows[0]);
+};
+
+// ── Discover — الطبقة الجامعة عبر كل المتاجر (Super App) ───────
+// قراءة عامة فقط لما هو منشور/معتمد صراحةً: منتجات published،
+// مقدّمون approved، ومتاجر لها كتالوج عام. لا PII، لا أسرار.
+db.discoverProducts = async ({ city, q, limit = 24 } = {}) => {
+  const conds = ["p.status = 'published'"]; const vals = []; let i = 1;
+  if (city) { conds.push(`s.data->'brand'->>'city' = $${i++}`); vals.push(city); }
+  if (q)    { conds.push(`(LOWER(p.name) LIKE $${i} OR LOWER(p.description) LIKE $${i} OR LOWER(p.category) LIKE $${i})`); vals.push('%' + String(q).toLowerCase() + '%'); i++; }
+  vals.push(Math.min(+limit || 24, 60));
+  const { rows } = await pool.query(
+    `SELECT p.id, p.user_id, p.name, p.price, p.category, p.emoji, p.image_url, p.views, p.offer_type,
+            s.data->'brand'->>'name' AS store_name,
+            s.data->'brand'->>'city' AS store_city,
+            s.data->'brand'->>'logo' AS store_logo
+     FROM products p LEFT JOIN settings s ON s.user_id = p.user_id
+     WHERE ${conds.join(' AND ')}
+     ORDER BY p.views DESC NULLS LAST, p.created_at DESC LIMIT $${i}`, vals);
+  return rows.map(r => ({
+    id: r.id, storeId: r.user_id, name: r.name, price: +r.price || 0,
+    category: r.category || '', emoji: r.emoji || '📦', imageUrl: r.image_url || '',
+    views: +r.views || 0, type: r.offer_type || 'product',
+    storeName: r.store_name || '', storeCity: r.store_city || '', storeLogo: r.store_logo || '',
+  }));
+};
+
+db.discoverProviders = async ({ city, q, limit = 24 } = {}) => {
+  const conds = ["pr.status = 'approved'"]; const vals = []; let i = 1;
+  if (city) { conds.push(`pr.city = $${i++}`); vals.push(city); }
+  if (q) {
+    conds.push(`(LOWER(pr.name) LIKE $${i} OR LOWER(pr.bio) LIKE $${i} OR EXISTS (
+       SELECT 1 FROM provider_services ps WHERE ps.provider_id = pr.id
+         AND (LOWER(ps.service_label) LIKE $${i} OR LOWER(ps.service_key) LIKE $${i})))`);
+    vals.push('%' + String(q).toLowerCase() + '%'); i++;
+  }
+  vals.push(Math.min(+limit || 24, 60));
+  const { rows } = await pool.query(
+    `SELECT pr.id, pr.user_id, pr.name, pr.bio, pr.city, pr.avatar_url, pr.is_verified,
+            pr.rating_avg, pr.rating_count,
+            (SELECT COALESCE(json_agg(ps.service_label), '[]'::json)
+               FROM provider_services ps WHERE ps.provider_id = pr.id) AS service_labels
+     FROM providers pr WHERE ${conds.join(' AND ')}
+     ORDER BY pr.is_verified DESC, pr.rating_avg DESC, pr.created_at DESC LIMIT $${i}`, vals);
+  return rows.map(r => ({
+    id: r.id, storeId: r.user_id, name: r.name, bio: r.bio || '', city: r.city || '',
+    avatarUrl: r.avatar_url || '', isVerified: !!r.is_verified,
+    ratingAvg: +r.rating_avg || 0, ratingCount: +r.rating_count || 0,
+    serviceLabels: Array.isArray(r.service_labels) ? r.service_labels : [],
+  }));
+};
+
+db.discoverStores = async ({ city, q, limit = 24 } = {}) => {
+  const conds = ['TRUE']; const vals = []; let i = 1;
+  if (city) { conds.push(`s.data->'brand'->>'city' = $${i++}`); vals.push(city); }
+  if (q)    { conds.push(`LOWER(s.data->'brand'->>'name') LIKE $${i++}`); vals.push('%' + String(q).toLowerCase() + '%'); }
+  vals.push(Math.min(+limit || 24, 60));
+  const { rows } = await pool.query(
+    `SELECT s.user_id,
+            s.data->'brand'->>'name' AS name,
+            s.data->'brand'->>'logo' AS logo,
+            s.data->'brand'->>'city' AS city,
+            s.data->'brand'->>'description' AS description,
+            (SELECT COUNT(*) FROM products p WHERE p.user_id = s.user_id AND p.status = 'published') AS product_count
+     FROM settings s
+     WHERE ${conds.join(' AND ')}
+       AND (SELECT COUNT(*) FROM products p WHERE p.user_id = s.user_id AND p.status = 'published') > 0
+     ORDER BY product_count DESC LIMIT $${i}`, vals);
+  return rows.map(r => ({
+    storeId: r.user_id, name: r.name || 'متجر', logo: r.logo || '', city: r.city || '',
+    description: r.description || '', productCount: +r.product_count || 0,
+  }));
+};
+
+// ── Services Marketplace (alloservix) ─────────────────────────
+function _mapProvider(p) {
+  if (!p) return null;
+  return {
+    id: p.id, userId: p.user_id, name: p.name, bio: p.bio || '', phone: p.phone || '',
+    city: p.city || '', avatarUrl: p.avatar_url || '',
+    latitude: p.latitude != null ? +p.latitude : null,
+    longitude: p.longitude != null ? +p.longitude : null,
+    status: p.status, isVerified: !!p.is_verified,
+    ratingAvg: +p.rating_avg || 0, ratingCount: +p.rating_count || 0,
+    adminNote: p.admin_note || '',
+    createdAt: p.created_at ? new Date(p.created_at).toISOString() : now(),
+  };
+}
+function _mapBooking(b) {
+  if (!b) return null;
+  return {
+    id: b.id, userId: b.user_id, providerId: b.provider_id, serviceId: b.service_id,
+    customerName: b.customer_name, customerPhone: b.customer_phone,
+    scheduledAt: b.scheduled_at ? new Date(b.scheduled_at).toISOString() : null,
+    durationMin: +b.duration_min || 60, status: b.status, price: +b.price || 0,
+    notes: b.notes || '', createdAt: b.created_at ? new Date(b.created_at).toISOString() : now(),
+  };
+}
+
+// Providers — كلها مقيَّدة بـ userId (المستأجر)
+db.getProviders = async (userId, { status, q } = {}) => {
+  const cond = ['user_id = $1'], args = [userId];
+  if (status) { cond.push(`status = $${args.length + 1}`); args.push(status); }
+  if (q)      { cond.push(`(LOWER(name) LIKE $${args.length + 1} OR LOWER(city) LIKE $${args.length + 1})`); args.push('%' + String(q).toLowerCase() + '%'); }
+  const { rows } = await pool.query(`SELECT * FROM providers WHERE ${cond.join(' AND ')} ORDER BY is_verified DESC, rating_avg DESC, created_at DESC LIMIT 200`, args);
+  return rows.map(_mapProvider);
+};
+db.getProvider = async (userId, id) => {
+  const { rows } = await pool.query('SELECT * FROM providers WHERE id = $1 AND user_id = $2', [id, userId]);
+  return _mapProvider(rows[0]);
+};
+db.createProvider = async (userId, d) => {
+  const id = uid();
+  const { rows } = await pool.query(
+    `INSERT INTO providers (id,user_id,name,bio,phone,city,avatar_url,latitude,longitude,status)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+    [id, userId, d.name, d.bio || '', d.phone || '', d.city || '', d.avatarUrl || '',
+     d.latitude ?? null, d.longitude ?? null, d.status || 'pending']
+  );
+  return _mapProvider(rows[0]);
+};
+db.updateProvider = async (userId, id, d) => {
+  const fields = { name: d.name, bio: d.bio, phone: d.phone, city: d.city, avatar_url: d.avatarUrl,
+    latitude: d.latitude, longitude: d.longitude, status: d.status, is_verified: d.isVerified, admin_note: d.adminNote };
+  const set = [], args = [];
+  for (const [col, v] of Object.entries(fields)) if (v !== undefined) { args.push(v); set.push(`${col} = $${args.length}`); }
+  if (!set.length) return db.getProvider(userId, id);
+  args.push(id, userId);
+  const { rows } = await pool.query(`UPDATE providers SET ${set.join(', ')} WHERE id = $${args.length - 1} AND user_id = $${args.length} RETURNING *`, args);
+  return _mapProvider(rows[0]);
+};
+db.deleteProvider = async (userId, id) => {
+  const { rowCount } = await pool.query('DELETE FROM providers WHERE id = $1 AND user_id = $2', [id, userId]);
+  return rowCount > 0;
+};
+
+// Provider services
+db.getProviderServices = async (providerId) => {
+  const { rows } = await pool.query('SELECT * FROM provider_services WHERE provider_id = $1 ORDER BY created_at', [providerId]);
+  return rows.map(s => ({ id: s.id, providerId: s.provider_id, serviceKey: s.service_key, serviceLabel: s.service_label,
+    skillLevel: s.skill_level, priceMin: +s.price_min || 0, priceMax: +s.price_max || 0, durationMin: +s.duration_min || 60, description: s.description || '' }));
+};
+db.addProviderService = async (providerId, d) => {
+  const id = uid();
+  await pool.query(
+    `INSERT INTO provider_services (id,provider_id,service_key,service_label,skill_level,price_min,price_max,duration_min,description)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+    [id, providerId, d.serviceKey, d.serviceLabel, d.skillLevel || 'intermediate', d.priceMin || 0, d.priceMax || 0, d.durationMin || 60, d.description || '']
+  );
+  return id;
+};
+db.removeProviderService = async (providerId, id) => {
+  const { rowCount } = await pool.query('DELETE FROM provider_services WHERE id = $1 AND provider_id = $2', [id, providerId]);
+  return rowCount > 0;
+};
+
+// Availability
+db.getAvailabilityTemplates = async (providerId) => {
+  const { rows } = await pool.query('SELECT * FROM availability_templates WHERE provider_id = $1 ORDER BY weekday, start_time', [providerId]);
+  return rows.map(t => ({ id: t.id, providerId: t.provider_id, weekday: +t.weekday, startTime: t.start_time, endTime: t.end_time }));
+};
+db.setAvailabilityTemplates = async (providerId, list) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('DELETE FROM availability_templates WHERE provider_id = $1', [providerId]);
+    for (const t of (list || [])) {
+      await client.query('INSERT INTO availability_templates (id,provider_id,weekday,start_time,end_time) VALUES ($1,$2,$3,$4,$5)',
+        [uid(), providerId, t.weekday, t.startTime, t.endTime]);
+    }
+    await client.query('COMMIT');
+  } catch (e) { await client.query('ROLLBACK'); throw e; }
+  finally { client.release(); }
+};
+db.getAvailabilitySlots = async (providerId, fromISO, toISO) => {
+  const { rows } = await pool.query(
+    'SELECT * FROM availability_slots WHERE provider_id = $1 AND starts_at >= $2 AND starts_at <= $3 ORDER BY starts_at',
+    [providerId, fromISO, toISO]
+  );
+  return rows.map(s => ({ id: s.id, providerId: s.provider_id, startsAt: new Date(s.starts_at).toISOString(), endsAt: new Date(s.ends_at).toISOString(), status: s.status }));
+};
+db.addAvailabilitySlot = async (providerId, d) => {
+  const id = uid();
+  await pool.query('INSERT INTO availability_slots (id,provider_id,starts_at,ends_at,status) VALUES ($1,$2,$3,$4,$5)',
+    [id, providerId, d.startsAt, d.endsAt, d.status || 'open']);
+  return id;
+};
+
+// Bookings — مع كشف تعارض المواعيد للمقدّم
+db.getBookings = async (userId, { providerId, status } = {}) => {
+  const cond = ['user_id = $1'], args = [userId];
+  if (providerId) { cond.push(`provider_id = $${args.length + 1}`); args.push(providerId); }
+  if (status)     { cond.push(`status = $${args.length + 1}`); args.push(status); }
+  const { rows } = await pool.query(`SELECT * FROM bookings WHERE ${cond.join(' AND ')} ORDER BY scheduled_at DESC LIMIT 300`, args);
+  return rows.map(_mapBooking);
+};
+// يعيد الحجوزات النشطة المتعارضة مع [start, start+duration) لنفس المقدّم
+db.findBookingConflict = async (providerId, scheduledAtISO, durationMin) => {
+  const start = new Date(scheduledAtISO);
+  const end = new Date(start.getTime() + (durationMin || 60) * 60000);
+  const { rows } = await pool.query(
+    `SELECT * FROM bookings
+     WHERE provider_id = $1 AND status IN ('pending','confirmed')
+       AND scheduled_at < $3
+       AND (scheduled_at + (duration_min * interval '1 minute')) > $2
+     LIMIT 1`,
+    [providerId, start.toISOString(), end.toISOString()]
+  );
+  return _mapBooking(rows[0]);
+};
+db.createBooking = async (userId, d) => {
+  const id = uid();
+  const { rows } = await pool.query(
+    `INSERT INTO bookings (id,user_id,provider_id,service_id,customer_name,customer_phone,scheduled_at,duration_min,status,price,notes)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
+    [id, userId, d.providerId, d.serviceId || null, d.customerName, d.customerPhone,
+     d.scheduledAt, d.durationMin || 60, d.status || 'pending', d.price || 0, d.notes || '']
+  );
+  return _mapBooking(rows[0]);
+};
+db.updateBookingStatus = async (userId, id, status) => {
+  const { rows } = await pool.query('UPDATE bookings SET status = $1 WHERE id = $2 AND user_id = $3 RETURNING *', [status, id, userId]);
+  return _mapBooking(rows[0]);
 };
 
 module.exports = { db };

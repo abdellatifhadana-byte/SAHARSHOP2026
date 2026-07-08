@@ -5,7 +5,7 @@ import {
   Search, LogOut, ExternalLink, Sun, Moon, Plus,
   Users, Bell, Download, Layers,
   Package, Wrench, UserPlus, X as XIcon, HelpCircle,
-  Image as ImageIcon, Wand2,
+  Image as ImageIcon, Wand2, Calendar as CalendarIcon,
 } from 'lucide-react';
 import { NavIconCart, NavIconTruck, NavIconBrain, NavIconPackage, NavIconMessage } from '../components/icons';
 import React from 'react';
@@ -100,6 +100,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     { page: 'dashboard', icon: LayoutDashboard, label: 'الرئيسية',  desc: 'نظرة عامة على متجرك' },
     { page: 'products',  icon: NavIconPackage,  label: 'المنتجات',  desc: 'التحكم في جميع المنتجات' },
     { page: 'services',  icon: Layers,          label: 'الخدمات',   desc: 'التحكم في جميع الخدمات' },
+    { page: 'bookings',  icon: CalendarIcon,    label: 'الحجوزات',  desc: 'مقدّمو الخدمات والمواعيد' },
     { page: 'orders',    icon: NavIconCart,     label: 'الطلبات',   desc: 'طلبات الزبائن: منتج أو خدمة' },
     { page: 'customers', icon: Users,           label: 'الزبائن',   desc: 'التحكم في جميع الزبائن' },
     { page: 'coupons',   icon: Tag,             label: 'الكوبونات', desc: 'إنشاء أكواد خصم وهدايا' },
