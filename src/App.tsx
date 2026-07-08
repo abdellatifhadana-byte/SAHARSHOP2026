@@ -7,6 +7,7 @@ import LandingPage           from './pages/LandingPage';
 import Storefront            from './pages/Storefront';
 import Marketplace           from './pages/Marketplace';
 import Explore               from './pages/Explore';
+import ActivityFeed          from './pages/ActivityFeed';
 import BusinessProfile       from './pages/BusinessProfile';
 import Onboarding            from './pages/Onboarding';
 import NotificationToast     from './components/NotificationToast';
@@ -131,6 +132,7 @@ function RouterSync() {
   const isPublicRoute = location.pathname.startsWith('/store') ||
     location.pathname.startsWith('/market') ||
     location.pathname.startsWith('/explore') ||
+    location.pathname.startsWith('/feed') ||
     location.pathname.startsWith('/business') ||
     location.pathname.startsWith('/landing') ||
     location.pathname === '/';
@@ -156,7 +158,7 @@ function AppShell() {
   const isDemoMode = token === 'demo-token-local';
   const isAuthed   = !!token || isDemoMode;
   // الصفحات العامة (واجهة الزبون) لا تتأثر ببوابة التحميل أو الإعداد الأولي
-  const isPublicRoute = location.pathname.startsWith('/store') || location.pathname.startsWith('/market') || location.pathname.startsWith('/explore') || location.pathname.startsWith('/business') || location.pathname.startsWith('/landing');
+  const isPublicRoute = location.pathname.startsWith('/store') || location.pathname.startsWith('/market') || location.pathname.startsWith('/explore') || location.pathname.startsWith('/feed') || location.pathname.startsWith('/business') || location.pathname.startsWith('/landing');
 
   // أثناء أول تحميل للبيانات لا نقرر شيئاً — لا نعرض Onboarding قبل وصول
   // الإعدادات الحقيقية من الخادم، حتى لا يُعاد الإعداد الأولي على جهاز جديد
@@ -204,6 +206,7 @@ function AppShell() {
 
         {/* ── PUBLIC: Marketplace (unified catalog + quick-seller) ── */}
         <Route path="/explore"        element={<Explore />} />
+        <Route path="/feed"           element={<ActivityFeed />} />
         <Route path="/market"         element={<Marketplace />} />
         <Route path="/business/:source/:id" element={<BusinessProfile />} />
 

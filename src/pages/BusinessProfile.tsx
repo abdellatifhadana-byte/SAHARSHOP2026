@@ -1,6 +1,6 @@
 import { useState, useEffect, type ReactElement } from 'react';
 import { useParams } from 'react-router-dom';
-import { businessAPI, bookingsAPI, type BusinessProfileData, type BusinessSource } from '../services/api';
+import { businessAPI, bookingsAPI, recommendAPI, feedAPI, type Business, type BusinessProfileData, type BusinessSource, type Activity } from '../services/api';
 import { BadgeCheck, Star, MapPin, Phone, MessageCircle, Calendar, X, Clock, ArrowLeft } from 'lucide-react';
 
 // ============================================================
@@ -17,6 +17,7 @@ const PURPLE = '#8b5cf6', MUTED = 'rgba(255,255,255,0.55)', INK = '#f5f5f7';
 const SECTION_LABELS: Record<string, string> = {
   about: 'نبذة', products: 'المنتجات', services: 'الخدمات', offers: 'العروض',
   booking: 'الحجز', gallery: 'المعرض', reviews: 'التقييمات', location: 'الموقع', contact: 'اتصال',
+  related: 'أنشطة ذات صلة', activity: 'آخر النشاط',
 };
 
 export default function BusinessProfile() {
@@ -39,7 +40,8 @@ export default function BusinessProfile() {
   if (error || !profile) return <Center>{error || 'النشاط غير موجود'}</Center>;
 
   const { business } = profile;
-  const tabs = visibleSections(profile);
+  // أقسام القدرات + قسمان ديناميكيان دائمان (ذات صلة / آخر النشاط) من محرّكات أخرى
+  const tabs = [...visibleSections(profile), 'related', 'activity'];
 
   return (
     <div dir="rtl" style={{ minHeight: '100dvh', background: BG, color: INK, fontFamily: 'Tajawal,system-ui,sans-serif', paddingBottom: 60 }}>
@@ -122,6 +124,8 @@ const REGISTRY: Record<string, (p: SectionProps) => ReactElement | null> = {
   location: LocationSection,
   contact:  ContactSection,
   reviews:  ReviewsSection,
+  related:  RelatedSection,
+  activity: ActivitySection,
 };
 
 function AboutSection({ profile }: SectionProps) {
@@ -245,6 +249,69 @@ function ReviewsSection({ profile }: SectionProps) {
       ) : <Empty>لا تقييمات بعد.</Empty>}
     </div>
   );
+}
+
+// ── أنشطة ذات صلة (Recommendation Engine فوق Business Graph) ──
+function RelatedSection({ profile }: SectionProps) {
+  const b = profile.business;
+  const [items, setItems] = useState<Business[] | null>(null);
+  useEffect(() => { recommendAPI.forBusiness(b.source, b.id).then(r => setItems(r.businesses || [])).catch(() => setItems([])); }, [b.source, b.id]);
+  if (items === null) return <Empty>جارٍ التحميل…</Empty>;
+  if (!items.length) return <Empty>لا توجد أنشطة ذات صلة بعد.</Empty>;
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(180px,1fr))', gap: 10 }}>
+      {items.map(x => (
+        <a key={`${x.source}-${x.id}`} href={x.href || `/business/${x.source}/${x.id}`} style={{ background: CARD, border: BORDER, borderRadius: 12, padding: 12, textDecoration: 'none', color: INK, display: 'flex', flexDirection: 'column', gap: 5 }}>
+          <div style={{ fontWeight: 800, fontSize: 13.5, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{x.name}</span>
+            {x.verified && <BadgeCheck size={13} color={PURPLE} />}
+          </div>
+          <div style={{ fontSize: 11, color: MUTED, display: 'flex', gap: 8 }}>
+            {x.city && <span><MapPin size={9} style={{ verticalAlign: 'middle' }} /> {x.city}</span>}
+            {!!x.rating.count && <span><Star size={9} style={{ verticalAlign: 'middle', color: '#fbbf24' }} /> {x.rating.avg}</span>}
+          </div>
+          {x.categories[0] && <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.7)', background: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: 99, width: 'fit-content' }}>{x.categories[0]}</span>}
+        </a>
+      ))}
+    </div>
+  );
+}
+
+// ── آخر النشاط (Activity Feed لهذا النشاط) ───────────────────
+const ACT_ICON: Record<string, string> = { offer: '🎁', product: '🛍️', service: '🛠️', listing: '🏷️', booking: '📅', business: '✅', review: '⭐' };
+function ActivitySection({ profile }: SectionProps) {
+  const b = profile.business;
+  const [items, setItems] = useState<Activity[] | null>(null);
+  useEffect(() => {
+    const bid = b.source === 'store' ? `store:${b.id}` : `${b.source}:${b.id}`;
+    feedAPI.get({ type: 'following', ids: bid, limit: 20 }).then(r => setItems(r.items || [])).catch(() => setItems([]));
+  }, [b.source, b.id]);
+  if (items === null) return <Empty>جارٍ التحميل…</Empty>;
+  if (!items.length) return <Empty>لا نشاط منشور بعد.</Empty>;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {items.map(a => (
+        <div key={a.id} style={{ background: CARD, border: BORDER, borderRadius: 10, padding: '10px 13px', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 18 }}>{ACT_ICON[a.category] || '📢'}</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13, fontWeight: 700 }}>{activityLabel(a)}</div>
+            <div style={{ fontSize: 10.5, color: MUTED }}>{new Date(a.createdAt).toLocaleString('ar-MA')}</div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+function activityLabel(a: Activity): string {
+  const p = a.payload || {};
+  switch (a.type) {
+    case 'offer.created':     return `عرض جديد${p.code ? `: ${p.code}` : ''}`;
+    case 'listing.approved':  return `${p.name || 'إعلان'} — أصبح متاحاً`;
+    case 'business.verified': return 'تم اعتماد النشاط ✅';
+    case 'booking.created':   return 'حجز جديد';
+    case 'review.created':    return 'تقييم جديد';
+    default:                  return a.type;
+  }
 }
 
 // ── نافذة الحجز (تعتمد على عقد bookingsAPI) ──────────────────

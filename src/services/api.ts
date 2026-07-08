@@ -403,6 +403,24 @@ export const businessAPI = {
     businessAPI.search(params), // مرادف تعتمد عليه طبقة الـ AI لاحقاً
 };
 
+// Recommendation Engine
+export const recommendAPI = {
+  forBusiness: (source: BusinessSource, id: string) =>
+    request<{ businesses: Business[]; edges?: any }>('GET', `/recommend?source=${source}&id=${encodeURIComponent(id)}`),
+  forQuery: (q: string, city?: string) =>
+    request<{ basedOn?: any[]; businesses: Business[] }>('GET', `/recommend?q=${encodeURIComponent(q)}${city ? '&city=' + encodeURIComponent(city) : ''}`),
+};
+
+// Activity Feed
+export interface Activity { id: string; businessId: string; actor: string; type: string; category: string; city: string | null; createdAt: string; payload: any; }
+export const feedAPI = {
+  get: (params: { type?: 'latest' | 'local' | 'category' | 'trending' | 'following'; city?: string; category?: string; ids?: string; limit?: number } = {}) => {
+    const qs = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) if (v) qs.set(k, String(v));
+    return request<{ type: string; items: Activity[]; trending?: { category: string; count: number }[] }>('GET', `/feed?${qs}`);
+  },
+};
+
 // ── WebSocket real-time ───────────────────────────────────────
 // WSK-01/02: مصادقة WS تتم بالكوكي HttpOnly تلقائياً عند المصافحة (الخادم
 // يقرأها)، مع إرسال توكن الذاكرة إن وُجد. إعادة الاتصال بتراجع أسّي،

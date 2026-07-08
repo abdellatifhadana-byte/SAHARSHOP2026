@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
-import { businessAPI, type Business, type SearchFilters, type SearchResult } from '../services/api';
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
+import { businessAPI, feedAPI, recommendAPI, type Business, type SearchFilters, type SearchResult } from '../services/api';
+const MapView = lazy(() => import('../components/MapView')); // Leaflet يُحمَّل فقط عند فتح الخريطة
 import { Search, MapPin, Star, BadgeCheck, SlidersHorizontal, X, Store, List, Map as MapIcon } from 'lucide-react';
 
 // ============================================================
@@ -25,6 +26,17 @@ export default function Explore() {
   const [loading, setLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [trending, setTrending] = useState<{ category: string; count: number }[]>([]);
+  const [recs, setRecs] = useState<Business[]>([]);
+
+  // شريط الرائج (من Activity Engine) — يُحمّل مرّة
+  useEffect(() => { feedAPI.get({ type: 'trending' }).then(r => setTrending((r.trending || []).map(t => ({ category: t.category, count: t.count })))).catch(() => {}); }, []);
+  // "قد يعجبك" (Recommendation فوق Business Graph) عند وجود بحث
+  useEffect(() => {
+    if (!q.trim()) { setRecs([]); return; }
+    const t = setTimeout(() => recommendAPI.forQuery(q.trim(), filters.city).then(r => setRecs(r.businesses || [])).catch(() => setRecs([])), 400);
+    return () => clearTimeout(t);
+  }, [q, filters.city]);
 
   const run = useCallback(() => {
     setLoading(true);
@@ -108,12 +120,31 @@ export default function Explore() {
 
       {/* النتائج */}
       <div style={{ padding: '16px' }}>
+        {/* 🔥 رائج الآن (من Activity Engine) — يظهر بلا بحث */}
+        {!q.trim() && trending.length > 0 && (
+          <div style={{ marginBottom: 22 }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: MUTED, marginBottom: 8 }}>🔥 رائج الآن</div>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {trending.map(t => <button key={t.category} onClick={() => setQ(t.category)} style={chip(false)}>{t.category} · {t.count}</button>)}
+            </div>
+          </div>
+        )}
         {loading && <Center>جارٍ البحث…</Center>}
         {!loading && result && (
           <>
             {view === 'map' && coords && (
-              <div style={{ marginBottom: 16, padding: 12, background: CARD, border: BORDER, borderRadius: 12, fontSize: 12.5, color: MUTED }}>
-                📍 عرض {result.markers?.length || 0} نشاطاً ضمن {filters.radiusKm || 25} كم من موقعك — مرتّبة بالأقرب. (الخريطة التفاعلية قادمة)
+              <div style={{ marginBottom: 18 }}>
+                <Suspense fallback={<div style={{ height: 460, background: CARD, border: BORDER, borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', color: MUTED }}>تحميل الخريطة…</div>}>
+                  <MapView
+                    markers={(result.markers || []) as any}
+                    center={coords}
+                    radiusKm={filters.radiusKm || 25}
+                    onSearchArea={(b) => { setCoords({ lat: b.lat, lng: b.lng }); setF('radiusKm', b.radiusKm); }}
+                  />
+                </Suspense>
+                <div style={{ fontSize: 11.5, color: MUTED, marginTop: 6, textAlign: 'center' }}>
+                  {result.markers?.length || 0} نشاطاً على الخريطة · حرّك الخريطة ثم ستُحدَّث النتائج تلقائياً
+                </div>
               </div>
             )}
             {businesses.length === 0 && products.length === 0 && (
@@ -121,9 +152,17 @@ export default function Explore() {
             )}
 
             {businesses.length > 0 && (
-              <Section title="الأنشطة" count={businesses.length}>
+              <Section title={q.trim() ? 'الأنشطة' : 'مقترح لك — الأعلى قربك وتقييماً'} count={businesses.length}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 12 }}>
                   {businesses.map(b => <BizCard key={`${b.source}-${b.id}`} b={b} />)}
+                </div>
+              </Section>
+            )}
+            {/* ❤️ قد يعجبك — توصيات مكمّلة (Business Graph) */}
+            {recs.length > 0 && (
+              <Section title="❤️ قد يعجبك أيضاً" count={recs.length}>
+                <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 6, scrollbarWidth: 'none' }}>
+                  {recs.map(b => <div key={`rec-${b.source}-${b.id}`} style={{ flexShrink: 0, width: 210 }}><BizCard b={b} /></div>)}
                 </div>
               </Section>
             )}

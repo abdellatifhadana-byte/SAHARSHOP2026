@@ -1,11 +1,10 @@
-AMANZINE (saharshop2026) — كل تغييرات الجلسة (16 commits)
+AMANZINE (saharshop2026) — كل تغييرات الجلسة (19 commits)
 ==========================================================
-أمن/جودة · alloservix (خدمات+حجوزات) · Universal Business Engine ·
-Business Platform (عقد API + صفحة ديناميكية) · محرّكات البحث (Ranking/Search/Presentation) ·
-/api/search موحّد + /explore + Universal Filters · Business Graph موزون + Recommendation + Map contract ·
-Event Backbone كامل: Event Bus · Activity Engine (+version) · Analytics (وحدات) · Rules · Notification
-المسارات: /api/search /api/recommend /api/feed /api/insights /api/business/:source/:id
-الوثيقة: AMANZINE_OVERVIEW.md (الخلاصة الشاملة)
+Backend كامل + واجهات:
+  /explore  — بحث موحّد + فلاتر + رائج + قد يعجبك + قائمة/خريطة
+  /feed     — نشاط الأعمال (trending/local/following)
+  /business/:s/:id — صفحة نشاط ديناميكية (+ ذات صلة + آخر النشاط)
+  الخريطة   — Leaflet + OSM (مضمّنة، lazy، بلا CDN، آمنة CSP)
 
-git am amanzine-all-changes.patch
-تحقق: npm i --legacy-peer-deps && npx tsc --noEmit && npm run build && (cd server && npm test)  # 13/13
+ملاحظة تثبيت: leaflet@1.9.4 أُضيف. بعد git am:
+  npm i --legacy-peer-deps && npx tsc --noEmit && npm run build && (cd server && npm test)
